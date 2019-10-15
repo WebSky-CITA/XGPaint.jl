@@ -7,7 +7,7 @@ rtol = 1e-3
 cosmo = cosmology(h=0.7, OmegaM=0.25)
 r2z = XGPaint.build_r2z_interpolator(0.0f0, 4.5f0, cosmo)
 model = CIBModel{Float32}()
-hod_shang = XGPaint.build_shang_interpolator( log(1.0f13), log(1.0f15), m)
+hod_shang = XGPaint.build_shang_interpolator(log(1.0f13), log(1.0f15), model)
 
 @testset "halo2fluxmap" begin
     # These tests come from computing specific numbers from the Python xgpaint
