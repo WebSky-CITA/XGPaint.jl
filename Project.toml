@@ -3,6 +3,18 @@ uuid = "af630e4a-6754-4ec2-ab8a-f9f8b9ebafbf"
 authors = ["Zack Li"]
 version = "0.1.0"
 
+[deps]
+Cosmology = "76746363-e552-5dba-9a5a-cef6fa9cc5ab"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
+Healpix = "9f4e344d-96bc-545a-84a3-ae6b9e1b672b"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+PoissonRandom = "e409e4f3-bfea-5376-8464-e040bb5c01ab"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+UnitfulAstro = "6112ee07-acf9-5e0f-b108-d242c714bf9f"
+
 [compat]
 julia = "1.2"
 
