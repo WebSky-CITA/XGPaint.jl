@@ -6,12 +6,12 @@ makedocs(;
     pages=[
         "Home" => "index.md",
     ],
-    repo="https://github.com/xzackli/XGPaint.jl/blob/{commit}{path}#L{line}",
-    sitename="XGPaint.jl",
+    repo="https://github.com/xzackli/XGPaint/blob/{commit}{path}#L{line}",
+    sitename="XGPaint",
     authors="Zack Li",
     assets=String[],
 )
 
 deploydocs(;
-    repo="github.com/xzackli/XGPaint.jl",
+    repo="github.com/xzackli/XGPaint",
 )
