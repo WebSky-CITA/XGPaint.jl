@@ -24,7 +24,7 @@ Random.seed!(myid() + trunc(Int64, time()))
 Define CIB model parameters. Defaults are from Viero et al. 2013.
 
 ```@example
-model = CIBModel{Float32}()
+model = CIBModel{Float32}(shang_Mpeak=10^12.4)
 ```
 """
 Base.@kwdef struct CIBModel{T}

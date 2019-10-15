@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 Cosmology = "76746363-e552-5dba-9a5a-cef6fa9cc5ab"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Healpix = "9f4e344d-96bc-545a-84a3-ae6b9e1b672b"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
