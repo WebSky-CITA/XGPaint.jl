@@ -5,7 +5,7 @@ makedocs(;
     format=Documenter.HTML(),
     pages=[
         "Home" => "index.md",
-    ],using DocumenterTools
+    ],
     repo="https://github.com/xzackli/XGPaint.jl/blob/{commit}{path}#L{line}",
     sitename="XGPaint.jl",
     authors="Zack Li",
