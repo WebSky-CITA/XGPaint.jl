@@ -28,14 +28,16 @@ model = CIBModel{Float32}(shang_Mpeak=10^12.4)
 ```
 """
 Base.@kwdef struct CIBModel{T}
+    nside::Int64    = 4096
+    hod::String     = "shang"
+    LM::String      = "Planck2013"
     Inu_norm::T     = 0.3180384
-    nside::T        = 4096
     min_redshift::T = 0.0
     max_redshift::T = 4.5
     min_mass::T     = 1e12
     box_size::T     = 40000
-    hod::String     = "shang"
-    LM::String      = "Planck2013"
+
+    # shang HOD
     shang_zplat::T  = 2.0
     shang_Td::T     = 20.7
     shang_beta::T   = 1.6
@@ -43,14 +45,36 @@ Base.@kwdef struct CIBModel{T}
     shang_alpha::T  = 0.2
     shang_Mpeak::T  = 10^12.3
     shang_sigmaM::T = 0.3
+    shang_Msmin::T  = 1e11
+    shang_Mmin::T   = 1e10
+    shang_I0::T     = 46
+
+    # jiang
+    jiang_gamma_1::T    = 0.13
+    jiang_alpha_1::T    = -0.83
+    jiang_gamma_2::T    = 1.33
+    jiang_alpha_2::T    = -0.02
+    jiang_beta_2::T     = 5.67
+    jiang_zeta::T       = 1.19
 end
 
-function test(x::CIBModel{T}) where T
-   return x.min_mass * 5
+"""
+Construct a fast r2z linear interpolator.
+"""
+function build_r2z_interpolator(min_z::T, max_z::T, cosmo; n_bins=1000) where T
+
+    zrange = LinRange(min_z, max_z, n_bins)
+    rrange = zero(zrange)
+    for i in 1:n_bins
+        rrange[i] = ustrip(T, u"Mpc",
+            comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
+    end
+    r2z = LinearInterpolation(rrange, zrange);
+    return r2z
 end
 
 
-export CIBModel, test
+export CIBModel
 
 
 
