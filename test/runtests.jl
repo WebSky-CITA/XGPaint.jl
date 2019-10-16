@@ -54,18 +54,20 @@ muofn = XGPaint.build_muofn_interpolator(model)
         3218663770378.3066, rtol=rtol)
 
     # python: h2fm.fluxmodel.nu2theta(150e9, 0.5)
-    @test isapprox(XGPaint.nu2theta(150e9, 0.5, model),
+    @test isapprox(XGPaint.nu2theta(150f9, 0.5f0, model),
         6.5705729824589e-16, rtol=rtol)
     # python: h2fm.fluxmodel.nu2theta(1.5e6, 1.0)
     @test isapprox(XGPaint.nu2theta(1.5e6, 1.0, model),
         5.945023942373837e-34, rtol=rtol)
 
     # python: h2fm.fluxmodel.integrand_L(30, 32)
-    @test isapprox(XGPaint.integrand_L(30.0f0, 32.0f0, model),
+    @test isapprox(
+        XGPaint.integrand_L(30.0f0, 32.0f0, model),
         3929486334377.691, rtol=rtol)
 
     # python: h2fm.fluxmodel.l2f(1.0, 1.0e-3, 1.0e-3, 1.0e-3)
-    @test isapprox(XGPaint.l2f( 1.0f0, sqrt(3.0f-6), r2z(sqrt(3.0f-6))) * 4π,
+    @test isapprox(
+        XGPaint.l2f( 1.0f0, sqrt(3.0f-6), r2z(sqrt(3.0f-6))) * 4π,
         333198.42738065525, rtol=rtol)
 
     # python: h2fm.fluxmodel.sigma_sat(np.array([1e13, 4e15]))
