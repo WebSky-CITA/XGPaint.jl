@@ -17,7 +17,7 @@ Define CIB model parameters. Defaults are from Viero et al. 2013.
 model = CIBModel{Float32}(shang_Mpeak=10^12.4)
 ```
 """
-Base.@kwdef struct CIBModel{T}
+Base.@kwdef struct CIBModel{T<:Real} <: AbstractForegroundModel
     nside::Int64    = 4096
     hod::String     = "shang"
     LM::String      = "Planck2013"
@@ -60,7 +60,8 @@ end
 Build a linear interpolation function which maps log(M_h) to N_sat.
 """
 function build_shang_interpolator(
-    min_log_M::T, max_log_M::T, model::CIBModel; n_bin=1000) where T
+    min_log_M::T, max_log_M::T, model::AbstractForegroundModel;
+    n_bin=1000) where T
 
     x_m = LinRange(min_log_M, max_log_M, 1000)
     N_sat_i = zero(x_m)
@@ -84,12 +85,12 @@ end
 
 
 
-function sigma_cen(m::T, model::CIBModel) where T
+function sigma_cen(m::T, model::AbstractForegroundModel) where T
     return (exp( -(log10(m) - log10(model.shang_Mpeak))^2 /
         (T(2)*model.shang_sigmaM) ) * m) / sqrt(T(2π) * model.shang_sigmaM)
 end
 
-function nu2theta(nu::T, z::T, model::CIBModel) where T
+function nu2theta(nu::T, z::T, model::AbstractForegroundModel) where T
     phys_h = T(6.62606957e-27)   # erg.s
     phys_k = T(1.3806488e-16)    # erg/K
     Td = model.shang_Td * (one(T)+z)^model.shang_alpha
@@ -100,7 +101,7 @@ end
 """
 <L_sat> interpolation values
 """
-function integrand_L(lm, lM_halo, model::CIBModel)
+function integrand_L(lm, lM_halo, model::AbstractForegroundModel)
     m = exp(lm)
     return sigma_cen(m, model) * jiang_shmf(m, exp(lM_halo), model)
 end
@@ -110,7 +111,7 @@ end
 Build a linear interpolator that takes in ln(M_halo) and returns sigma.
 """
 function build_sigma_sat_ln_interpolator(
-        max_ln_M::T, model; n_bin=1000) where T
+        max_ln_M::T, model::AbstractForegroundModel; n_bin=1000) where T
     x = LinRange(log(model.shang_Mmin), max_ln_M, n_bin)
     L_mean = zero(x)
 
@@ -135,9 +136,15 @@ end
 """
 Compute redshift evolution factor for LF.
 """
-function shang_z_evo(z::T, model) where T
+function shang_z_evo(z::T, model::AbstractForegroundModel) where T
     return (one(T) + min(z, model.shang_zplat))^model.shang_eta
 end
+
+
+"""
+Generate a CIB map given parameters.
+"""
+
 
 
 export CIBModel
