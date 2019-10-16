@@ -173,7 +173,7 @@ Generates an interpolator r(c, lnm)
 Generate a LinearInterpolation object that turns concentration
 and ln(M_halo) into satellite radius.
 """
-function build_c_lnm2r_interp(;
+function build_c_lnm2r_interpolator(;
     cmin::T=1f-3, cmax::T=25.0f0, mmin::T=-7.1f0, mmax::T=0.0f0,
     nbin=100) where T
     # these defaults imply a minimum fractional mass of exp(-7)
@@ -207,45 +207,40 @@ end
 """
 <L_sat> interpolation values
 """
-function integrand_L(lm,lM_halo, model::CIBModel)
+function integrand_L(lm, lM_halo, model::CIBModel)
     m = exp(lm)
     return sigma_cen(m, model) * jiang_shmf(m, exp(lM_halo), model)
 end
 
-
-# need to build tests for below
-
 """
-Build a linear interpolator that takes in ln(M_halo) and returns sigma.
+Inverse square law with redshift dependence.
 """
-function build_sigma_sat_ln(min_ln_M::T, max_ln_M::T, model;
-    n_bin=1000) where T
-    x = LinRange(min_ln_M, max_ln_M, n_bin)
-    L_mean = zero(x)
-
-    for i in 1:n_bin
-        L_mean[i], err = quadgk( t->integrand_L(t, x[i]),
-                log(shang_Mmin), x[i], rtol=1e-6)
-    end
-    return LinearInterpolation(T.(x), T.(L_mean), extrapolation_bc=zero(T))
-end
-
 function l2f(Lum::T, r_comoving::T, redshift::T) where T
     return Lum / (T(4π) * r_comoving^2 * (one(T) + redshift) )
 end
 
-function integrand_muofn(lmu::T, model) where T
-    mu = exp(lmu)
-    dns_dm = jiang_shmf(mu, one(T), model)
-    return dns_dm
+"""
+Build a linear interpolator that takes in ln(M_halo) and returns sigma.
+"""
+function build_sigma_sat_ln_interpolator(
+        max_ln_M::T, model; n_bin=1000) where T
+    x = LinRange(log(model.shang_Mmin), max_ln_M, n_bin)
+    L_mean = zero(x)
+
+    for i in 1:n_bin
+        L_mean[i], err = quadgk( t->integrand_L(t, x[i], model),
+                log(model.shang_Mmin), x[i], rtol=1e-6)
+    end
+    return LinearInterpolation(T.(x), T.(L_mean), extrapolation_bc=zero(T))
 end
 
-function build_muofn(; min_mu::T=-6.0f0, max_mu::T=0.0f0, nbin=1000) where T
+function build_muofn_interpolator(model;
+        min_mu::T=-6.0f0, max_mu::T=0.0f0, nbin=1000) where T
     mu = T(10) .^ LinRange(min_mu, max_mu, nbin)
     n  = zero(mu)
     for i in 1:nbin
-        n[i], err = quadgk( integrand_muofn,
-                log(mu[i]), 0.0f0, rtol=1.0e-6)
+        n[i], err = quadgk( lmu->jiang_shmf(exp(lmu), one(T), model),
+                log(mu[i]), 0.0f0, rtol=1.0f-6)
     end
     return LinearInterpolation(T.(reverse(n)), T.(reverse(mu)))
 end
