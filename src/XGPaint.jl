@@ -213,6 +213,8 @@ function integrand_L(lm,lM_halo, model::CIBModel)
 end
 
 
+# need to build tests for below
+
 """
 Build a linear interpolator that takes in ln(M_halo) and returns sigma.
 """
@@ -227,6 +229,34 @@ function build_sigma_sat_ln(min_ln_M::T, max_ln_M::T, model;
     end
     return LinearInterpolation(T.(x), T.(L_mean), extrapolation_bc=zero(T))
 end
+
+function l2f(Lum::T, r_comoving::T, redshift::T) where T
+    return Lum / (T(4π) * r_comoving^2 * (one(T) + redshift) )
+end
+
+function integrand_muofn(lmu::T, model) where T
+    mu = exp(lmu)
+    dns_dm = jiang_shmf(mu, one(T), model)
+    return dns_dm
+end
+
+function build_muofn(; min_mu::T=-6.0f0, max_mu::T=0.0f0, nbin=1000) where T
+    mu = T(10) .^ LinRange(min_mu, max_mu, nbin)
+    n  = zero(mu)
+    for i in 1:nbin
+        n[i], err = quadgk( integrand_muofn,
+                log(mu[i]), 0.0f0, rtol=1.0e-6)
+    end
+    return LinearInterpolation(T.(reverse(n)), T.(reverse(mu)))
+end
+
+"""
+Compute redshift evolution factor for LF.
+"""
+function shang_z_evo(z::T, model) where T
+    return (one(T) + min(z, model.shang_zplat))^model.shang_eta
+end
+
 
 export CIBModel
 
