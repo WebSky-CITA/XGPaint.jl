@@ -1,40 +1,53 @@
+
 module XGPaint
 
+using Distributed
 
-include("model.jl")
-include("cib.jl")
+include("./model.jl")
+include("./cib.jl")
+include("./util.jl")
 
 
-# function fill_halovars!(
-#         x, y, z, # inputs
-#         redshift_result, dist_result) # outputs
-#     """
-#     This function computes distance and redshift in parallel.
-#     """
-#
-#     N_halos = size(x,1)
-#     @sync @distributed for i = 1:N_halos
-#         dist_result[i] = sqrt(x[i]^2 + y[i]^2 + z[i]^2)
-#         redshift_result[i] = r2z(dist_result[i])
-#     end
-# end
-#
-# function hod_shang(cen_result, sat_result, sat_bar_result,
-#         halo_mass::SharedArray, par)
-#     # computes shang HOD and generates a Poisson draw
-#     min_lm = log(minimum(halo_mass))
-#     max_lm = log(maximum(halo_mass))
-#     logM_to_N = build_shang_interp(min_lm, max_lm, par)
-#     N_halos = size(halo_mass,1)
-#
-#     @sync @distributed for i = 1:N_halos
-#         cen_result[i] = 1
-#
-#         sat_bar_result[i] = logM_to_N(log(halo_mass[i]))
-#         sat_result[i] = pois_rand(convert(Float64, sat_bar_result[i]))
-#     end
-#
-# end
+"""
+Compute sources for CIB.
+"""
+function generate_sources(
+        # model parameters
+        model::CIBModel, cosmo::Cosmology.FlatLCDM{T}, interp::NamedTuple,
+        Healpix_res::Resolution,
+        # halo arrays
+        halo_pos::SharedArray{T,2}, halo_mass::SharedArray{T,1}) where T
+
+    N_halos = size(halo_mass, 1)
+
+    # result arrays
+    hp_ind_cen = SharedArray{Int64}(N_halos)  # healpix index of halo
+    lum_cen = SharedArray{T}(N_halos)  # Lum of central w/o ν-dependence
+    redshift_cen = SharedArray{T}(N_halos)
+    dist_cen = SharedArray{T}(N_halos)
+    sat_bar = SharedArray{T}(N_halos)
+    sat_bar_result = SharedArray{Int32}(N_halos)
+
+    # STEP 1: compute central properties -----------------------------------
+    @sync @distributed for i = 1:N_halos
+        # location information for centrals
+        hp_ind_cen[i] = Healpix.vec2pixRing(Healpix_res,
+            halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+        dist_cen[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
+        redshift_cen[i] = interp.r2z(dist_cen[i])
+
+        # compute HOD
+        sat_bar[i] = interp.hod_shang(log(halo_mass[i]))
+        sat_bar_result[i] = pois_rand(convert(Float64, sat_bar[i]))
+
+        # get central luminosity
+        lum_cen[i] = sigma_cen(halo_mass[i], model) * (
+            one(T) + redshift_cen[i])^model.shang_eta
+    end
+
+    return sat_bar_result
+end
+
 
 
 end # module

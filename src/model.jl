@@ -13,8 +13,6 @@ using Unitful
 using UnitfulAstro
 using Random
 
-
-
 """
 All foreground models inherit from this type.
 """
@@ -24,9 +22,8 @@ abstract type AbstractForegroundModel end
 Construct a background cosmology.
 
 This function duplicates the cosmology() function in Cosmology.jl, but with
-typing. The type of the output will the type of `h` and `OmegaM`. The types of
-`h` and `OmegaM` must match. This is primarily for keeping the code entirely in
-Float32 or Float64.
+typing. The type of the cosmology will the type of `h` and `OmegaM`. This is
+primarily for keeping the code entirely in Float32 or Float64.
 """
 function get_cosmology(;h::T=0.69,
                    Neff=3.04,
@@ -58,12 +55,6 @@ function get_cosmology(;h::T=0.69,
     end
 end
 
-"""
-Run this on each worker to set up different seeds for different worker IDs.
-"""
-function init_seed()
-    Random.seed!(myid() + trunc(Int64, time()))
-end
 
 """
 Construct a fast r2z linear interpolator.

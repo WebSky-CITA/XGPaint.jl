@@ -79,7 +79,7 @@ muofn = XGPaint.build_muofn_interpolator(model)
 end
 
 @testset "sanity" begin
-    @test XGPaint.l2f( 1.0, 1.0, 0.0) ≈ 1/4π
+    @test XGPaint.l2f(1.0, 1.0, 0.0) ≈ 1/4π
     @test XGPaint.random_phi(Float32) <= 2π
     @test XGPaint.random_theta(Float32) <= π
     @test XGPaint.random_phi(Float64) <= 2π

@@ -140,11 +140,28 @@ function shang_z_evo(z::T, model::AbstractForegroundModel) where T
     return (one(T) + min(z, model.shang_zplat))^model.shang_eta
 end
 
-
 """
-Generate a CIB map given parameters.
+Construct the necessary interpolator set.
 """
+function get_interpolators(model::CIBModel, cosmo::Cosmology.FlatLCDM{T},
+    min_halo_mass::T, max_halo_mass::T) where T
+    return (
+        r2z = XGPaint.build_r2z_interpolator(
+            model.min_redshift, model.max_redshift, cosmo),
+        hod_shang = XGPaint.build_shang_interpolator(
+            log(min_halo_mass), log(max_halo_mass), model),
+        clnm2r = XGPaint.build_c_lnm2r_interpolator(),
+        sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(
+            log(max_halo_mass), model),
+        muofn = XGPaint.build_muofn_interpolator(model)
+    )
+end
 
 
-
-export CIBModel
+export CIBModel,
+    build_c_lnm2r_interpolator,
+    build_muofn_interpolator,
+    build_r2z_interpolator,
+    build_shang_interpolator,
+    build_sigma_sat_ln_interpolator,
+    sigma_cen
