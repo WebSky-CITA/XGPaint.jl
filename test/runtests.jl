@@ -1,6 +1,7 @@
 using XGPaint
 using Cosmology
 using Test
+using HDF5
 
 println("")  # useful in Atom console
 
@@ -85,4 +86,14 @@ end
     @test XGPaint.random_phi(Float64) <= 2π
     @test XGPaint.random_theta(Float64) <= π
     @test XGPaint.shang_z_evo(0.0f0, model) ≈ 1.0f0
+
+    # file reading test
+    testData = rand( Float32, 4, 100 )
+    h5open("test_file_writing.h5", "w") do file
+        write(file, "halos", testData)  # alternatively, say "@write file A"
+    end
+    read_pos, read_mass = XGPaint.read_halo_catalog_hdf5("test_file_writing.h5")
+    @test all( read_pos .≈ testData[1:3,:] )
+    @test all( read_mass .≈ testData[4,:] )
+    rm("test_file_writing.h5")
 end

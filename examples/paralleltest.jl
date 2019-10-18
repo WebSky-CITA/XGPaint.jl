@@ -14,28 +14,18 @@ res = Resolution(model.nside)
 halo_pos_serial, halo_mass_serial = read_halo_catalog_hdf5(
     "/home/zequnl/websky_halos-light.hdf5")
 ##
-function generate_sources_threaded(
-        # model parameters
-        model::CIBModel, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution,
-        # halo arrays
-        halo_pos::Array{T,2}, halo_mass::Array{T,1};
-        verbose=true) where T
+
+"""
+Fill up arrays with information related to CIB central sources.
+"""
+function process_centrals!(
+    model::CIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution,
+    hp_ind_cen, dist_cen, redshift_cen, n_sat_bar, n_sat_bar_result, lum_cen,
+    halo_pos, halo_mass; verbose=true) where T
 
     N_halos = size(halo_mass, 1)
     interp = get_interpolators( model, cosmo,
         minimum(halo_mass), maximum(halo_mass))
-
-    verbose && println("Allocating arrays.")
-
-    hp_ind_cen = Array{Int64}(undef, N_halos)  # healpix index of halo
-    lum_cen = Array{T}(undef, N_halos)  # Lum of central w/o ν-dependence
-    redshift_cen = Array{T}(undef, N_halos)
-    dist_cen = Array{T}(undef, N_halos)
-    n_sat_bar = Array{T}(undef, N_halos)
-    n_sat_bar_result = Array{Int32}(undef, N_halos)
-
-    # STEP 1: compute central properties -----------------------------------
-    verbose && println("Processing centrals on $(Threads.nthreads()) threads.")
     Threads.@threads for i = 1:N_halos
         # location information for centrals
         hp_ind_cen[i] = Healpix.vec2pixRing(Healpix_res,
@@ -52,18 +42,20 @@ function generate_sources_threaded(
         lum_cen[i] = sigma_cen(halo_mass[i], model) * (
             one(T) + redshift_cen[i])^model.shang_eta
     end
+end
 
-    # STEP 2: Generate satellite arrays -----------------------------
-    # set up indices for satellites
-    cumsat = cumsum(n_sat_bar_result)
-    prepend!(cumsat, 0)
-    total_n_sat = cumsat[end]
-    # result arrays
-    hp_ind_sat = Array{Int64}(undef, total_n_sat)  # healpix index of halo
-    lum_sat = Array{T}(undef, total_n_sat)  # Lum of central w/o ν-dependence
-    redshift_sat = Array{T}(undef, total_n_sat)
 
-    verbose && println("Processing $(total_n_sat) satellites.")
+"""
+Fill up arrays with information related to CIB satellites.
+"""
+function process_sats!(
+        model::CIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution,
+        hp_ind_sat, lum_sat, redshift_sat, cumsat,
+        halo_mass, halo_pos, redshift_cen, n_sat_bar, n_sat_bar_result) where T
+
+    N_halos = size(halo_mass, 1)
+    interp = get_interpolators( model, cosmo,
+        minimum(halo_mass), maximum(halo_mass))
     Threads.@threads for i = 1:N_halos
         r_cen = m2r(halo_mass[i], cosmo)
         c_cen = mz2c(halo_mass[i], redshift_cen[i], cosmo)
@@ -85,12 +77,51 @@ function generate_sources_threaded(
             redshift_sat[i_sat] = interp.r2z(d_sat)
 
             lum_sat[i_sat] = sigma_cen(m_sat, model) * (
-                1+redshift_sat[i_sat])^model.shang_eta
+                one(T)+redshift_sat[i_sat])^model.shang_eta
             hp_ind_sat[i_sat] = Healpix.vec2pixRing(
                 Healpix_res, x_sat, y_sat, z_sat)
         end
     end
-    
+end
+
+function generate_sources_threaded(
+        # model parameters
+        model::CIBModel, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution,
+        # halo arrays
+        halo_pos::Array{T,2}, halo_mass::Array{T,1};
+        verbose=true) where T
+
+    N_halos = size(halo_mass, 1)
+
+    verbose && println("Allocating arrays.")
+
+    hp_ind_cen = Array{Int64}(undef, N_halos)  # healpix index of halo
+    lum_cen = Array{T}(undef, N_halos)  # Lum of central w/o ν-dependence
+    redshift_cen = Array{T}(undef, N_halos)
+    dist_cen = Array{T}(undef, N_halos)
+    n_sat_bar = Array{T}(undef, N_halos)
+    n_sat_bar_result = Array{Int32}(undef, N_halos)
+
+    # STEP 1: compute central properties -----------------------------------
+    verbose && println("Processing centrals on $(Threads.nthreads()) threads.")
+    process_centrals!(model, cosmo, res,
+        hp_ind_cen, dist_cen, redshift_cen, n_sat_bar, n_sat_bar_result, lum_cen,
+        halo_pos, halo_mass)
+
+    # STEP 2: Generate satellite arrays -----------------------------
+    cumsat = cumsum(n_sat_bar_result)  # set up indices for satellites
+    prepend!(cumsat, 0)
+    total_n_sat = cumsat[end]
+    hp_ind_sat = Array{Int64}(undef, total_n_sat)  # healpix index of halo
+    lum_sat = Array{T}(undef, total_n_sat)  # Lum of central w/o ν-dependence
+    redshift_sat = Array{T}(undef, total_n_sat)
+
+    # STEP 3: compute satellite properties -----------------------------------
+    verbose && println("Processing $(length(lum_sat)) satellites.")
+    process_sats!(model, cosmo, res,
+        hp_ind_sat, lum_sat, redshift_sat, cumsat,
+        halo_mass, halo_pos, redshift_cen, n_sat_bar, n_sat_bar_result)
+
     return hp_ind_cen, lum_cen, redshift_cen, hp_ind_sat, lum_sat, redshift_sat
 end
 
