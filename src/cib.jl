@@ -150,7 +150,7 @@ function get_interpolators(model::CIBModel, cosmo::Cosmology.FlatLCDM{T},
             model.min_redshift, model.max_redshift, cosmo),
         hod_shang = XGPaint.build_shang_interpolator(
             log(min_halo_mass), log(max_halo_mass), model),
-        clnm2r = XGPaint.build_c_lnm2r_interpolator(),
+        c_lnm2r = XGPaint.build_c_lnm2r_interpolator(),
         sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(
             log(max_halo_mass), model),
         muofn = XGPaint.build_muofn_interpolator(model)
@@ -159,6 +159,7 @@ end
 
 
 export CIBModel,
+    get_interpolators,
     build_c_lnm2r_interpolator,
     build_muofn_interpolator,
     build_r2z_interpolator,

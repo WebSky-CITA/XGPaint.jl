@@ -4,6 +4,7 @@ authors = ["Zack Li"]
 version = "0.1.0"
 
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Cosmology = "76746363-e552-5dba-9a5a-cef6fa9cc5ab"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"

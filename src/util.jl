@@ -14,11 +14,4 @@ function read_halo_catalog_hdf5(filename)
     return pos, halo_mass
 end
 
-"""
-Run this on each worker to set up different seeds for different worker IDs.
-"""
-function init_seed()
-    Random.seed!(myid() + trunc(Int64, time()))
-end
-
-export read_halo_catalog_hdf5, init_seed
+export read_halo_catalog_hdf5

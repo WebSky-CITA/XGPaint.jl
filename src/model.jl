@@ -1,7 +1,5 @@
 
-using Distributed
 using HDF5
-using SharedArrays
 using Healpix
 using PoissonRandom
 using Interpolations
@@ -127,3 +125,6 @@ Inverse square law with redshift dependence.
 function l2f(luminosity::T, r_comoving::T, redshift::T) where T
     return luminosity / (T(4π) * r_comoving^2 * (one(T) + redshift) )
 end
+
+
+export get_cosmology, m2r, mz2c, random_phi, random_theta, l2f
