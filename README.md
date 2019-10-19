@@ -7,8 +7,7 @@
 <!-- [![Coveralls](https://coveralls.io/repos/github/xzackli/XGPaint.jl/badge.svg?branch=master)](https://coveralls.io/github/xzackli/XGPaint.jl?branch=master) -->
 
 
-`XGPaint.jl` paints sources onto halo catalogs, in order to make maps of
-extragalactic foregrounds.
+`XGPaint.jl` paints maps of extragalactic foregrounds using halo catalogs.
 
 ## Example (Planck 2013 CIB)
 
@@ -21,6 +20,7 @@ halo_pos, halo_mass = read_halo_catalog_hdf5(
     "/home/zequnl/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
 model = CIBModel_Planck2013{Float32}()
+
 ## Allocate some arrays and file them up for centrals and satellites
 sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 

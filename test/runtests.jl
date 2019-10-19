@@ -8,7 +8,7 @@ println("")  # useful in Atom console
 # relative background evolutions differ by 1e-3 between Julia and Python 2
 rtol = 1e-3
 cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
-model = XGPaint.CIBModel{Float32}()
+model = XGPaint.CIBModel_Planck2013{Float32}()
 r2z = XGPaint.build_r2z_interpolator(0.0f0, 4.5f0, cosmo)
 hod_shang = XGPaint.build_shang_interpolator(log(1.0f13), log(1.0f15), model)
 clnm2r = XGPaint.build_c_lnm2r_interpolator(nbin=30)
