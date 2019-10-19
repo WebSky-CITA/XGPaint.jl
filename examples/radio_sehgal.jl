@@ -4,7 +4,7 @@ using Healpix
 model = Radio_Sehgal2009{Float32}()
 
 ##
-
+sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
 #
 # ## Load halos from HDF5 files, establish a CIB model and cosmology
