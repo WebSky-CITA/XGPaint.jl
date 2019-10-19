@@ -1,5 +1,4 @@
 
-using PoissonRandom
 using Interpolations
 using QuadGK
 using Roots
@@ -11,8 +10,10 @@ using Healpix
 import Distributions
 using Random
 
+abstract type AbstractCIBModel{T<:Real} <: AbstractForegroundModel end
+
 """
-    CIBModel{T}(model parameters...)
+    CIBModel_Planck2013{T}(model parameters...)
 
 Define CIB model parameters. Defaults are from Viero et al. 2013.
 
@@ -20,10 +21,9 @@ Define CIB model parameters. Defaults are from Viero et al. 2013.
 model = CIBModel{Float32}(shang_Mpeak=10^12.4)
 ```
 """
-Base.@kwdef struct CIBModel{T<:Real} <: AbstractForegroundModel
+Base.@kwdef struct CIBModel_Planck2013{T<:Real} <: AbstractCIBModel{T}
     nside::Int64    = 4096
     hod::String     = "shang"
-    LM::String      = "Planck2013"
     Inu_norm::T     = 0.3180384
     min_redshift::T = 0.0
     max_redshift::T = 4.5
@@ -63,7 +63,7 @@ end
 Build a linear interpolation function which maps log(M_h) to N_sat.
 """
 function build_shang_interpolator(
-    min_log_M::T, max_log_M::T, model::AbstractForegroundModel;
+    min_log_M::T, max_log_M::T, model::AbstractCIBModel;
     n_bin=1000) where T
 
     x_m = LinRange(min_log_M, max_log_M, 1000)
@@ -88,12 +88,12 @@ end
 
 
 
-function sigma_cen(m::T, model::AbstractForegroundModel) where T
+function sigma_cen(m::T, model::AbstractCIBModel) where T
     return (exp( -(log10(m) - log10(model.shang_Mpeak))^2 /
         (T(2)*model.shang_sigmaM) ) * m) / sqrt(T(2π) * model.shang_sigmaM)
 end
 
-function nu2theta(nu::T, z::T, model::AbstractForegroundModel) where T
+function nu2theta(nu::T, z::T, model::AbstractCIBModel) where T
     phys_h = T(6.62606957e-27)   # erg.s
     phys_k = T(1.3806488e-16)    # erg/K
     Td = model.shang_Td * (one(T)+z)^model.shang_alpha
@@ -104,7 +104,7 @@ end
 """
 <L_sat> interpolation values
 """
-function integrand_L(lm, lM_halo, model::AbstractForegroundModel)
+function integrand_L(lm, lM_halo, model::AbstractCIBModel)
     m = exp(lm)
     return sigma_cen(m, model) * jiang_shmf(m, exp(lM_halo), model)
 end
@@ -114,7 +114,7 @@ end
 Build a linear interpolator that takes in ln(M_halo) and returns sigma.
 """
 function build_sigma_sat_ln_interpolator(
-        max_ln_M::T, model::AbstractForegroundModel; n_bin=1000) where T
+        max_ln_M::T, model::AbstractCIBModel; n_bin=1000) where T
     x = LinRange(log(model.shang_Mmin), max_ln_M, n_bin)
     L_mean = zero(x)
 
@@ -139,14 +139,14 @@ end
 """
 Compute redshift evolution factor for LF.
 """
-function shang_z_evo(z::T, model::AbstractForegroundModel) where T
+function shang_z_evo(z::T, model::AbstractCIBModel) where T
     return (one(T) + min(z, model.shang_zplat))^model.shang_eta
 end
 
 """
 Construct the necessary interpolator set.
 """
-function get_interpolators(model::CIBModel, cosmo::Cosmology.FlatLCDM{T},
+function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
     min_halo_mass::T, max_halo_mass::T) where T
     return (
         r2z = XGPaint.build_r2z_interpolator(
@@ -166,7 +166,7 @@ end
 Fill up arrays with information related to CIB central sources.
 """
 function process_centrals!(
-    model::CIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution;
+    model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution;
     interp, hp_ind_cen, dist_cen, redshift_cen,
     lum_cen, n_sat_bar, n_sat_bar_result,
     halo_pos, halo_mass) where T
@@ -185,8 +185,8 @@ function process_centrals!(
             Float64(n_sat_bar[i])))
 
         # get central luminosity
-        lum_cen[i] = sigma_cen(halo_mass[i], model) * (
-            one(T) + redshift_cen[i])^model.shang_eta
+        lum_cen[i] = sigma_cen(halo_mass[i], model) * shang_z_evo(
+            redshift_cen[i], model)
     end
 end
 
@@ -195,44 +195,50 @@ end
 Fill up arrays with information related to CIB satellites.
 """
 function process_sats!(
-        model::CIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
+        model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         Healpix_res::Resolution;
         interp, hp_ind_sat, dist_sat, redshift_sat,
         lum_sat, cumsat,
         halo_mass, halo_pos, redshift_cen, n_sat_bar, n_sat_bar_result) where T
 
     N_halos = size(halo_mass, 1)
-    Threads.@threads for i = 1:N_halos
-        r_cen = m2r(halo_mass[i], cosmo)
-        c_cen = mz2c(halo_mass[i], redshift_cen[i], cosmo)
-        for j in 1:n_sat_bar_result[i]
+    Threads.@threads for i_halo = 1:N_halos
+        r_cen = m2r(halo_mass[i_halo], cosmo)
+        c_cen = mz2c(halo_mass[i_halo], redshift_cen[i_halo], cosmo)
+        for j in 1:n_sat_bar_result[i_halo]
             # i is central halo index, j is index of satellite within each halo
-            i_sat = cumsat[i]+j # index of satellite in satellite arrays
+            i_sat = cumsat[i_halo]+j # index of satellite in satellite arrays
 
             log_msat_inner = max(log(rand(T)), T(-7.0))
             r_sat = r_cen * interp.c_lnm2r(
-                c_cen, log_msat_inner) * T(200.0^(-1/3))
-            m_sat =  interp.muofn(rand(T) * n_sat_bar[i]) * halo_mass[i]
+                c_cen, log_msat_inner) * T(200.0^(-1.0/3.0))
+            m_sat = (interp.muofn(rand(T) * n_sat_bar[i_halo])
+                * halo_mass[i_halo])
 
-            phi = random_phi(Float32)
-            theta = random_theta(Float32)
-            x_sat = halo_pos[1,i] + r_sat * sin(theta) * cos(phi)
-            y_sat = halo_pos[2,i] + r_sat * sin(theta) * sin(phi)
-            z_sat = halo_pos[3,i] + r_sat * cos(theta)
+            phi = random_phi(T)
+            theta = random_theta(T)
+            x_sat = halo_pos[1,i_halo] + r_sat * sin(theta) * cos(phi)
+            y_sat = halo_pos[2,i_halo] + r_sat * sin(theta) * sin(phi)
+            z_sat = halo_pos[3,i_halo] + r_sat * cos(theta)
             dist_sat[i_sat] = sqrt(x_sat^2 + y_sat^2 + z_sat^2)
             redshift_sat[i_sat] = interp.r2z(dist_sat[i_sat])
 
-            lum_sat[i_sat] = sigma_cen(m_sat, model) * (
-                one(T)+redshift_sat[i_sat])^model.shang_eta
+            # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
+            #     redshift_sat[i], model)
+            lum_sat[i_sat] = sigma_cen(m_sat, model) * shang_z_evo(
+                redshift_sat[i_sat], model)
             hp_ind_sat[i_sat] = Healpix.vec2pixRing(
                 Healpix_res, x_sat, y_sat, z_sat)
         end
     end
 end
 
+"""
+Produce a source catalog from a model and halo catalog.
+"""
 function generate_sources(
         # model parameters
-        model::CIBModel, cosmo::Cosmology.FlatLCDM{T},
+        model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
         # halo arrays
         halo_pos::Array{T,2}, halo_mass::Array{T,1};
         verbose=true) where T
@@ -286,42 +292,35 @@ function generate_sources(
     )
 end
 
+"""
+Paint a source catalog onto a map.
+"""
+function paint!(; nu_obs::T, result_map, sources, model::AbstractCIBModel) where T
 
-function paint(
-        freqs::Array{T,1}, model::CIBModel, cosmo::Cosmology.FlatLCDM{T},
-        halo_pos::Array{T,2}, halo_mass::Array{T,1}) where T
+    result_map .= zero(T)  # prepare the frequency map
 
-    sources = XGPaint.generate_sources(model, cosmo, halo_pos, halo_mass)
-    N_pix = Healpix.nside2npix(model.nside)
-    result_map = Array{T}(undef, N_pix)
-
-    for nu_obs in freqs
-        result_map .= zero(T)  # prepare the frequency map
-
-        # process centrals for this frequency
-        Threads.@threads for i in 1:sources.N_cen
-            nu = (one(T) + sources.redshift_cen[i]) * nu_obs
-            result_map[sources.hp_ind_cen[i]] += l2f(
-                sources.lum_cen[i] * nu2theta(
-                    nu, sources.redshift_cen[i], model),
-                sources.dist_cen[i], sources.redshift_cen[i])
-        end
-
-        # process satellites for this frequency
-        Threads.@threads for i in 1:sources.N_sat
-            nu = (one(T) + sources.redshift_sat[i]) * nu_obs
-            result_map[sources.hp_ind_sat[i]] += l2f(
-                sources.lum_sat[i] * nu2theta(
-                    nu, sources.redshift_sat[i], model),
-                sources.dist_sat[i], sources.redshift_sat[i])
-        end
+    # process centrals for this frequency
+    Threads.@threads for i in 1:sources.N_cen
+        nu = (one(T) + sources.redshift_cen[i]) * nu_obs
+        result_map[sources.hp_ind_cen[i]] += l2f(
+            sources.lum_cen[i] * nu2theta(
+                nu, sources.redshift_cen[i], model),
+            sources.dist_cen[i], sources.redshift_cen[i])
     end
 
-    return result_map
+    # process satellites for this frequency
+    Threads.@threads for i in 1:sources.N_sat
+        nu = (one(T) + sources.redshift_sat[i]) * nu_obs
+        result_map[sources.hp_ind_sat[i]] += l2f(
+            sources.lum_sat[i] * nu2theta(
+                nu, sources.redshift_sat[i], model),
+            sources.dist_sat[i], sources.redshift_sat[i])
+    end
 end
 
-export CIBModel,
-    paint,
+export CIBModel_Planck2013,
+    paint!,
+    generate_sources,
     get_interpolators,
     build_c_lnm2r_interpolator,
     build_muofn_interpolator,

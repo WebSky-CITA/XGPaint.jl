@@ -3,8 +3,8 @@ module XGPaint
 
 
 include("./model.jl")
-include("./cib.jl")
 include("./util.jl")
+include("./cib.jl")
 
 
 end # module
