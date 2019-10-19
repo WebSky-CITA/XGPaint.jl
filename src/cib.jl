@@ -1,27 +1,17 @@
-
-using Interpolations
-using QuadGK
-using Roots
-using Cosmology
-using Unitful
-using UnitfulAstro
-using Random
-using Healpix
-import Distributions
-using Random
+"""Functions for computing CIB models."""
 
 abstract type AbstractCIBModel{T<:Real} <: AbstractForegroundModel end
 
 """
-    CIBModel_Planck2013{T}(model parameters...)
+    CIB_Planck2013{T}(model parameters...)
 
 Define CIB model parameters. Defaults are from Viero et al. 2013.
 
 ```@example
-model = CIBModel{Float32}(shang_Mpeak=10^12.4)
+model = CIB_Planck2013{Float32}(shang_Mpeak=10^12.4)
 ```
 """
-Base.@kwdef struct CIBModel_Planck2013{T<:Real} <: AbstractCIBModel{T}
+Base.@kwdef struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T}
     nside::Int64    = 4096
     hod::String     = "shang"
     Inu_norm::T     = 0.3180384
@@ -318,7 +308,7 @@ function paint!(; nu_obs::T, result_map, sources, model::AbstractCIBModel) where
     end
 end
 
-export CIBModel_Planck2013,
+export CIB_Planck2013,
     paint!,
     generate_sources,
     get_interpolators,

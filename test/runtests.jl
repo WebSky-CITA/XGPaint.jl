@@ -8,15 +8,15 @@ println("")  # useful in Atom console
 # relative background evolutions differ by 1e-3 between Julia and Python 2
 rtol = 1e-3
 cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
-model = XGPaint.CIBModel_Planck2013{Float32}()
-r2z = XGPaint.build_r2z_interpolator(0.0f0, 4.5f0, cosmo)
-hod_shang = XGPaint.build_shang_interpolator(log(1.0f13), log(1.0f15), model)
-clnm2r = XGPaint.build_c_lnm2r_interpolator(nbin=30)
-sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(log(4f15), model)
-muofn = XGPaint.build_muofn_interpolator(model)
 
-@testset "halo2fluxmap" begin
+@testset "cib" begin
     # These tests come from computing examples in the Python xgpaint
+    model = XGPaint.CIB_Planck2013{Float32}()
+    r2z = XGPaint.build_r2z_interpolator(0.0f0, 4.5f0, cosmo)
+    hod_shang = XGPaint.build_shang_interpolator(log(1.0f13), log(1.0f15), model)
+    clnm2r = XGPaint.build_c_lnm2r_interpolator(nbin=30)
+    sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(log(4f15), model)
+    muofn = XGPaint.build_muofn_interpolator(model)
 
     @test model.shang_Mpeak ≈ 10^12.3  # check default is viero as docs say
 
@@ -77,6 +77,19 @@ muofn = XGPaint.build_muofn_interpolator(model)
 
     @test muofn(500.0f0) ≈ 6.14975653e-05
     @test muofn(1.0f0) ≈ 0.11765558
+
+    @test XGPaint.shang_z_evo(0.0f0, model) ≈ 1.0f0
+end
+
+
+radio_model = Radio_Sehgal2009{Float32}()
+@testset "radio" begin
+    @test XGPaint.FR_I_redshift_evolution(0.0f0, radio_model) ≈ 1.0f0
+    @test XGPaint.FR_II_redshift_evolution(0.0f0, radio_model) ≈ 1.0f0
+    @test (XGPaint.FR_I_redshift_evolution(radio_model.I_z_p, radio_model) ≈
+        XGPaint.FR_I_redshift_evolution(radio_model.I_z_p+1.0f0, radio_model))
+    @test XGPaint.FR_II_redshift_evolution(1.3f0, radio_model) > 190
+
 end
 
 @testset "sanity" begin
@@ -85,7 +98,6 @@ end
     @test XGPaint.random_theta(Float32) <= π
     @test XGPaint.random_phi(Float64) <= 2π
     @test XGPaint.random_theta(Float64) <= π
-    @test XGPaint.shang_z_evo(0.0f0, model) ≈ 1.0f0
 
     # file reading test
     testData = rand( Float32, 4, 100 )

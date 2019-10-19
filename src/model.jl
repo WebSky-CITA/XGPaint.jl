@@ -1,15 +1,4 @@
-
-using HDF5
-using Healpix
-using PoissonRandom
-using Interpolations
-using QuadGK
-using Base.GC
-using Roots
-using Cosmology
-using Unitful
-using UnitfulAstro
-using Random
+"""Basic functions for computing models."""
 
 """
 All foreground models inherit from this type.

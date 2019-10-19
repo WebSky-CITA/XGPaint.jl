@@ -5,7 +5,7 @@ using Healpix
 halo_pos, halo_mass = read_halo_catalog_hdf5(
     "/home/zequnl/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
-model = CIBModel_Planck2013{Float32}()
+model = CIB_Planck2013{Float32}()
 
 ## Allocate some arrays and file them up for centrals and satellites
 sources = generate_sources(model, cosmo, halo_pos, halo_mass);
