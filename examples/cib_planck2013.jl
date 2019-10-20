@@ -8,7 +8,7 @@ cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
 model = CIB_Planck2013{Float32}()
 
 ## Allocate some arrays and file them up for centrals and satellites
-sources = generate_sources(model, cosmo, halo_pos, halo_mass);
+@time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
 ## Deposit the sources into maps
 m = Map{Float64, RingOrder}(model.nside)

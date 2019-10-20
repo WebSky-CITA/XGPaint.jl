@@ -108,4 +108,9 @@ end
     @test all( read_pos .≈ testData[1:3,:] )
     @test all( read_mass .≈ testData[4,:] )
     rm("test_file_writing.h5")
+
+    @test all(chunk_list( collect(1:10), 3) == [(1,3), (4,6), (7,9), (10,10)])
+    @test all(chunk_list( collect(1:10), 4) == [(1,4), (5,8), (9,10)])
+    @test all(chunk_list( collect(1:10), 10) == [(1,10)])
+
 end

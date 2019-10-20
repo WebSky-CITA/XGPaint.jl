@@ -1,16 +1,20 @@
 using XGPaint
 using Healpix
 
-model = Radio_Sehgal2009{Float32}()
+## Load halos from HDF5 files, establish a CIB model and cosmology
+cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
+radio_model = Radio_Sehgal2009{Float32}()
+
+halo_pos, halo_mass = read_halo_catalog_hdf5(
+    "/home/zequnl/websky_halos-light.hdf5")
 
 ##
-sources = generate_sources(model, cosmo, halo_pos, halo_mass);
+sources = generate_sources(radio_model, cosmo, halo_pos, halo_mass);
 
-#
-# ## Load halos from HDF5 files, establish a CIB model and cosmology
-# halo_pos, halo_mass = read_halo_catalog_hdf5(
-#     "/home/zequnl/websky_halos-light.hdf5")
-# cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
+##
+sources.a_coeff_I
+##
+
 # model = CIBModel_Planck2013{Float32}()
 #
 # ## Allocate some arrays and file them up for centrals and satellites

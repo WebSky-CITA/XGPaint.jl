@@ -10,7 +10,7 @@ using UnitfulAstro
 using Random
 using Healpix
 import Distributions
-using Random
+import Future
 
 
 include("./model.jl")

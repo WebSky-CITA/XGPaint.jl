@@ -162,6 +162,8 @@ function process_centrals!(
     halo_pos, halo_mass) where T
 
     N_halos = size(halo_mass, 1)
+    r = get_thread_RNG()
+
     Threads.@threads for i = 1:N_halos
         # location information for centrals
         hp_ind_cen[i] = Healpix.vec2pixRing(Healpix_res,
@@ -171,8 +173,8 @@ function process_centrals!(
 
         # compute HOD
         n_sat_bar[i] = interp.hod_shang(log(halo_mass[i]))
-        n_sat_bar_result[i] = rand(Distributions.PoissonADSampler(
-            Float64(n_sat_bar[i])))
+        n_sat_bar_result[i] = rand(r[Threads.threadid()],
+            Distributions.Poisson(Float64.(n_sat_bar[i])))
 
         # get central luminosity
         lum_cen[i] = sigma_cen(halo_mass[i], model) * shang_z_evo(

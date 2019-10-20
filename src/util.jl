@@ -14,4 +14,24 @@ function read_halo_catalog_hdf5(filename)
     return pos, halo_mass
 end
 
-export read_halo_catalog_hdf5
+"""
+Generate an array of random number generators, for each thread.
+"""
+function get_thread_RNG()
+    r = let m = MersenneTwister(1)
+            [m; accumulate(Future.randjump, fill(big(10)^20,
+            Threads.nthreads()-1), init=m)]
+        end;
+    return r
+end
+
+"""
+Generates a list of tuples which describe starting and ending chunk indices.
+Useful for parallelizing an array operation.
+"""
+function chunk_list(arr_len, chunksize)
+    return [(i,min(i + chunksize-1, arr_len))
+        for i in range(1, arr_len, step=chunksize)]
+end
+
+export read_halo_catalog_hdf5, chunk_list
