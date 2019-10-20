@@ -163,6 +163,7 @@ function generate_sources(
     r2z = XGPaint.build_r2z_interpolator(
         model.min_redshift, model.max_redshift, cosmo)
 
+    # TODO: make this a utility function
     Threads.@threads for i in 1:N_halos
         dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
         redshift[i] = r2z(dist[i])
@@ -174,6 +175,7 @@ function generate_sources(
     n_II = Array{Int32}(undef, N_halos)
     hod_sehgal!(n_I, n_II, halo_mass, redshift, model)
 
+    # TODO: make this a utility function
     cumsat_I = cumsum(n_I)  # set up indices for satellites
     prepend!(cumsat_I, 0)
     total_n_I = cumsat_I[end]
