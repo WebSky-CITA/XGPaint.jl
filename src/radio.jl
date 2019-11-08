@@ -48,7 +48,7 @@ Base.@kwdef struct Radio_Sehgal2009{T<:Real} <: AbstractRadioModel{T}
     II_σ_h::T = 0.73
 
     I_L_min::T = 2.5e23
-    II_L_min::T = 4e23
+    II_L_min::T = 2.5e23
 
     # physical constants
     phys_h::T     = 6.62606957e-27      # erg.s
@@ -77,27 +77,37 @@ function FR_II_redshift_evolution(z, model)
     end
 end
 
+"""
+Populate halos with radio sources according to the HOD in Sehgal et al. 2009.
+
+The optional rng parameter provides an array of random number generators, one
+for each thread. If none are specified, this function will call
+`XGPaint.get_thread_RNG()` to create such an array, which takes about 1 second.
+"""
 function hod_sehgal!(n_I_result, n_II_result,
-        halo_mass, redshift, model::Radio_Sehgal2009{T}) where T
+        halo_mass, redshift, model::Radio_Sehgal2009{T};
+        rng_array::Array{<:Random.AbstractRNG,1}=nothing) where T
     N_halos = size(halo_mass,1)
 
-    r = get_thread_RNG()
+    if rng_array == nothing
+        rng_array = get_thread_RNG()
+    end
     # compute poisson mean, then draw it
     Threads.@threads for i = 1:N_halos
         I_HON = model.I_N_0 * (halo_mass[i] / model.I_M_0)^model.I_α
         I_HON *= XGPaint.FR_I_redshift_evolution(redshift[i], model)
-        n_I_result[i] = rand(r[Threads.threadid()],
+        n_I_result[i] = rand(rng_array[Threads.threadid()],
             Distributions.Poisson(Float64.(I_HON)))
         II_HON = model.II_N_0 * (halo_mass[i] / model.II_M_0)^model.II_α
         II_HON *= XGPaint.FR_II_redshift_evolution(redshift[i], model)
-        n_II_result[i] = rand(r[Threads.threadid()],
+        n_II_result[i] = rand(rng_array[Threads.threadid()],
             Distributions.Poisson(Float64.(II_HON)))
     end
 end
 
-function sehgal_LFn0(m::T, Lb, Lmin) where T
+function sehgal_LFn0(rand_unit::T, m, Lb, Lmin) where T <: Real
     crossover = log( Lb/Lmin )
-    x = rand() * (-(1/m)+log(Lb/Lmin))
+    x = rand_unit * (-(1/m)+log(Lb/Lmin))
     if x < crossover
         return exp(x) * Lmin
     else
@@ -105,18 +115,41 @@ function sehgal_LFn0(m::T, Lb, Lmin) where T
     end
 end
 
-function sehgal_LF(m::T, n, Lb, Lmin) where T
-    if n == 0.0
-        return sehgal_LFn0(m, Lb, Lmin)
-    end
+function sehgal_LF(rand_unit::T, m, n, Lb, Lmin) where T
     crossover = (T(1) - Lb^(-n) * Lmin^n)/n
-    x = rand() * (m-Lb^(-n) * Lmin^n * m-n)/(m * n)
+    x = (rand_unit * (m-Lb^(-n) * Lmin^n * m-n)/(m * n))
     if x < crossover
         return (Lmin^n + Lb^n * n * x)^(1/n)
     else
-        return Lb * (T(1) + (m * (-T(1) + (Lmin/Lb)^n + n * x))/n)^(T(1)/m)
+        return Lb * (one(T) + (m * (-one(T) + (Lmin/Lb)^n + n * x))/n)^(one(T)/m)
     end
 end
+
+"""
+Fills the result array with draws from the luminosity function.
+"""
+function sehgal_LF!(result::Array{T,1}, m, n, Lb::T, Lmin,
+    rng_array::Array{<:Random.AbstractRNG,1}) where T
+
+    if rng_array == nothing
+        rng_array = get_thread_RNG()
+    end
+
+    if n ≈ 0.0
+        Threads.@threads for i = 1:size(result,1)
+            result[i] = sehgal_LFn0(
+                rand(rng_array[Threads.threadid()]),
+                Float64(m), Float64(Lb), Float64(Lmin))
+        end
+    else
+        for i = 1:size(result,1)
+            result[i] = sehgal_LF(
+                rand(rng_array[Threads.threadid()]),
+                Float64(m), Float64(n), Float64(Lb), Float64(Lmin))
+        end
+    end
+end
+
 
 B(cosθ, β) = ( (1.0-β*cosθ)^(-2.0) + (1.0+β*cosθ)^(-2.0) ) / 2.0
 
@@ -138,6 +171,13 @@ function get_core_lobe_lum(L_beam, ν_Hz, R_int, γ, a_1, a_2, a_3, cosθ)
     return L_c_beam * f_core / norm_core, L_l_int * f_lobe
 end
 
+
+function draw_coeff!(a_coeff, model::Radio_Sehgal2009)
+    rand!(model.a_1_dist, @view a_coeff[1,:])
+    rand!(model.a_2_dist, @view a_coeff[2,:])
+    rand!(model.a_3_dist, @view a_coeff[3,:])
+end
+
 """
 Produce a source catalog from a model and halo catalog.
 """
@@ -149,6 +189,7 @@ function generate_sources(
         verbose=true) where T
 
     res = Resolution(model.nside)
+    rng_array = get_thread_RNG()
 
     verbose && println("Culling halos below mass $(model.min_mass).")
     mass_cut = halo_mass .> model.min_mass
@@ -171,34 +212,36 @@ function generate_sources(
             halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
     end
 
+    verbose && println("Populating HOD.")
     n_I = Array{Int32}(undef, N_halos)
     n_II = Array{Int32}(undef, N_halos)
-    hod_sehgal!(n_I, n_II, halo_mass, redshift, model)
+    hod_sehgal!(n_I, n_II, halo_mass, redshift, model, rng_array=rng_array)
 
-    # TODO: make this a utility function
-    cumsat_I = cumsum(n_I)  # set up indices for satellites
+    # set up indices for sources
+    cumsat_I = cumsum(n_I)
     prepend!(cumsat_I, 0)
-    total_n_I = cumsat_I[end]
-    cumsat_II = cumsum(n_II)  # set up indices for satellites
+    cumsat_II = cumsum(n_II)
     prepend!(cumsat_II, 0)
-    total_n_II = cumsat_II[end]
 
-    a_coeff_I = Array{T, 2}(undef, 3, total_n_I)
-    a_coeff_II = Array{T, 2}(undef, 3, total_n_II)
+    a_coeff_I = Array{T, 2}(undef, 3, cumsat_I[end])
+    a_coeff_II = Array{T, 2}(undef, 3, cumsat_II[end])
+    draw_coeff!(a_coeff_I, model)
+    draw_coeff!(a_coeff_II, model)
 
-    rand!(model.a_1_dist, @view a_coeff_I[1,:])
-    rand!(model.a_2_dist, @view a_coeff_I[2,:])
-    rand!(model.a_3_dist, @view a_coeff_I[3,:])
-    rand!(model.a_1_dist, @view a_coeff_II[1,:])
-    rand!(model.a_2_dist, @view a_coeff_II[2,:])
-    rand!(model.a_3_dist, @view a_coeff_II[3,:])
+    verbose && println("Drawing from luminosity function.")
+    # draw luminosities for both populations
+    L_I_151 = Array{T, 1}(undef, cumsat_I[end])
+    L_II_151 = Array{T, 1}(undef, cumsat_II[end])
+    sehgal_LF!(L_I_151, model.I_m, model.I_n, model.I_L_b,
+        model.I_L_min, rng_array)
+    sehgal_LF!(L_II_151, model.II_m, model.II_n, model.II_L_b,
+        model.II_L_min, rng_array)
 
-
-    # TODO: draw luminosities
-
-    return (redshift=redshift, halo_mass=halo_mass,
+    return (redshift=redshift, halo_mass=halo_mass, halo_pos=halo_pos,
         dist=dist, n_I=n_I, n_II=n_II,
-        a_coeff_I=a_coeff_I, a_coeff_II=a_coeff_II)
+        a_coeff_I=a_coeff_I, a_coeff_II=a_coeff_II,
+        L_I_151=L_I_151, L_II_151=L_II_151
+        )
 end
 
 
