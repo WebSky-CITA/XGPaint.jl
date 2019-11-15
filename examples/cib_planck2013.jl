@@ -12,6 +12,5 @@ model = CIB_Planck2013{Float32}()
 
 ## Deposit the sources into maps
 m = Map{Float64, RingOrder}(model.nside)
-@time result = XGPaint.paint!(nu_obs=143.0f9,
-    result_map=m.pixels, sources=sources, model=model)
+@time result = XGPaint.paint!(m.pixels, 143.0f9, model, sources)
 Healpix.saveToFITS(m, "/media/data/cib143.fits")

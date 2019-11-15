@@ -84,10 +84,13 @@ The optional rng parameter provides an array of random number generators, one
 for each thread. If none are specified, this function will call
 `XGPaint.get_thread_RNG()` to create such an array, which takes about 1 second.
 """
-function hod_sehgal!(n_I_result, n_II_result,
+function hod_sehgal(
         halo_mass, redshift, model::Radio_Sehgal2009{T};
         rng_array::Array{<:Random.AbstractRNG,1}=nothing) where T
+
     N_halos = size(halo_mass,1)
+    nsources_I = Array{Int32}(undef, N_halos)
+    nsources_II = Array{Int32}(undef, N_halos)
 
     if rng_array == nothing
         rng_array = get_thread_RNG()
@@ -96,13 +99,15 @@ function hod_sehgal!(n_I_result, n_II_result,
     Threads.@threads for i = 1:N_halos
         I_HON = model.I_N_0 * (halo_mass[i] / model.I_M_0)^model.I_α
         I_HON *= XGPaint.FR_I_redshift_evolution(redshift[i], model)
-        n_I_result[i] = rand(rng_array[Threads.threadid()],
+        nsources_I[i] = rand(rng_array[Threads.threadid()],
             Distributions.Poisson(Float64.(I_HON)))
         II_HON = model.II_N_0 * (halo_mass[i] / model.II_M_0)^model.II_α
         II_HON *= XGPaint.FR_II_redshift_evolution(redshift[i], model)
-        n_II_result[i] = rand(rng_array[Threads.threadid()],
+        nsources_II[i] = rand(rng_array[Threads.threadid()],
             Distributions.Poisson(Float64.(II_HON)))
     end
+
+    return nsources_I, nsources_II
 end
 
 function sehgal_LFn0(rand_unit::T, m, Lb, Lmin) where T <: Real
@@ -121,7 +126,7 @@ function sehgal_LF(rand_unit::T, m, n, Lb, Lmin) where T
     if x < crossover
         return (Lmin^n + Lb^n * n * x)^(1/n)
     else
-        return Lb * (one(T) + (m * (-one(T) + (Lmin/Lb)^n + n * x))/n)^(one(T)/m)
+        return Lb * (1 + (m * (-1 + (Lmin/Lb)^n + n * x))/n)^(1/m)
     end
 end
 
@@ -153,22 +158,22 @@ end
 
 B(cosθ, β) = ( (1.0-β*cosθ)^(-2.0) + (1.0+β*cosθ)^(-2.0) ) / 2.0
 
-function get_core_lobe_lum(L_beam, ν_Hz, R_int, γ, a_1, a_2, a_3, cosθ)
-    β = sqrt(1.0-γ^(-2.0))
+function get_core_lobe_lum(L_beam::T, ν_Hz, R_int, γ, a_1, a_2, a_3, cosθ) where T
+    β = sqrt(T(1)-γ^(T(-2)))
     R_obs = R_int * B(cosθ, β)
-    L_int = L_beam * (1.0 + R_int) / (1.0 + R_obs)
-    L_l_int = L_int / (1.0 + R_int)
+    L_int = L_beam * (T(1) + R_int) / (T(1) + R_obs)
+    L_l_int = L_int / (T(1) + R_int)
     L_c_beam = R_obs * L_l_int
 
     # now put in the frequency dependence. a_0 = 0.0
-    lν = log10(ν_Hz / 1e9 ) # normed to 151 MHz
-    f_core =  10 ^ ( a_1 * lν + a_2 * lν^2 + a_3 * lν^3 )
+    lν = log10(ν_Hz / T(1e9) ) # normed to 151 MHz
+    f_core =  T(10) ^ ( a_1 * lν + a_2 * lν^2 + a_3 * lν^3 )
 
-    lν_norm = log10(151e6 / 1e9 ) # normed to 151 MHz
+    lν_norm = T(log10(151e6 / 1e9 )) # normed to 151 MHz
     norm_core =  10 ^ ( a_1 * lν_norm + a_2 * lν_norm^2 + a_3 * lν_norm^3 )
 
-    f_lobe = (ν_Hz / 151e6 ).^(-0.8)
-    return L_c_beam * f_core / norm_core, L_l_int * f_lobe
+    f_lobe = (ν_Hz / T(151e6) ).^T(-0.8)
+    return T(L_c_beam * f_core / norm_core), T(L_l_int * f_lobe)
 end
 
 
@@ -198,51 +203,74 @@ function generate_sources(
     N_halos = size(halo_mass, 1)
 
     verbose && println("Allocating for $(N_halos) halos.")
-    hp_ind = Array{Int64}(undef, N_halos)  # healpix index of halo
-    redshift = Array{T}(undef, N_halos)
-    dist = Array{T}(undef, N_halos)
-    r2z = XGPaint.build_r2z_interpolator(
-        model.min_redshift, model.max_redshift, cosmo)
-
-    # TODO: make this a utility function
-    Threads.@threads for i in 1:N_halos
-        dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
-        redshift[i] = r2z(dist[i])
-        hp_ind[i] = Healpix.vec2pixRing(res,
-            halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
-    end
+    dist, redshift, hp_ind = get_basic_halo_properties(halo_pos, model, cosmo, res)
 
     verbose && println("Populating HOD.")
-    n_I = Array{Int32}(undef, N_halos)
-    n_II = Array{Int32}(undef, N_halos)
-    hod_sehgal!(n_I, n_II, halo_mass, redshift, model, rng_array=rng_array)
+    nsources_I, nsources_II = hod_sehgal(
+        halo_mass, redshift, model, rng_array=rng_array)
 
-    # set up indices for sources
-    cumsat_I = cumsum(n_I)
-    prepend!(cumsat_I, 0)
-    cumsat_II = cumsum(n_II)
-    prepend!(cumsat_II, 0)
+     # total number of sources
+    total_n_I, total_n_II = sum(nsources_I), sum(nsources_II)
 
-    a_coeff_I = Array{T, 2}(undef, 3, cumsat_I[end])
-    a_coeff_II = Array{T, 2}(undef, 3, cumsat_II[end])
+    # the last element of cumsat_I is the total number of type I sources
+    verbose && println("Drawing spectral coefficients and impact parameter.")
+    a_coeff_I = Array{T, 2}(undef, 3, total_n_I)
+    a_coeff_II = Array{T, 2}(undef, 3, total_n_II)
     draw_coeff!(a_coeff_I, model)
     draw_coeff!(a_coeff_II, model)
+    cosθ_I = rand(T, total_n_I)
+    cosθ_II = rand(T, total_n_II)
 
     verbose && println("Drawing from luminosity function.")
     # draw luminosities for both populations
-    L_I_151 = Array{T, 1}(undef, cumsat_I[end])
-    L_II_151 = Array{T, 1}(undef, cumsat_II[end])
+    L_I_151 = Array{T, 1}(undef, total_n_I)
+    L_II_151 = Array{T, 1}(undef, total_n_II)
     sehgal_LF!(L_I_151, model.I_m, model.I_n, model.I_L_b,
         model.I_L_min, rng_array)
     sehgal_LF!(L_II_151, model.II_m, model.II_n, model.II_L_b,
         model.II_L_min, rng_array)
 
     return (redshift=redshift, halo_mass=halo_mass, halo_pos=halo_pos,
-        dist=dist, n_I=n_I, n_II=n_II,
+        dist=dist, nsources_I=nsources_I, nsources_II=nsources_II,
         a_coeff_I=a_coeff_I, a_coeff_II=a_coeff_II,
-        L_I_151=L_I_151, L_II_151=L_II_151
+        L_I_151=L_I_151, L_II_151=L_II_151,
+        cosθ_I=cosθ_I, cosθ_II=cosθ_II,
+        total_n_I=total_n_I, total_n_II=total_n_II
         )
 end
 
 
-export Radio_Sehgal2009
+function paint!(result_map, nu_obs::T, model::AbstractRadioModel, sources) where T
+    flux_to_Jy = ustrip(u"Jy", 1u"W/Hz*Mpc^-2")
+    corefac = 1
+    lobefac = 1
+
+    source_offset_I = generate_subhalo_offsets(sources.nsources_I)
+    source_offset_II = generate_subhalo_offsets(sources.nsources_II)
+    N_halo = size(sources.halo_mass, 1)
+    total_n_sat_I = size(sources.L_I_151, 1)
+    total_n_sat_II = size(sources.L_II_151, 1)
+
+    flux_I = Array{T, 1}(undef, total_n_sat_I)
+
+    Threads.@threads for i_halo in 1:N_halo
+        nu = (1 + sources.redshift[i_halo]) * nu_obs
+        for source_index in 1:sources.nsources_I[i_halo]
+            # index of satellite in satellite arrays
+            i_sat = source_offset_I[i_halo] + source_index
+            L_c, L_l = XGPaint.get_core_lobe_lum(
+                sources.L_I_151[i_sat], nu, model.I_R_int, model.I_γ,
+                sources.a_coeff_I[1,i_sat], sources.a_coeff_I[2,i_sat],
+                sources.a_coeff_I[3,i_sat], sources.cosθ_I[i_sat])
+
+                flux_I[i_sat] = l2f(L_c*corefac+L_l*lobefac, sources.dist[i_halo],
+                    sources.redshift[i_halo]) * flux_to_Jy
+        end
+    end
+
+    return flux_I
+
+end
+
+
+export Radio_Sehgal2009, paint!

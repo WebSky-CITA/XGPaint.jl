@@ -1,4 +1,5 @@
 using HDF5
+using Healpix
 using Random
 
 """
@@ -34,4 +35,39 @@ function chunk_list(arr_len, chunksize)
         for i in range(1, arr_len, step=chunksize)]
 end
 
-export read_halo_catalog_hdf5, chunk_list
+"""
+Generate an array where the value at index i corresponds to the index of the
+first source of halo i. Takes an array where the value at index i corresponds
+to the number of subhalos that halo i has.
+"""
+function generate_subhalo_offsets(num_subhalos)
+    result = cumsum(num_subhalos)
+    prepend!(result, 0)
+    return result
+end
+
+
+"""
+Fill in basic halo properties.
+"""
+function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
+                                   cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T
+    N_halos = size(halo_pos, 2)
+    hp_ind = Array{Int64}(undef, N_halos)  # healpix index of halo
+    redshift = Array{T}(undef, N_halos)
+    dist = Array{T}(undef, N_halos)
+    r2z = XGPaint.build_r2z_interpolator(
+        model.min_redshift, model.max_redshift, cosmo)
+    Threads.@threads for i in 1:N_halos
+        dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
+        redshift[i] = r2z(dist[i])
+        hp_ind[i] = Healpix.vec2pixRing(res,
+            halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+    end
+
+    return dist, redshift, hp_ind
+end
+
+
+
+export read_halo_catalog_hdf5, chunk_list, generate_subhalo_offsets

@@ -257,8 +257,7 @@ function generate_sources(
         halo_pos=halo_pos, halo_mass=halo_mass)
 
     # STEP 2: Generate satellite arrays -----------------------------
-    cumsat = cumsum(n_sat_bar_result)  # set up indices for satellites
-    prepend!(cumsat, 0)
+    cumsat = generate_subhalo_offsets(n_sat_bar_result)
     total_n_sat = cumsat[end]
     hp_ind_sat = Array{Int64}(undef, total_n_sat)  # healpix index of halo
     lum_sat = Array{T}(undef, total_n_sat)  # Lum of central w/o ν-dependence
@@ -279,7 +278,6 @@ function generate_sources(
         redshift_cen=redshift_cen, dist_cen=dist_cen,
         hp_ind_sat=hp_ind_sat, lum_sat=lum_sat,
         redshift_sat=redshift_sat, dist_sat=dist_sat,
-
         N_cen=N_halos, N_sat=total_n_sat
     )
 end
@@ -287,26 +285,36 @@ end
 """
 Paint a source catalog onto a map.
 """
-function paint!(; nu_obs::T, result_map, sources, model::AbstractCIBModel) where T
+function paint!(result_map, nu_obs::T, model::AbstractCIBModel, sources;
+    return_fluxes=false) where T
 
     result_map .= zero(T)  # prepare the frequency map
+
+    fluxes_cen = Array{T, 1}(undef, sources.N_cen)
+    fluxes_sat = Array{T, 1}(undef, sources.N_sat)
 
     # process centrals for this frequency
     Threads.@threads for i in 1:sources.N_cen
         nu = (one(T) + sources.redshift_cen[i]) * nu_obs
-        result_map[sources.hp_ind_cen[i]] += l2f(
+        fluxes_cen[i] = l2f(
             sources.lum_cen[i] * nu2theta(
                 nu, sources.redshift_cen[i], model),
             sources.dist_cen[i], sources.redshift_cen[i])
+        result_map[sources.hp_ind_cen[i]] += fluxes_cen[i]
     end
 
     # process satellites for this frequency
     Threads.@threads for i in 1:sources.N_sat
         nu = (one(T) + sources.redshift_sat[i]) * nu_obs
-        result_map[sources.hp_ind_sat[i]] += l2f(
+        fluxes_sat[i] = l2f(
             sources.lum_sat[i] * nu2theta(
                 nu, sources.redshift_sat[i], model),
             sources.dist_sat[i], sources.redshift_sat[i])
+        result_map[sources.hp_ind_sat[i]] += fluxes_sat[i]
+    end
+
+    if return_fluxes
+        return fluxes_cen, fluxes_sat
     end
 end
 

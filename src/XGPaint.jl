@@ -12,7 +12,7 @@ using Healpix
 import Distributions
 import Future
 
-
+include("./pixell.jl")
 include("./model.jl")
 include("./util.jl")
 include("./cib.jl")
