@@ -162,7 +162,7 @@ function process_centrals!(
     halo_pos, halo_mass) where T
 
     N_halos = size(halo_mass, 1)
-    r = get_thread_RNG()
+    r = trandjump()
 
     Threads.@threads for i = 1:N_halos
         # location information for centrals

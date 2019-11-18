@@ -1,6 +1,8 @@
 using HDF5
 using Healpix
 using Random
+using Random: MersenneTwister
+using Future: randjump
 
 """
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
@@ -17,22 +19,35 @@ end
 
 """
 Generate an array of random number generators, for each thread.
+
+From KissThreading.jl, which doesn't look like a very stable package.
 """
-function get_thread_RNG()
-    r = let m = MersenneTwister(1)
-            [m; accumulate(Future.randjump, fill(big(10)^20,
-            Threads.nthreads()-1), init=m)]
-        end;
-    return r
+function trandjump(rng = MersenneTwister(0); jump=big(10)^20)
+    n = Threads.nthreads()
+    rngjmp = Vector{MersenneTwister}(undef, n)
+    for i in 1:n
+        rngjmp[i] = randjump(rng, jump*i)
+    end
+    rngjmp
 end
 
 """
 Generates a list of tuples which describe starting and ending chunk indices.
 Useful for parallelizing an array operation.
 """
-function chunk_list(arr_len, chunksize)
-    return [(i,min(i + chunksize-1, arr_len))
+function chunk(arr_len, chunksize)
+    return [(i, min(i + chunksize-1, arr_len))
         for i in range(1, arr_len, step=chunksize)]
+end
+
+
+function threaded_rand!(random_number_generators, arr::Array{T,1};
+      chunksize=4096) where T
+
+   num = size(arr,1)
+   Threads.@threads for (i1, i2) in chunk(num, chunksize)
+      @views rand!(random_number_generators[Threads.threadid()], arr[i1:i2])
+   end
 end
 
 """
@@ -68,6 +83,14 @@ function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegrou
     return dist, redshift, hp_ind
 end
 
+"""
+Utility function which prepends some zeros to an array. It makes a copy instead
+of modifying the input.
+"""
+function ellpad(arr::Array{T,N}; nzeros=1) where {T,N}
+    result = arr[:]
+    pushfirst!(result, zeros(T, nzeros)...)
+    return result
+end
 
-
-export read_halo_catalog_hdf5, chunk_list, generate_subhalo_offsets
+export read_halo_catalog_hdf5, chunk, generate_subhalo_offsets, trandjump

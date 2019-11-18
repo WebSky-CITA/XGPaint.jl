@@ -19,7 +19,7 @@ Base.@kwdef struct Radio_Sehgal2009{T<:Real} <: AbstractRadioModel{T}
     box_size::T     = 40000
 
     # these coefficients are shared for type I and II
-    a_0::T   = 0.0
+    a_0::T   = -1.0
     a_1_dist::Distributions.Uniform{T} = Distributions.Uniform(T(-0.12), T(0.07))
     a_2_dist::Distributions.Uniform{T} = Distributions.Uniform(T(-0.34), T(0.99))
     a_3_dist::Distributions.Uniform{T} = Distributions.Uniform(T(-0.75), T(-0.23))
@@ -82,7 +82,7 @@ Populate halos with radio sources according to the HOD in Sehgal et al. 2009.
 
 The optional rng parameter provides an array of random number generators, one
 for each thread. If none are specified, this function will call
-`XGPaint.get_thread_RNG()` to create such an array, which takes about 1 second.
+`XGPaint.trandjump()` to create such an array, which takes about 1 second.
 """
 function hod_sehgal(
         halo_mass, redshift, model::Radio_Sehgal2009{T};
@@ -93,7 +93,7 @@ function hod_sehgal(
     nsources_II = Array{Int32}(undef, N_halos)
 
     if rng_array == nothing
-        rng_array = get_thread_RNG()
+        rng_array = trandjump()
     end
     # compute poisson mean, then draw it
     Threads.@threads for i = 1:N_halos
@@ -134,53 +134,53 @@ end
 Fills the result array with draws from the luminosity function.
 """
 function sehgal_LF!(result::Array{T,1}, m, n, Lb::T, Lmin,
-    rng_array::Array{<:Random.AbstractRNG,1}) where T
-
-    if rng_array == nothing
-        rng_array = get_thread_RNG()
-    end
+    rand_array::Array{T,1}) where T
 
     if n ≈ 0.0
         Threads.@threads for i = 1:size(result,1)
             result[i] = sehgal_LFn0(
-                rand(rng_array[Threads.threadid()]),
+                rand_array[i],
                 Float64(m), Float64(Lb), Float64(Lmin))
         end
     else
-        for i = 1:size(result,1)
+        Threads.@threads for i = 1:size(result,1)
             result[i] = sehgal_LF(
-                rand(rng_array[Threads.threadid()]),
+                rand_array[i],
                 Float64(m), Float64(n), Float64(Lb), Float64(Lmin))
         end
     end
 end
 
 
-B(cosθ, β) = ( (1.0-β*cosθ)^(-2.0) + (1.0+β*cosθ)^(-2.0) ) / 2.0
+B(cosθ, β) = ( (1-β*cosθ)^(-2) + (1+β*cosθ)^(-2) ) / 2
 
-function get_core_lobe_lum(L_beam::T, ν_Hz, R_int, γ, a_1, a_2, a_3, cosθ) where T
-    β = sqrt(T(1)-γ^(T(-2)))
+function get_core_lobe_lum(L_beam::T, ν_Hz, R_int, γ, a_0, a_1, a_2, a_3, cosθ) where T
+    β = sqrt(1-γ^(-2))
     R_obs = R_int * B(cosθ, β)
-    L_int = L_beam * (T(1) + R_int) / (T(1) + R_obs)
-    L_l_int = L_int / (T(1) + R_int)
+    L_int = L_beam * (1 + R_int) / (1 + R_obs)
+    L_l_int = L_int / (1 + R_int)
     L_c_beam = R_obs * L_l_int
 
     # now put in the frequency dependence. a_0 = 0.0
     lν = log10(ν_Hz / T(1e9) ) # normed to 151 MHz
-    f_core =  T(10) ^ ( a_1 * lν + a_2 * lν^2 + a_3 * lν^3 )
+    f_core =  T(10) ^ ( a_0 + a_1 * lν + a_2 * lν^2 + a_3 * lν^3 )
 
     lν_norm = T(log10(151e6 / 1e9 )) # normed to 151 MHz
-    norm_core =  10 ^ ( a_1 * lν_norm + a_2 * lν_norm^2 + a_3 * lν_norm^3 )
+    # norm_core =  10 ^ ( a_1 * lν_norm + a_2 * lν_norm^2 + a_3 * lν_norm^3 )
 
     f_lobe = (ν_Hz / T(151e6) ).^T(-0.8)
-    return T(L_c_beam * f_core / norm_core), T(L_l_int * f_lobe)
+    return T(L_c_beam * f_core), T(L_l_int * f_lobe)
 end
 
 
 function draw_coeff!(a_coeff, model::Radio_Sehgal2009)
-    rand!(model.a_1_dist, @view a_coeff[1,:])
-    rand!(model.a_2_dist, @view a_coeff[2,:])
-    rand!(model.a_3_dist, @view a_coeff[3,:])
+    a1_task = Threads.@spawn rand!(model.a_1_dist, @view a_coeff[1,:])
+    a2_task = Threads.@spawn rand!(model.a_2_dist, @view a_coeff[2,:])
+    a3_task = Threads.@spawn rand!(model.a_3_dist, @view a_coeff[3,:])
+
+    wait(a1_task)
+    wait(a2_task)
+    wait(a3_task)
 end
 
 """
@@ -194,7 +194,7 @@ function generate_sources(
         verbose=true) where T
 
     res = Resolution(model.nside)
-    rng_array = get_thread_RNG()
+    rng_array = trandjump()
 
     verbose && println("Culling halos below mass $(model.min_mass).")
     mass_cut = halo_mass .> model.min_mass
@@ -213,24 +213,36 @@ function generate_sources(
     total_n_I, total_n_II = sum(nsources_I), sum(nsources_II)
 
     # the last element of cumsat_I is the total number of type I sources
-    verbose && println("Drawing spectral coefficients and impact parameter.")
+    verbose && println("Drawing spectral coefficients.")
     a_coeff_I = Array{T, 2}(undef, 3, total_n_I)
     a_coeff_II = Array{T, 2}(undef, 3, total_n_II)
     draw_coeff!(a_coeff_I, model)
     draw_coeff!(a_coeff_II, model)
-    cosθ_I = rand(T, total_n_I)
-    cosθ_II = rand(T, total_n_II)
 
     verbose && println("Drawing from luminosity function.")
+    # generate random numbers for LF
+    rand_buffer_I = Array{T, 1}(undef, total_n_I)
+    rand_buffer_II = Array{T, 1}(undef, total_n_II)
+    threaded_rand!(rng_array, rand_buffer_I)
+    threaded_rand!(rng_array, rand_buffer_II)
+
     # draw luminosities for both populations
     L_I_151 = Array{T, 1}(undef, total_n_I)
     L_II_151 = Array{T, 1}(undef, total_n_II)
     sehgal_LF!(L_I_151, model.I_m, model.I_n, model.I_L_b,
-        model.I_L_min, rng_array)
+        model.I_L_min, rand_buffer_I)
     sehgal_LF!(L_II_151, model.II_m, model.II_n, model.II_L_b,
-        model.II_L_min, rng_array)
+        model.II_L_min, rand_buffer_II)
+
+    verbose && println("Drawing for impact parameter.")
+    # reuse rand buffers for the impact parameters
+    threaded_rand!(rng_array, rand_buffer_I)
+    threaded_rand!(rng_array, rand_buffer_II)
+    cosθ_I = rand_buffer_I
+    cosθ_II = rand_buffer_II
 
     return (redshift=redshift, halo_mass=halo_mass, halo_pos=halo_pos,
+        halo_hp_ind=hp_ind,
         dist=dist, nsources_I=nsources_I, nsources_II=nsources_II,
         a_coeff_I=a_coeff_I, a_coeff_II=a_coeff_II,
         L_I_151=L_I_151, L_II_151=L_II_151,
@@ -240,10 +252,11 @@ function generate_sources(
 end
 
 
-function paint!(result_map, nu_obs::T, model::AbstractRadioModel, sources) where T
+function paint!(result_map::Map{Tmap, RingOrder},
+                nu_obs::T, model::AbstractRadioModel, sources;
+                return_fluxes=false) where {Tmap, T}
+
     flux_to_Jy = ustrip(u"Jy", 1u"W/Hz*Mpc^-2")
-    corefac = 1
-    lobefac = 1
 
     source_offset_I = generate_subhalo_offsets(sources.nsources_I)
     source_offset_II = generate_subhalo_offsets(sources.nsources_II)
@@ -252,23 +265,52 @@ function paint!(result_map, nu_obs::T, model::AbstractRadioModel, sources) where
     total_n_sat_II = size(sources.L_II_151, 1)
 
     flux_I = Array{T, 1}(undef, total_n_sat_I)
+    flux_II = Array{T, 1}(undef, total_n_sat_II)
+
+    redshift_I = Array{T, 1}(undef, total_n_sat_I)
+    redshift_II = Array{T, 1}(undef, total_n_sat_II)
+
 
     Threads.@threads for i_halo in 1:N_halo
         nu = (1 + sources.redshift[i_halo]) * nu_obs
+        hp_ind = sources.halo_hp_ind[i_halo]
+
+        # Generate FR I fluxes
         for source_index in 1:sources.nsources_I[i_halo]
             # index of satellite in satellite arrays
             i_sat = source_offset_I[i_halo] + source_index
             L_c, L_l = XGPaint.get_core_lobe_lum(
                 sources.L_I_151[i_sat], nu, model.I_R_int, model.I_γ,
+                model.a_0,
                 sources.a_coeff_I[1,i_sat], sources.a_coeff_I[2,i_sat],
                 sources.a_coeff_I[3,i_sat], sources.cosθ_I[i_sat])
 
-                flux_I[i_sat] = l2f(L_c*corefac+L_l*lobefac, sources.dist[i_halo],
-                    sources.redshift[i_halo]) * flux_to_Jy
+            flux_I[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
+                sources.redshift[i_halo]) * flux_to_Jy
+            redshift_I[i_sat] = sources.redshift[i_halo]
+            result_map.pixels[hp_ind] += flux_I[i_sat]
+        end
+
+        # Generate FR II fluxes
+        for source_index in 1:sources.nsources_II[i_halo]
+            # index of satellite in satellite arrays
+            i_sat = source_offset_II[i_halo] + source_index
+            L_c, L_l = XGPaint.get_core_lobe_lum(
+                sources.L_II_151[i_sat], nu, model.II_R_int, model.II_γ,
+                model.a_0,
+                sources.a_coeff_II[1,i_sat], sources.a_coeff_II[2,i_sat],
+                sources.a_coeff_II[3,i_sat], sources.cosθ_II[i_sat])
+
+            flux_II[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
+                sources.redshift[i_halo]) * flux_to_Jy
+            redshift_II[i_sat] = sources.redshift[i_halo]
+            result_map.pixels[hp_ind] += flux_II[i_sat]
         end
     end
 
-    return flux_I
+    if return_fluxes
+        return flux_I, flux_II, redshift_I, redshift_II
+    end
 
 end
 
