@@ -48,7 +48,7 @@ Base.@kwdef struct Radio_Sehgal2009{T<:Real} <: AbstractRadioModel{T}
     II_σ_h::T = 0.73
 
     I_L_min::T = 2.5e23
-    II_L_min::T = 2.5e23
+    II_L_min::T = 4e23
 
     # physical constants
     phys_h::T     = 6.62606957e-27      # erg.s
@@ -161,15 +161,15 @@ function get_core_lobe_lum(L_beam::T, ν_Hz, R_int, γ, a_0, a_1, a_2, a_3, cos�
     L_l_int = L_int / (1 + R_int)
     L_c_beam = R_obs * L_l_int
 
-    # now put in the frequency dependence. a_0 = 0.0
+    # now put in the frequency dependence. a_0 = 0.0 
     lν = log10(ν_Hz / T(1e9) ) # normed to 151 MHz
-    f_core =  T(10) ^ ( a_0 + a_1 * lν + a_2 * lν^2 + a_3 * lν^3 )
+    f_core =  T(10) ^ ( a_1 * lν + a_2 * lν^2 + a_3 * lν^3 ) # a_0 + 
 
     lν_norm = T(log10(151e6 / 1e9 )) # normed to 151 MHz
-    # norm_core =  10 ^ ( a_1 * lν_norm + a_2 * lν_norm^2 + a_3 * lν_norm^3 )
+    norm_core =  10 ^ ( a_1 * lν_norm + a_2 * lν_norm^2 + a_3 * lν_norm^3 )
 
     f_lobe = (ν_Hz / T(151e6) ).^T(-0.8)
-    return T(L_c_beam * f_core), T(L_l_int * f_lobe)
+    return T(L_c_beam * f_core * 0.3f0 / norm_core), T(L_l_int * f_lobe)
 end
 
 
@@ -252,10 +252,13 @@ function generate_sources(
 end
 
 
-function paint!(result_map::Map{Tmap, RingOrder},
+function paint!(result_map::Map{T_map,RingOrder},
                 nu_obs::T, model::AbstractRadioModel, sources;
-                return_fluxes=false) where {Tmap, T}
-
+                return_fluxes=false) where {T_map, T}
+    
+    pixel_array = result_map.pixels
+    fill!(pixel_array, zero(T))  # prepare the frequency map
+    
     flux_to_Jy = ustrip(u"Jy", 1u"W/Hz*Mpc^-2")
 
     source_offset_I = generate_subhalo_offsets(sources.nsources_I)
@@ -288,7 +291,7 @@ function paint!(result_map::Map{Tmap, RingOrder},
             flux_I[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
                 sources.redshift[i_halo]) * flux_to_Jy
             redshift_I[i_sat] = sources.redshift[i_halo]
-            result_map.pixels[hp_ind] += flux_I[i_sat]
+            pixel_array[hp_ind] += flux_I[i_sat]
         end
 
         # Generate FR II fluxes
@@ -304,10 +307,15 @@ function paint!(result_map::Map{Tmap, RingOrder},
             flux_II[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
                 sources.redshift[i_halo]) * flux_to_Jy
             redshift_II[i_sat] = sources.redshift[i_halo]
-            result_map.pixels[hp_ind] += flux_II[i_sat]
+            pixel_array[hp_ind] += flux_II[i_sat]
         end
     end
-
+    
+    # divide by healpix pixel size
+    per_pixel_steradian = 1 / nside2pixarea(result_map.resolution.nside)
+    pixel_array .*= per_pixel_steradian
+    
+    # maps are in Jansky per steradian, fluxes are in Jansky
     if return_fluxes
         return flux_I, flux_II, redshift_I, redshift_II
     end

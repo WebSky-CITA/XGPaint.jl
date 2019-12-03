@@ -41,6 +41,16 @@ function chunk(arr_len, chunksize)
 end
 
 
+function getrange(n)
+    tid = Threads.threadid()
+    nt = Threads.nthreads()
+    d , r = divrem(n, nt)
+    from = (tid - 1) * d + min(r, tid - 1) + 1
+    to = from + d - 1 + (tid ≤ r ? 1 : 0)
+    from:to
+end
+
+
 function threaded_rand!(random_number_generators, arr::Array{T,1};
       chunksize=4096) where T
 

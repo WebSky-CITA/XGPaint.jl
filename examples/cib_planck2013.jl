@@ -1,9 +1,12 @@
 using XGPaint
 using Healpix
+using JLD2
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 halo_pos, halo_mass = read_halo_catalog_hdf5(
-    "/home/zequnl/websky_halos-light.hdf5")
+    "/tigress/zequnl/xgpaint/websky_halos-light.hdf5")
+# @load "/home/zequnl/testsamp.jld2" halo_mass halo_pos
+
 cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
 model = CIB_Planck2013{Float32}()
 
@@ -11,6 +14,16 @@ model = CIB_Planck2013{Float32}()
 @time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
 ## Deposit the sources into maps
-m = Map{Float64, RingOrder}(model.nside)
-@time result = XGPaint.paint!(m, 143.0f9, model, sources)
-Healpix.saveToFITS(m, "/media/data/cib143.fits")
+
+fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
+fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
+m = Map{Float64,RingOrder}(model.nside)
+
+for freq in ["030", "090", "148", "219", "277", "350",
+        "143", "217", "353", "545", "857"]
+    @time begin
+        XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
+            fluxes_cen, fluxes_sat)
+        Healpix.saveToFITS(m, "!/tigress/zequnl/xgpaint/jl/cib/cib$(freq).fits")
+    end
+end

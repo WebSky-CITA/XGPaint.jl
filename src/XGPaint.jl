@@ -6,7 +6,7 @@ using QuadGK
 using Roots
 using Cosmology
 using Unitful
-using UnitfulAstro
+import UnitfulAstro
 using Random
 using Healpix
 import Distributions
