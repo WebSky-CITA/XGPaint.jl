@@ -14,7 +14,6 @@ model = CIB_Planck2013{Float32}()
 @time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
 ## Deposit the sources into maps
-
 fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
 fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
 m = Map{Float64,RingOrder}(model.nside)
