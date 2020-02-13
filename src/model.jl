@@ -53,7 +53,7 @@ function build_r2z_interpolator(min_z::T, max_z::T,
     rrange = zero(zrange)
     for i in 1:n_bins
         rrange[i] = ustrip(T, u"Mpc",
-            comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
+            Cosmology.comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
     end
     r2z = LinearInterpolation(rrange, zrange);
     return r2z
