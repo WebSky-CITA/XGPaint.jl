@@ -6,7 +6,7 @@ halo_pos, halo_mass = read_halo_catalog_hdf5(
     "/global/cscratch1/sd/xzackli/websky_halos-light.hdf5")
 
 cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
-model = CIB_Planck2013{Float32}()
+model = CIB_Planck2013{Float32}(nside=8192)
 
 ## Write one chunk to disk
 function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass, freqs)
@@ -27,10 +27,10 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
             # read from disk if not the first chunk
             filename = "$(output_dir)/cib_$(freq).fits"
             if chunk_index > 1
-                m0 = Healpix.readMapFromFITS(filename, 1, Float32)
-                m = m + m0
+                m0 = Healpix.readMapFromFITS(filename, 1, Float64)
+                m.pixels = m.pixels + m0
             end
-            Healpix.saveToFITS(m,"!$(filename)")
+            Healpix.saveToFITS(m, "!$(filename)")
         end
     end
 end
@@ -53,15 +53,15 @@ function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 end
 ##
 
-# freqs = ["143"]
-freqs = [
-    "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
-    "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
-    "153", "164", "189", "210", "217", "232", "256", "275", "294", "306", "314",
-    "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
-    "857", "906", "994", "1080"
-]
+freqs = ["143"]
+# freqs = [
+#     "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
+#     "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
+#     "153", "164", "189", "210", "217", "232", "256", "275", "294", "306", "314",
+#     "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
+#     "857", "906", "994", "1080"
+# ]
 scratch_dir = "/global/cscratch1/sd/xzackli/cib/"
-run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
+run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=20)
 
 ##
