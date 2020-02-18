@@ -232,7 +232,7 @@ function generate_sources(
         # model parameters
         model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
         # halo arrays
-        halo_pos::Array{T,2}, halo_mass::Array{T,1};
+        halo_pos::AbstractArray{T,2}, halo_mass::AbstractArray{T,1};
         verbose=true) where T
 
     N_halos = size(halo_mass, 1)
@@ -286,10 +286,10 @@ end
 """
 Paint a source catalog onto a map, recording the fluxes.
 """
-function paint!(result_map::Map{T_map,RingOrder}, 
+function paint!(result_map::Map{T_map,RingOrder},
         nu_obs::T, model::AbstractCIBModel, sources,
-        fluxes_cen::Array, fluxes_sat::Array) where {T_map, T}
-    
+        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
+
     pixel_array = result_map.pixels
     fill!(pixel_array, zero(T))  # prepare the frequency map
 
@@ -312,7 +312,7 @@ function paint!(result_map::Map{T_map,RingOrder},
             sources.dist_sat[i], sources.redshift_sat[i])
         pixel_array[sources.hp_ind_sat[i]] += fluxes_sat[i]
     end
-    
+
     # divide by healpix pixel size
     per_pixel_steradian = 1 / nside2pixarea(result_map.resolution.nside)
     pixel_array .*= per_pixel_steradian
@@ -323,9 +323,9 @@ Paint a source catalog onto a map.
 
 This function creates the arrays for you.
 """
-function paint!(result_map::Map{T,RingOrder}, 
+function paint!(result_map::Map{T,RingOrder},
         nu_obs::T, model::AbstractCIBModel, sources) where T
-    
+
     fluxes_cen = Array{T, 1}(undef, sources.N_cen)
     fluxes_sat = Array{T, 1}(undef, sources.N_sat)
 

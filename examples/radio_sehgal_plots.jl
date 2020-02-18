@@ -1,6 +1,5 @@
 using XGPaint
 using Healpix
-# using JLD2
 
 halo_pos, halo_mass = read_halo_catalog_hdf5(
     "/home/zequnl/Data/websky_halos-light.hdf5")

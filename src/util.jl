@@ -35,7 +35,7 @@ end
 Generates a list of tuples which describe starting and ending chunk indices.
 Useful for parallelizing an array operation.
 """
-function chunk(arr_len, chunksize)
+function chunk(arr_len, chunksize::Integer)
     return [(i, min(i + chunksize-1, arr_len))
         for i in range(1, arr_len, step=chunksize)]
 end
