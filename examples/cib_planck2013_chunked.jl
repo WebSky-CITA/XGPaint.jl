@@ -38,7 +38,7 @@ function write_chunk(
         for freq in freqs
 
             # write to disk in batches of simultaneous_writes
-            if length(futures) ≧ simultaneous_writes
+            if length(futures) >= simultaneous_writes
                 for f in futures
                     wait(f)
                 end
