@@ -87,6 +87,6 @@ freqs = [
 # scratch_dir = "/media/science/websky/cib/"
 scratch_dir = ENV["SCRATCH"]
 println("SCRATCH: ", scratch_dir)
-run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=4)
+run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 
 ##
