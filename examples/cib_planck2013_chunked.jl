@@ -37,7 +37,7 @@ end
 
 ##
 function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
-
+    # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
     chunks = chunk(N_halos, chunksize)
@@ -51,17 +51,17 @@ function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
             pos, mass, freqs)
     end
 end
-##
+## compute on all chunks, on all halos
 
-freqs = ["143"]
-# freqs = [
-#     "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
-#     "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
-#     "153", "164", "189", "210", "217", "232", "256", "275", "294", "306", "314",
-#     "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
-#     "857", "906", "994", "1080"
-# ]
+# freqs = ["143"]
+freqs = [
+    "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
+    "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
+    "153", "164", "189", "210", "217", "232", "256", "275", "294", "306", "314",
+    "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
+    "857", "906", "994", "1080"
+]
 scratch_dir = "/global/cscratch1/sd/xzackli/cib/"
-run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=20)
+run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 
 ##
