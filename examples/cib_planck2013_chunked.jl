@@ -9,7 +9,7 @@ cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
 model = CIB_Planck2013{Float32}()
 
 ## Write one chunk to disk
-function write_chunk(chunk_index, model, cosmo, halo_pos, halo_mass, freqs)
+function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass, freqs)
     # Allocate some arrays and fill them up for centrals and satellites
     @time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
@@ -25,7 +25,7 @@ function write_chunk(chunk_index, model, cosmo, halo_pos, halo_mass, freqs)
                 fluxes_cen, fluxes_sat)
 
             # read from disk if not the first chunk
-            filename = "/media/science/websky/cib/cib_$(freq).fits"
+            filename = "$(output_dir)/cib_$(freq).fits"
             if chunk_index > 1
                 m0 = Healpix.readMapFromFITS(filename, 1, Float32)
                 m = m + m0
@@ -36,7 +36,7 @@ function write_chunk(chunk_index, model, cosmo, halo_pos, halo_mass, freqs)
 end
 
 ##
-function run_all_chunks(halo_pos, halo_mass, freqs; N_chunks=2)
+function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
@@ -47,7 +47,7 @@ function run_all_chunks(halo_pos, halo_mass, freqs; N_chunks=2)
 
         pos = @view halo_pos[:, left_ind:right_ind]
         mass = @view halo_mass[left_ind:right_ind]
-        write_chunk(chunk_index, model, cosmo,
+        write_chunk(output_dir, chunk_index, model, cosmo,
             pos, mass, freqs)
     end
 end
@@ -61,6 +61,7 @@ freqs = [
     "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
     "857", "906", "994", "1080"
 ]
-run_all_chunks(halo_pos, halo_mass, freqs; N_chunks=2)
+scratch_dir = "/global/cscratch1/sd/xzackli/cib/"
+run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 
 ##
