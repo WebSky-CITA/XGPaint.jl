@@ -3,7 +3,7 @@ using Healpix
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 halo_pos, halo_mass = read_halo_catalog_hdf5(
-    "/media/science/xgpaint_data/websky_halos-light.hdf5")
+    "/global/cscratch1/sd/xzackli/websky_halos-light.hdf5")
 
 cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
 model = CIB_Planck2013{Float32}()
