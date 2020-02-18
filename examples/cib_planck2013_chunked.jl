@@ -48,7 +48,7 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
             XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
                 fluxes_cen, fluxes_sat)
 
-            t = Threads.@spawn thread_write(m)
+            t = Threads.@spawn thread_write(filename, chunk_index, m)
             push!( futures, t )
         end
     end
@@ -76,7 +76,6 @@ function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 end
 ## compute on all chunks, on all halos
 
-# freqs = ["143"]
 freqs = [
     "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
     "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
@@ -84,6 +83,8 @@ freqs = [
     "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
     "857", "906", "994", "1080"
 ]
+# freqs = ["143"]
+
 # scratch_dir = "/media/science/websky/cib/"
 scratch_dir = ENV["SCRATCH"]
 println("SCRATCH: ", scratch_dir)
