@@ -52,7 +52,7 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
 end
 
 ##
-function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
+function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
     # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
@@ -80,6 +80,6 @@ freqs = [
 # scratch_dir = "/media/science/websky/cib/"
 scratch_dir = ENV["SCRATCH"]
 println("SCRATCH: ", scratch_dir)
-run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
+run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=4)
 
 ##
