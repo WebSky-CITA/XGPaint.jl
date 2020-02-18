@@ -35,6 +35,15 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
     println("Setting up writes.")
     @time begin
         for freq in freqs
+
+            # write to disk in batches of 4
+            if length(futures) > 3
+                for f in futures
+                    wait(f)
+                end
+                futures = []
+            end
+
             m = Map{Float64,RingOrder}(model.nside)
             XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
                 fluxes_cen, fluxes_sat)
@@ -46,13 +55,11 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
 
     println("Waiting for disk.")
     # wait for all the writes to be done
-    for f in futures
-        wait(f)
-    end
+
 end
 
 ##
-function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
+function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
     # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
