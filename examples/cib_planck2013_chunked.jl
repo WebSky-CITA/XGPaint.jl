@@ -12,7 +12,6 @@ model = CIB_Planck2013{Float32}(nside=8192)
 
 function thread_write(filename, chunk_index, m)
     # read from disk if not the first chunk
-    filename = "$(output_dir)/cib_$(freq).fits"
     if chunk_index > 1
         m0 = Healpix.readMapFromFITS(filename, 1, Float32)
         print(typeof(m0))
@@ -21,7 +20,9 @@ function thread_write(filename, chunk_index, m)
     Healpix.saveToFITS(m, "!$(filename)")
 end
 
-function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass, freqs)
+function write_chunk(
+    output_dir, chunk_index, model, cosmo,
+    halo_pos, halo_mass, freqs; simultaneous_writes=6)
     # Allocate some arrays and fill them up for centrals and satellites
     @time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
@@ -36,8 +37,8 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
     @time begin
         for freq in freqs
 
-            # write to disk in batches of 4
-            if length(futures) > 3
+            # write to disk in batches of simultaneous_writes
+            if length(futures) ≧ simultaneous_writes
                 for f in futures
                     wait(f)
                 end
@@ -48,6 +49,7 @@ function write_chunk(output_dir, chunk_index, model, cosmo, halo_pos, halo_mass,
             XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
                 fluxes_cen, fluxes_sat)
 
+            filename = "$(output_dir)/cib_$(freq).fits"
             t = Threads.@spawn thread_write(filename, chunk_index, m)
             push!( futures, t )
         end
