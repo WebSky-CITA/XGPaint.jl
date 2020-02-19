@@ -9,18 +9,9 @@ model = CIB_Planck2013{Float32}(nside=8192)
 
 ## Write one chunk to disk
 
-function thread_write(filename, chunk_index, m)
-    # read from disk if not the first chunk
-    if chunk_index > 1
-        m0 = Healpix.readMapFromFITS(filename, 1, Float32)
-        m.pixels = m.pixels + m0.pixels
-    end
-    Healpix.saveToFITS(m, "!$(filename)", typechar="E")
-end
-
 function write_chunk(
     output_dir, chunk_index, model, cosmo,
-    halo_pos, halo_mass, freqs; simultaneous_writes=2)
+    halo_pos, halo_mass, freqs)
     # Allocate some arrays and fill them up for centrals and satellites
     @time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
@@ -29,27 +20,20 @@ function write_chunk(
     fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
 
     # loop over all frequencies and paint sources to appropriate freq map
-    tasks = []  # we spawn threads for disk write
-
-    println("Setting up writes.")
     @time begin
         for freq in freqs
-
-            # write to disk in batches of simultaneous_writes
-            if length(tasks) >= simultaneous_writes
-                for f in tasks
-                    wait(f)
-                end
-                tasks = []
-            end
 
             m = Map{Float64,RingOrder}(model.nside)
             XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
                 fluxes_cen, fluxes_sat)
 
             filename = "$(output_dir)/cib_$(freq).fits"
-            t = Threads.@spawn thread_write(filename, chunk_index, m)
-            push!( tasks, t )
+
+            if chunk_index > 1
+                m0 = Healpix.readMapFromFITS(filename, 1, Float32)
+                m.pixels = m.pixels + m0.pixels
+            end
+            Healpix.saveToFITS(m, "!$(filename)", typechar="E")
         end
     end
 
@@ -87,6 +71,6 @@ freqs = [
 
 scratch_dir = ENV["DW_JOB_STRIPED"]
 println("SCRATCH: ", scratch_dir)
-run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
+run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs)
 
 ##
