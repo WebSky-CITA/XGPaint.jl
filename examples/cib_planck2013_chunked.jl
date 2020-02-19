@@ -33,12 +33,9 @@ function write_chunk(
                 m0 = Healpix.readMapFromFITS(filename, 1, Float32)
                 m.pixels = m.pixels + m0.pixels
             end
-            Healpix.saveToFITS(m, "!$(filename)", typechar="E")
+            Healpix.saveToFITS(m, "!$(filename)", typechar="D")
         end
     end
-
-    println("Waiting for disk.")
-    # wait for all the writes to be done
 
 end
 
