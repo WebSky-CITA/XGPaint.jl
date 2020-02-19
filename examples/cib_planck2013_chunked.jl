@@ -3,8 +3,7 @@ using Healpix
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 halo_pos, halo_mass = read_halo_catalog_hdf5(
-    # "/media/science/xgpaint_data/websky_halos-light.hdf5")
-    "/global/cscratch1/sd/xzackli/websky_halos-light.hdf5")
+    ENV["SCRATCH"] * "/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.7f0, OmegaM=0.25f0)
 model = CIB_Planck2013{Float32}(nside=8192)
 
@@ -14,15 +13,14 @@ function thread_write(filename, chunk_index, m)
     # read from disk if not the first chunk
     if chunk_index > 1
         m0 = Healpix.readMapFromFITS(filename, 1, Float32)
-        print(typeof(m0))
-        m.pixels = m.pixels + m0
+        m.pixels = m.pixels + m0.pixels
     end
-    Healpix.saveToFITS(m, "!$(filename)")
+    Healpix.saveToFITS(m, "!$(filename)", typechar="E")
 end
 
 function write_chunk(
     output_dir, chunk_index, model, cosmo,
-    halo_pos, halo_mass, freqs; simultaneous_writes=6)
+    halo_pos, halo_mass, freqs; simultaneous_writes=2)
     # Allocate some arrays and fill them up for centrals and satellites
     @time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
 
@@ -31,18 +29,18 @@ function write_chunk(
     fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
 
     # loop over all frequencies and paint sources to appropriate freq map
-    futures = []  # we spawn threads for disk write
+    tasks = []  # we spawn threads for disk write
 
     println("Setting up writes.")
     @time begin
         for freq in freqs
 
             # write to disk in batches of simultaneous_writes
-            if length(futures) >= simultaneous_writes
-                for f in futures
+            if length(tasks) >= simultaneous_writes
+                for f in tasks
                     wait(f)
                 end
-                futures = []
+                tasks = []
             end
 
             m = Map{Float64,RingOrder}(model.nside)
@@ -51,7 +49,7 @@ function write_chunk(
 
             filename = "$(output_dir)/cib_$(freq).fits"
             t = Threads.@spawn thread_write(filename, chunk_index, m)
-            push!( futures, t )
+            push!( tasks, t )
         end
     end
 
@@ -87,7 +85,6 @@ freqs = [
 ]
 # freqs = ["143"]
 
-# scratch_dir = "/media/science/websky/cib/"
 scratch_dir = ENV["SCRATCH"]
 println("SCRATCH: ", scratch_dir)
 run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
