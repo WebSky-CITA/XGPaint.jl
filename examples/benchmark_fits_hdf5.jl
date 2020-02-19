@@ -2,6 +2,7 @@ m = Map{Float64,RingOrder}(model.nside)
 
 using BenchmarkTools
 using HDF5
+using JLD2
 
 @btime Healpix.saveToFITS(m, "!test.fits", typechar="E")
 
@@ -17,4 +18,19 @@ end
 @btime testHDF5()
 
 
+##
+function testJLD2()
+    A = m.pixels
+    @save "test.jld2" A
+end
+
+
+##
+@time testJLD2()
+##
+@time testHDF5()
+##
+@time Healpix.saveToFITS(m, "!test.fits", typechar="E")
+##
+@time Healpix.saveToFITS(m, "!test.fits", typechar="D")
 ##
