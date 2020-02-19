@@ -85,7 +85,7 @@ freqs = [
 ]
 # freqs = ["143"]
 
-scratch_dir = ENV["SCRATCH"]
+scratch_dir = ENV["DW_JOB_STRIPED"]
 println("SCRATCH: ", scratch_dir)
 run_all_chunks(scratch_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 
