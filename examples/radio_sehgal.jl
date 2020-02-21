@@ -3,7 +3,7 @@ using Healpix
 using HDF5
 
 halo_pos, halo_mass = read_halo_catalog_hdf5(
-    "/media/science/xgpaint_data/websky_halos-light.hdf5")
+    ENV["SCRATCH"] * "/websky_halos-light.hdf5")
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 cosmo = get_cosmology(h = 0.7f0, OmegaM = 0.25f0)
@@ -27,19 +27,27 @@ freqs = [
     ]
 
 m = Map{Float64,RingOrder}(radio_model.nside)
-for freq in freqs
-    @time begin
-        flux_I, flux_II, redshift_I, redshift_II = paint!(
-            m, parse(Float32, freq) * 1.0f9, radio_model, sources,
-            return_fluxes=true)
 
-        h5open("/media/science/websky/radio/catalog_$(freq).h5", "w") do file
-            write(file, "flux_I", flux_I)
-            write(file, "flux_II", flux_II)
-            write(file, "redshift_I", redshift_I)
-            write(file, "redshift_II", redshift_II)
+function generate_maps()
+    scratch_dir = ENV["SCRATCH"]
+    println("SCRATCH: ", scratch_dir)
+
+    for freq in freqs
+        @time begin
+            flux_I, flux_II, redshift_I, redshift_II = paint!(
+                m, parse(Float32, freq) * 1.0f9, radio_model, sources,
+                return_fluxes=true)
+
+            h5open("/media/science/websky/radio/catalog_$(freq).h5", "w") do file
+                write(file, "flux_I", flux_I)
+                write(file, "flux_II", flux_II)
+                write(file, "redshift_I", redshift_I)
+                write(file, "redshift_II", redshift_II)
+            end
+            Healpix.saveToFITS(m, "!$(scratch_dir)/radio/radio$(freq).fits")
         end
-        Healpix.saveToFITS(m, "!/media/science/websky/radio/radio$(freq).fits")
     end
 end
+
+generate_maps()
 ##
