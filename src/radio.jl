@@ -271,9 +271,12 @@ function paint!(result_map::Map{T_map,RingOrder},
 
     flux_I = Array{T, 1}(undef, total_n_sat_I)
     flux_II = Array{T, 1}(undef, total_n_sat_II)
-
     redshift_I = Array{T, 1}(undef, total_n_sat_I)
     redshift_II = Array{T, 1}(undef, total_n_sat_II)
+    θ_I = Array{T, 1}(undef, total_n_sat_I)
+    θ_II = Array{T, 1}(undef, total_n_sat_II)
+    ϕ_I = Array{T, 1}(undef, total_n_sat_I)
+    ϕ_II = Array{T, 1}(undef, total_n_sat_II)
 
 
     Threads.@threads for i_halo in 1:N_halo
@@ -293,6 +296,8 @@ function paint!(result_map::Map{T_map,RingOrder},
             flux_I[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
                 sources.redshift[i_halo]) * flux_to_Jy
             redshift_I[i_sat] = sources.redshift[i_halo]
+            θ_I[i_sat] = sources.θ[i_halo]
+            ϕ_I[i_sat] = sources.ϕ[i_halo]
             pixel_array[hp_ind] += flux_I[i_sat]
         end
 
@@ -309,6 +314,8 @@ function paint!(result_map::Map{T_map,RingOrder},
             flux_II[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
                 sources.redshift[i_halo]) * flux_to_Jy
             redshift_II[i_sat] = sources.redshift[i_halo]
+            θ_II[i_sat] = sources.θ[i_halo]
+            ϕ_II[i_sat] = sources.ϕ[i_halo]
             pixel_array[hp_ind] += flux_II[i_sat]
         end
     end
@@ -319,7 +326,7 @@ function paint!(result_map::Map{T_map,RingOrder},
     
     # maps are in Jansky per steradian, fluxes are in Jansky
     if return_fluxes
-        return flux_I, flux_II, redshift_I, redshift_II
+        return flux_I, redshift_I, θ_I, ϕ_I, flux_II, redshift_II, θ_II, ϕ_II
     end
 
 end

@@ -1,6 +1,7 @@
 using XGPaint
 using Healpix
 using HDF5
+import ThreadsX
 
 @time halo_pos, halo_mass = read_halo_catalog_hdf5(
     joinpath(ENV["SCRATCH"],"websky_halos-light.hdf5"));
@@ -28,17 +29,21 @@ function generate_maps()
 
     for freq in freqs
         @time begin
-            flux_I, flux_II, redshift_I, redshift_II = paint!(
+            flux_I, redshift_I, θ_I, ϕ_I, flux_II, redshift_II, θ_II, ϕ_II = paint!(
                 m, parse(Float32, freq) * 1.0f9, radio_model, sources,
                 return_fluxes=true)
 
+            flux = vcat(flux_I, flux_II)
+            redshift = vcat(redshift_I, redshift_II)
+            theta = vcat(θ_I, θ_II)
+            phi = vcat(ϕ_I, ϕ_II)
+            perm = sortperm(flux, rev=true, alg=ThreadsX.MergeSort)
+
             h5open(joinpath(scratch_dir, "catalog_$(freq).h5"), "w") do file
-                write(file, "flux_I", flux_I)
-                write(file, "flux_II", flux_II)
-                write(file, "redshift_I", redshift_I)
-                write(file, "redshift_II", redshift_II)
-                write(file, "theta", sources.θ)
-                write(file, "phi", sources.ϕ)
+                write(file, "flux", flux[perm])
+                write(file, "redshift", redshift[perm])
+                write(file, "theta", theta[perm])
+                write(file, "phi", phi[perm])
             end
             map_path = joinpath(scratch_dir, "radio$(freq).fits")
             Healpix.saveToFITS(m, "!$(map_path)")
