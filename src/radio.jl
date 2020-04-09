@@ -204,6 +204,7 @@ function generate_sources(
 
     verbose && println("Allocating for $(N_halos) halos.")
     dist, redshift, hp_ind = get_basic_halo_properties(halo_pos, model, cosmo, res)
+    θ, ϕ = get_angles(halo_pos)
 
     verbose && println("Populating HOD.")
     nsources_I, nsources_II = hod_sehgal(
@@ -241,14 +242,15 @@ function generate_sources(
     cosθ_I = rand_buffer_I
     cosθ_II = rand_buffer_II
 
-    return (redshift=redshift, halo_mass=halo_mass, halo_pos=halo_pos,
-        halo_hp_ind=hp_ind,
+    return (
+        redshift=redshift, halo_mass=halo_mass, halo_pos=halo_pos,
+        halo_hp_ind=hp_ind, θ=θ, ϕ=ϕ,
         dist=dist, nsources_I=nsources_I, nsources_II=nsources_II,
         a_coeff_I=a_coeff_I, a_coeff_II=a_coeff_II,
         L_I_151=L_I_151, L_II_151=L_II_151,
         cosθ_I=cosθ_I, cosθ_II=cosθ_II,
         total_n_I=total_n_I, total_n_II=total_n_II
-        )
+    )
 end
 
 
