@@ -12,10 +12,10 @@ This function duplicates the cosmology() function in Cosmology.jl, but with
 typing. The type of the cosmology will the type of `h` and `OmegaM`. This is
 primarily for keeping the code entirely in Float32 or Float64.
 """
-function get_cosmology(;h::T=0.69,
+function get_cosmology(::Type{T}; h=0.69,
                    Neff=3.04,
                    OmegaK=0.0,
-                   OmegaM::T=0.29,
+                   OmegaM=0.29,
                    OmegaR=nothing,
                    Tcmb=2.7255,
                    w0=-1,
@@ -41,7 +41,9 @@ function get_cosmology(;h::T=0.69,
         return Cosmology.FlatLCDM{T}(h, OmegaL, OmegaM, OmegaR)
     end
 end
-
+get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255, 
+    w0=-1, wa=0) where T = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
+        OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
 """
 Construct a fast r2z linear interpolator.
