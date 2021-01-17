@@ -108,8 +108,6 @@ function get_angles(halo_pos::Array{T,2}) where T
     return θ, ϕ
 end
 
-
-
 """
 Utility function which prepends some zeros to an array. It makes a copy instead
 of modifying the input.
@@ -118,6 +116,25 @@ function ellpad(arr::Array{T,N}; nzeros=1) where {T,N}
     result = arr[:]
     pushfirst!(result, zeros(T, nzeros)...)
     return result
+end
+
+
+function catalog2map!(m::Map{T,RingOrder}, flux, theta, phi) where T
+    res = m.resolution
+    pixel_array = m.pixels
+    N_halo = length(flux)
+
+    # try to prevent thread issues by sorting by theta
+    perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
+    Threads.@threads for i_perm in 1:N_halo
+        i_halo = perm[i_perm]
+        hp_ind = Healpix.ang2pixRing(res, theta[i_halo], phi[i_halo])
+        pixel_array[hp_ind] += flux[i_halo]
+    end
+
+    # divide by healpix pixel size
+    per_pixel_steradian = 1 / nside2pixarea(res.nside)
+    pixel_array .*= per_pixel_steradian
 end
 
 export read_halo_catalog_hdf5, chunk, generate_subhalo_offsets, trandjump

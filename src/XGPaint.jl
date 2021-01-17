@@ -9,6 +9,8 @@ using Unitful
 import UnitfulAstro
 using Random
 using Healpix
+
+import ThreadsX
 import Distributions
 
 include("./pixell.jl")
