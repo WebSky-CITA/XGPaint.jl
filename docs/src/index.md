@@ -1,4 +1,8 @@
-# XGPaint.jl
+```@meta
+CurrentModule = XGPaint
+```
+
+# XGPaint
 
 ```@index
 ```
