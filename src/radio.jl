@@ -81,30 +81,23 @@ end
 Populate halos with radio sources according to the HOD in Sehgal et al. 2009.
 
 The optional rng parameter provides an array of random number generators, one
-for each thread. If none are specified, this function will call
-`XGPaint.trandjump()` to create such an array, which takes about 1 second.
+for each thread.
 """
 function hod_sehgal(
-        halo_mass, redshift, model::Radio_Sehgal2009{T};
-        rng_array::Array{<:Random.AbstractRNG,1}=nothing) where T
+        halo_mass, redshift, model::Radio_Sehgal2009{T}) where T
 
     N_halos = size(halo_mass,1)
     nsources_I = Array{Int32}(undef, N_halos)
     nsources_II = Array{Int32}(undef, N_halos)
 
-    if rng_array == nothing
-        rng_array = trandjump()
-    end
     # compute poisson mean, then draw it
     Threads.@threads for i = 1:N_halos
         I_HON = model.I_N_0 * (halo_mass[i] / model.I_M_0)^model.I_α
         I_HON *= XGPaint.FR_I_redshift_evolution(redshift[i], model)
-        nsources_I[i] = rand(rng_array[Threads.threadid()],
-            Distributions.Poisson(Float64.(I_HON)))
+        nsources_I[i] = rand(Distributions.Poisson(Float64.(I_HON)))
         II_HON = model.II_N_0 * (halo_mass[i] / model.II_M_0)^model.II_α
         II_HON *= XGPaint.FR_II_redshift_evolution(redshift[i], model)
-        nsources_II[i] = rand(rng_array[Threads.threadid()],
-            Distributions.Poisson(Float64.(II_HON)))
+        nsources_II[i] = rand(Distributions.Poisson(Float64.(II_HON)))
     end
 
     return nsources_I, nsources_II
@@ -161,9 +154,9 @@ function get_core_lobe_lum(L_beam::T, ν_Hz, R_int, γ, a_0, a_1, a_2, a_3, cos�
     L_l_int = L_int / (1 + R_int)
     L_c_beam = R_obs * L_l_int
 
-    # now put in the frequency dependence. a_0 = 0.0 
+    # now put in the frequency dependence. a_0 = 0.0
     lν = log10(ν_Hz / T(1e9) ) # normed to 151 MHz
-    f_core =  T(10) ^ ( a_1 * lν + a_2 * lν^2 + a_3 * lν^3 ) # a_0 + 
+    f_core =  T(10) ^ ( a_1 * lν + a_2 * lν^2 + a_3 * lν^3 ) # a_0 +
 
     lν_norm = T(log10(151e6 / 1e9 )) # normed to 151 MHz
     norm_core =  10 ^ ( a_1 * lν_norm + a_2 * lν_norm^2 + a_3 * lν_norm^3 )
@@ -194,7 +187,6 @@ function generate_sources(
         verbose=true) where T
 
     res = Resolution(model.nside)
-    rng_array = trandjump()
 
     verbose && println("Culling halos below mass $(model.min_mass).")
     mass_cut = halo_mass .> model.min_mass
@@ -208,7 +200,7 @@ function generate_sources(
 
     verbose && println("Populating HOD.")
     nsources_I, nsources_II = hod_sehgal(
-        halo_mass, redshift, model, rng_array=rng_array)
+        halo_mass, redshift, model)
 
      # total number of sources
     total_n_I, total_n_II = sum(nsources_I), sum(nsources_II)
@@ -224,8 +216,8 @@ function generate_sources(
     # generate random numbers for LF
     rand_buffer_I = Array{T, 1}(undef, total_n_I)
     rand_buffer_II = Array{T, 1}(undef, total_n_II)
-    threaded_rand!(rng_array, rand_buffer_I)
-    threaded_rand!(rng_array, rand_buffer_II)
+    threaded_rand!(rand_buffer_I)
+    threaded_rand!(rand_buffer_II)
 
     # draw luminosities for both populations
     L_I_151 = Array{T, 1}(undef, total_n_I)
@@ -237,8 +229,8 @@ function generate_sources(
 
     verbose && println("Drawing for impact parameter.")
     # reuse rand buffers for the impact parameters
-    threaded_rand!(rng_array, rand_buffer_I)
-    threaded_rand!(rng_array, rand_buffer_II)
+    threaded_rand!(rand_buffer_I)
+    threaded_rand!(rand_buffer_II)
     cosθ_I = rand_buffer_I
     cosθ_II = rand_buffer_II
 
@@ -257,10 +249,10 @@ end
 function paint!(result_map::Map{T_map,RingOrder},
                 nu_obs::T, model::AbstractRadioModel, sources;
                 return_fluxes=false) where {T_map, T}
-    
+
     pixel_array = result_map.pixels
     fill!(pixel_array, zero(T))  # prepare the frequency map
-    
+
     flux_to_Jy = ustrip(u"Jy", 1u"W/Hz*Mpc^-2")
 
     source_offset_I = generate_subhalo_offsets(sources.nsources_I)
@@ -319,11 +311,11 @@ function paint!(result_map::Map{T_map,RingOrder},
             pixel_array[hp_ind] += flux_II[i_sat]
         end
     end
-    
+
     # divide by healpix pixel size
     per_pixel_steradian = 1 / nside2pixarea(result_map.resolution.nside)
     pixel_array .*= per_pixel_steradian
-    
+
     # maps are in Jansky per steradian, fluxes are in Jansky
     if return_fluxes
         return flux_I, redshift_I, θ_I, ϕ_I, flux_II, redshift_II, θ_II, ϕ_II
