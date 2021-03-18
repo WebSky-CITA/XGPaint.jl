@@ -18,4 +18,5 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/xzackli/XGPaint.jl",
+    devbranch = "main"
 )
