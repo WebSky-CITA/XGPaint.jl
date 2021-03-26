@@ -5,8 +5,8 @@ using Interpolations
 using QuadGK
 using Roots
 using Cosmology
-using Unitful
-import UnitfulAstro
+using Unitful, UnitfulAstro
+using Parameters
 using Random
 using Healpix
 

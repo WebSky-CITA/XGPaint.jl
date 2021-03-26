@@ -1,7 +1,0 @@
-
-```@index
-```
-
-```@autodocs
-Modules = [XGPaint]
-```

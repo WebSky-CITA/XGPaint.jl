@@ -62,3 +62,7 @@ for freq in ["100", "143", "217" "353", "545"]
     saveToFITS(m, "!/global/cscratch1/sd/xzackli/cib/cib$(freq).fits")
 end
 ```
+
+```@docs
+CIB_Planck2013
+``` 

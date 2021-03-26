@@ -11,34 +11,34 @@ Define CIB model parameters. Defaults are from Viero et al. 2013.
 model = CIB_Planck2013{Float32}(shang_Mpeak=10^12.4)
 ```
 """
-Base.@kwdef struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T}
+@with_kw struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T} @deftype T
     nside::Int64    = 4096
     hod::String     = "shang"
-    Inu_norm::T     = 0.3180384
-    min_redshift::T = 0.0
-    max_redshift::T = 5.0
-    min_mass::T     = 1e12
-    box_size::T     = 40000
+    Inu_norm     = 0.3180384
+    min_redshift = 0.0
+    max_redshift = 5.0
+    min_mass     = 1e12
+    box_size     = 40000
 
     # shang HOD
-    shang_zplat::T  = 2.0
-    shang_Td::T     = 20.7
-    shang_beta::T   = 1.6
-    shang_eta::T    = 2.4
-    shang_alpha::T  = 0.2
-    shang_Mpeak::T  = 10^12.3
-    shang_sigmaM::T = 0.3
-    shang_Msmin::T  = 1e11
-    shang_Mmin::T   = 1e10
-    shang_I0::T     = 46
+    shang_zplat  = 2.0
+    shang_Td     = 20.7
+    shang_beta   = 1.6
+    shang_eta    = 2.4
+    shang_alpha  = 0.2
+    shang_Mpeak  = 10^12.3
+    shang_sigmaM = 0.3
+    shang_Msmin  = 1e11
+    shang_Mmin   = 1e10
+    shang_I0     = 46
 
     # jiang
-    jiang_gamma_1::T    = 0.13
-    jiang_alpha_1::T    = -0.83
-    jiang_gamma_2::T    = 1.33
-    jiang_alpha_2::T    = -0.02
-    jiang_beta_2::T     = 5.67
-    jiang_zeta::T       = 1.19
+    jiang_gamma_1    = 0.13
+    jiang_alpha_1    = -0.83
+    jiang_gamma_2    = 1.33
+    jiang_alpha_2    = -0.02
+    jiang_beta_2     = 5.67
+    jiang_zeta       = 1.19
 end
 
 
