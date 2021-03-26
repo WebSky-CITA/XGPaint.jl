@@ -124,5 +124,3 @@ function catalog2map!(m::Map{T,RingOrder}, flux, theta, phi) where T
     per_pixel_steradian = 1 / nside2pixarea(res.nside)
     pixel_array .*= per_pixel_steradian
 end
-
-export read_halo_catalog_hdf5, chunk, generate_subhalo_offsets

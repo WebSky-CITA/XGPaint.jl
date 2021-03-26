@@ -192,8 +192,3 @@ function flux2map!(result_map::Map{T_map,RingOrder}, fluxes, theta, phi) where {
     end
 
 end
-
-
-
-
-export get_cosmology, m2r, mz2c, random_phi, random_theta, l2f

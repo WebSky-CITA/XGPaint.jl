@@ -327,6 +327,3 @@ function paint!(result_map::Map{T_map,RingOrder},
     end
 
 end
-
-
-export Radio_Sehgal2009, paint!

@@ -335,14 +335,3 @@ function paint!(result_map::Map{T,RingOrder},
 
     return fluxes_cen, fluxes_sat
 end
-
-export CIB_Planck2013,
-    paint!,
-    generate_sources,
-    get_interpolators,
-    build_c_lnm2r_interpolator,
-    build_muofn_interpolator,
-    build_r2z_interpolator,
-    build_shang_interpolator,
-    build_sigma_sat_ln_interpolator,
-    sigma_cen
