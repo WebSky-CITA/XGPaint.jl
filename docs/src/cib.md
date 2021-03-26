@@ -17,7 +17,7 @@ halo_pos, halo_mass = read_halo_catalog_hdf5(
     "$(websky_directory)/websky_halos-light.hdf5")
 ```
 
-Now one specifes the background cosmology and the source model [`CIB_Planck2013`](@ref).
+Now one specifes the background cosmology with [`get_cosmology`](@ref) and the source model [`CIB_Planck2013`](@ref).
 
 ```julia
 # configuration objects

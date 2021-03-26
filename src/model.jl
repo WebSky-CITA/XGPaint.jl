@@ -10,8 +10,7 @@ abstract type AbstractForegroundModel end
         OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255, w0=-1, wa=0)
 
 Construct a background cosmology. This function duplicates the cosmology() function
-in Cosmology.jl, but with typing. This is primarily for keeping the code entirely
-in Float32 or Float64.
+in Cosmology.jl, but with the numeric type specified.
 
 # Arguments:
 - `::Type{T}`: numerical type to use for calculations
