@@ -14,7 +14,7 @@ model = CIBModel{Float32}(a_0=0.4)
 Base.@kwdef struct Radio_Sehgal2009{T<:Real} <: AbstractRadioModel{T}
     nside::Int64    = 4096
     min_redshift::T = 0.0
-    max_redshift::T = 4.5
+    max_redshift::T = 5.0
     min_mass::T     = 1e13
     box_size::T     = 40000
 

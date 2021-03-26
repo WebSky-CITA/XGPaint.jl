@@ -16,7 +16,7 @@ Base.@kwdef struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T}
     hod::String     = "shang"
     Inu_norm::T     = 0.3180384
     min_redshift::T = 0.0
-    max_redshift::T = 4.5
+    max_redshift::T = 5.0
     min_mass::T     = 1e12
     box_size::T     = 40000
 

@@ -49,7 +49,7 @@ get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb
 Construct a fast r2z linear interpolator.
 """
 function build_r2z_interpolator(min_z::T, max_z::T,
-    cosmo::Cosmology.AbstractCosmology; n_bins=1000) where T
+    cosmo::Cosmology.AbstractCosmology; n_bins=2000) where T
 
     zrange = LinRange(min_z, max_z, n_bins)
     rrange = zero(zrange)
