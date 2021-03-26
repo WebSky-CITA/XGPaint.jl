@@ -139,17 +139,16 @@ Construct the necessary interpolator set.
 function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
     min_halo_mass::T, max_halo_mass::T) where T
     return (
-        r2z = XGPaint.build_r2z_interpolator(
+        r2z = build_r2z_interpolator(
             model.min_redshift, model.max_redshift, cosmo),
-        hod_shang = XGPaint.build_shang_interpolator(
+        hod_shang = build_shang_interpolator(
             log(min_halo_mass), log(max_halo_mass), model),
-        c_lnm2r = XGPaint.build_c_lnm2r_interpolator(),
-        sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(
+        c_lnm2r = build_c_lnm2r_interpolator(),
+        sigma_sat = build_sigma_sat_ln_interpolator(
             log(max_halo_mass), model),
-        muofn = XGPaint.build_muofn_interpolator(model)
+        muofn = build_muofn_interpolator(model)
     )
 end
-
 
 
 """
@@ -172,8 +171,7 @@ function process_centrals!(
 
         # compute HOD
         n_sat_bar[i] = interp.hod_shang(log(halo_mass[i]))
-        n_sat_bar_result[i] = rand(r[Threads.threadid()],
-            Distributions.Poisson(Float64.(n_sat_bar[i])))
+        n_sat_bar_result[i] = rand(Distributions.Poisson(Float64.(n_sat_bar[i])))
 
         # get central luminosity
         lum_cen[i] = sigma_cen(halo_mass[i], model) * shang_z_evo(

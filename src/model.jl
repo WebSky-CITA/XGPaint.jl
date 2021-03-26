@@ -57,7 +57,7 @@ function build_r2z_interpolator(min_z::T, max_z::T,
         rrange[i] = ustrip(T, u"Mpc",
             Cosmology.comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
     end
-    r2z = LinearInterpolation(rrange, zrange);
+    r2z = LinearInterpolation(rrange, zrange; extrapolation_bc=Line());
     return r2z
 end
 
@@ -149,7 +149,7 @@ function flux2map!(result_map::Map{T_map,RingOrder}, fluxes, theta, phi) where {
         for source_index in 1:sources.nsources_I[i_halo]
             # index of satellite in satellite arrays
             i_sat = source_offset_I[i_halo] + source_index
-            L_c, L_l = XGPaint.get_core_lobe_lum(
+            L_c, L_l = get_core_lobe_lum(
                 sources.L_I_151[i_sat], nu, model.I_R_int, model.I_γ,
                 model.a_0,
                 sources.a_coeff_I[1,i_sat], sources.a_coeff_I[2,i_sat],
@@ -167,7 +167,7 @@ function flux2map!(result_map::Map{T_map,RingOrder}, fluxes, theta, phi) where {
         for source_index in 1:sources.nsources_II[i_halo]
             # index of satellite in satellite arrays
             i_sat = source_offset_II[i_halo] + source_index
-            L_c, L_l = XGPaint.get_core_lobe_lum(
+            L_c, L_l = get_core_lobe_lum(
                 sources.L_II_151[i_sat], nu, model.II_R_int, model.II_γ,
                 model.a_0,
                 sources.a_coeff_II[1,i_sat], sources.a_coeff_II[2,i_sat],

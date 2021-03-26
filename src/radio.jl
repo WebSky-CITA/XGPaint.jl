@@ -93,10 +93,10 @@ function hod_sehgal(
     # compute poisson mean, then draw it
     Threads.@threads for i = 1:N_halos
         I_HON = model.I_N_0 * (halo_mass[i] / model.I_M_0)^model.I_α
-        I_HON *= XGPaint.FR_I_redshift_evolution(redshift[i], model)
+        I_HON *= FR_I_redshift_evolution(redshift[i], model)
         nsources_I[i] = rand(Distributions.Poisson(Float64.(I_HON)))
         II_HON = model.II_N_0 * (halo_mass[i] / model.II_M_0)^model.II_α
-        II_HON *= XGPaint.FR_II_redshift_evolution(redshift[i], model)
+        II_HON *= FR_II_redshift_evolution(redshift[i], model)
         nsources_II[i] = rand(Distributions.Poisson(Float64.(II_HON)))
     end
 
@@ -279,7 +279,7 @@ function paint!(result_map::Map{T_map,RingOrder},
         for source_index in 1:sources.nsources_I[i_halo]
             # index of satellite in satellite arrays
             i_sat = source_offset_I[i_halo] + source_index
-            L_c, L_l = XGPaint.get_core_lobe_lum(
+            L_c, L_l = get_core_lobe_lum(
                 sources.L_I_151[i_sat], nu, model.I_R_int, model.I_γ,
                 model.a_0,
                 sources.a_coeff_I[1,i_sat], sources.a_coeff_I[2,i_sat],
@@ -297,7 +297,7 @@ function paint!(result_map::Map{T_map,RingOrder},
         for source_index in 1:sources.nsources_II[i_halo]
             # index of satellite in satellite arrays
             i_sat = source_offset_II[i_halo] + source_index
-            L_c, L_l = XGPaint.get_core_lobe_lum(
+            L_c, L_l = get_core_lobe_lum(
                 sources.L_II_151[i_sat], nu, model.II_R_int, model.II_γ,
                 model.a_0,
                 sources.a_coeff_II[1,i_sat], sources.a_coeff_II[2,i_sat],
