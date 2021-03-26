@@ -63,6 +63,66 @@ for freq in ["100", "143", "217" "353", "545"]
 end
 ```
 
+## Custom Models
+
+You can make changes while reusing the XGPaint infrastructure by using Julia's multiple dispatch.
+Create a custom type that inherits from `AbstractCIBModel`.
+You must `import` the function you want to replace,
+and then write your own version of the function which dispatches on your custom type.
+
+```julia
+ # import AbstractCIBModel and the functions you want to replace
+import XGPaint: AbstractCIBModel, shang_z_evo 
+using Parameters, Cosmology
+
+# write your own type that is a subtype of AbstractCIBModel
+@with_kw struct CustomCIB{T<:Real} <: AbstractCIBModel{T} @deftype T
+    nside::Int64    = 4096
+    hod::String     = "shang"
+    Inu_norm     = 0.3180384
+    min_redshift = 0.0
+    max_redshift = 5.0
+    min_mass     = 1e12
+    box_size     = 40000
+
+    # shang HOD
+    shang_zplat  = 2.0
+    shang_Td     = 20.7
+    shang_beta   = 1.6
+    shang_eta    = 2.4
+    shang_alpha  = 0.2
+    shang_Mpeak  = 10^12.3
+    shang_sigmaM = 0.3
+    shang_Msmin  = 1e11
+    shang_Mmin   = 1e10
+    shang_I0     = 46
+
+    # jiang
+    jiang_gamma_1    = 0.13
+    jiang_alpha_1    = -0.83
+    jiang_gamma_2    = 1.33
+    jiang_alpha_2    = -0.02
+    jiang_beta_2     = 5.67
+    jiang_zeta       = 1.19
+end
+
+# dispatch on custom type CustomCIB. this particular change sets L=0
+function shang_z_evo(z::T, model::CustomCIB) where T
+    return zero(T)
+end
+
+# make a cosmology and our custom source model
+cosmo = get_cosmology(Float32; h=0.7, OmegaM=0.3)
+custom_model = CustomCIB{Float32}()
+
+# for this test, do it only on a subset of the halos
+sources = generate_sources(custom_model, cosmo, halo_pos[:,1:10], halo_mass[1:10])
+
+print(sources.lum_cen)
+```
+
+This particular change zeros out the luminosities, and indeed you should see the result is an array of zeroes.
+
 ## API
 ```@docs
 CIB_Planck2013
