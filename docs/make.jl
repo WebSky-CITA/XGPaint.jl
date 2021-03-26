@@ -1,5 +1,7 @@
 using XGPaint
 using Documenter
+using Healpix
+using Cosmology
 
 makedocs(;
     modules=[XGPaint],
@@ -14,7 +16,7 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "CIB" => "cib.md",
-        # "Index" => "api.md",
+        "Index" => "api.md",
     ],
 )
 

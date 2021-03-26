@@ -3,9 +3,34 @@
 abstract type AbstractCIBModel{T<:Real} <: AbstractForegroundModel end
 
 """
-    CIB_Planck2013{T}(model parameters...)
+    CIB_Planck2013{T}(; kwargs...)
 
-Define CIB model parameters. Defaults are from Viero et al. 2013.
+Define CIB model parameters. Defaults are from Viero et al. 2013. All numbers
+not typed are converted to type T. This model has the following parameters and default values:
+
+* `nside::Int64 = 4096`
+* `hod::String = "shang"`
+* `Inu_norm = 0.3180384`
+* `min_redshift = 0.0`
+* `max_redshift = 5.0`
+* `min_mass = 1e12`
+* `box_size = 40000`
+* `shang_zplat = 2.0`
+* `shang_Td = 20.7`
+* `shang_betan = 1.6`
+* `shang_eta = 2.4`
+* `shang_alpha = 0.2`
+* `shang_Mpeak = 10^12.3`
+* `shang_sigmaM = 0.3`
+* `shang_Msmin = 1e11`
+* `shang_Mmin = 1e10`
+* `shang_I0 = 46`
+* `jiang_gamma_1 = 0.13`
+* `jiang_alpha_1 = -0.83`
+* `jiang_gamma_2 = 1.33`
+* `jiang_alpha_2 = -0.02`
+* `jiang_beta_2 = 5.67`
+* `jiang_zeta = 1.19`
 
 ```@example
 model = CIB_Planck2013{Float32}(shang_Mpeak=10^12.4)
@@ -151,9 +176,8 @@ function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T}
 end
 
 
-"""
-Fill up arrays with information related to CIB central sources.
-"""
+
+# Fill up arrays with information related to CIB central sources.
 function process_centrals!(
     model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution;
     interp, hp_ind_cen, dist_cen, redshift_cen,
@@ -180,9 +204,7 @@ function process_centrals!(
 end
 
 
-"""
-Fill up arrays with information related to CIB satellites.
-"""
+# Fill up arrays with information related to CIB satellites.
 function process_sats!(
         model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         Healpix_res::Resolution;
@@ -222,13 +244,25 @@ function process_sats!(
     end
 end
 
+
 """
-Produce a source catalog from a model and halo catalog.
+    generate_sources(model, cosmo, halo_pos_inp, halo_mass_inp; verbose=true)
+
+Produce a source catalog from a model and halo catalog. This converts the
+halo arrays into the type specified by `model`.
+
+# Arguments:
+- `model::AbstractCIBModel{T}`: source model parameters
+- `cosmo::Cosmology.FlatLCDM{T}`: background cosmology
+- `Healpix_res::Resolution`: Healpix map resolution
+- `halo_pos_inp::AbstractArray{TH,2}`: halo positions with dims (3, nhalos)
+- `halo_mass_inp::AbstractArray{TH,1}`: halo masses
+
+# Keywords
+- `verbose::Bool=true`: print out progress details
 """
 function generate_sources(
-        # model parameters
         model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
-        # halo arrays
         halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
         verbose=true) where {T, TH}
 
@@ -285,10 +319,21 @@ end
 
 
 """
-Paint a source catalog onto a map, recording the fluxes.
+    paint!(result_map, nu_obs, model, sources, fluxes_cen, fluxes_sat)
+
+Paint a source catalog onto a map, recording the fluxes in
+`fluxes_cen` and `fluxes_sat`.
+
+# Arguments:
+- `result_map::Map{T_map, RingOrder}`: Healpix map to paint
+- `nu_obs`: frequency in Hz
+- `model::AbstractCIBModel{T}`: source model parameters
+- `sources`: NamedTuple containing source information from generate_sources
+- `fluxes_cen::AbstractArray`: buffer for writing fluxes of centrals
+- `fluxes_sat::AbstractArray`: buffer for writing fluxes of satellites
 """
-function paint!(result_map::Map{T_map,RingOrder},
-        nu_obs::T, model::AbstractCIBModel, sources,
+function paint!(result_map::Map{T_map, RingOrder},
+        nu_obs, model::AbstractCIBModel{T}, sources,
         fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
 
     pixel_array = result_map.pixels

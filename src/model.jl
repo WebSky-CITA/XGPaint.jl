@@ -6,11 +6,31 @@ All foreground models inherit from this type.
 abstract type AbstractForegroundModel end
 
 """
-Construct a background cosmology.
+    get_cosmology(::Type{T}; h=0.69, Neff=3.04, OmegaK=0.0,
+        OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255, w0=-1, wa=0)
 
-This function duplicates the cosmology() function in Cosmology.jl, but with
-typing. The type of the cosmology will the type of `h` and `OmegaM`. This is
-primarily for keeping the code entirely in Float32 or Float64.
+Construct a background cosmology. This function duplicates the cosmology() function
+in Cosmology.jl, but with typing. This is primarily for keeping the code entirely
+in Float32 or Float64.
+
+# Arguments:
+- `::Type{T}`: numerical type to use for calculations
+
+# Keywords
+- `h` - Dimensionless Hubble constant
+- `OmegaK` - Curvature density (Ω_k)
+- `OmegaM` - Matter density (Ω_m)
+- `OmegaR` - Radiation density (Ω_r)
+- `Tcmb` - CMB temperature in Kelvin; used to compute Ω_γ
+- `Neff` - Effective number of massless neutrino species; used to compute Ω_ν
+- `w0` - CPL dark energy equation of state; `w = w0 + wa(1-a)`
+- `wa` - CPL dark energy equation of state; `w = w0 + wa(1-a)`
+
+# Example
+```julia-repl
+julia> get_cosmology(Float32; h=0.7)
+Cosmology.FlatLCDM{Float32}(0.7f0, 0.7099147f0, 0.29f0, 8.5307016f-5)
+```
 """
 function get_cosmology(::Type{T}; h=0.69,
                    Neff=3.04,
@@ -46,6 +66,9 @@ get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb
         OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
 """
+    build_r2z_interpolator(min_z::T, max_z::T,
+        cosmo::Cosmology.AbstractCosmology; n_bins=2000) where T
+
 Construct a fast r2z linear interpolator.
 """
 function build_r2z_interpolator(min_z::T, max_z::T,
@@ -62,6 +85,8 @@ function build_r2z_interpolator(min_z::T, max_z::T,
 end
 
 """
+    mz2c(m::T, z::T, cosmo::Cosmology.FlatLCDM{T}) where T
+
 Compute concentration factor from Duffy et al. 2008.
 """
 function mz2c(m::T, z::T, cosmo::Cosmology.FlatLCDM{T}) where T
@@ -69,6 +94,8 @@ function mz2c(m::T, z::T, cosmo::Cosmology.FlatLCDM{T}) where T
 end
 
 """
+    m2r(m::T, cosmo::Cosmology.FlatLCDM{T}) where T
+
 Convert virial mass to virial radius.
 """
 function m2r(m::T, cosmo::Cosmology.FlatLCDM{T}) where T
@@ -87,15 +114,16 @@ function solve_r(c::T, lnm::T) where T
     return find_zero( x -> g(x,c,m) , (T(0.0),T(100.0)), Bisection()) / c
 end
 
+
 """
-Generates an interpolator r(c, lnm)
+    build_c_lnm2r_interpolator(;cmin::T=1f-3, cmax::T=25.0f0,
+        mmin::T=-7.1f0, mmax::T=0.0f0, nbin=100) where T
 
 Generate a LinearInterpolation object that turns concentration
 and ln(M_halo) into satellite radius.
 """
-function build_c_lnm2r_interpolator(;
-    cmin::T=1f-3, cmax::T=25.0f0, mmin::T=-7.1f0, mmax::T=0.0f0,
-    nbin=100) where T
+function build_c_lnm2r_interpolator(;cmin::T=1f-3, cmax::T=25.0f0,
+        mmin::T=-7.1f0, mmax::T=0.0f0, nbin=100) where T
     # these defaults imply a minimum fractional mass of exp(-7)
 
     cs  = LinRange(cmin,cmax,nbin)

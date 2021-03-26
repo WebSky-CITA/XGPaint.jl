@@ -3,10 +3,17 @@ using Healpix
 using Random
 using Random: MersenneTwister
 
-
 """
+    read_halo_catalog_hdf5(filename)
+
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
-The hdf5 record is "halos".
+The hdf5 record is "halos". This is a format we use to distribute Websky halos.
+
+## Example
+```julia-repl
+julia> halo_pos, halo_mass = read_halo_catalog_hdf5(
+    "/global/cfs/cdirs/sobs/www/users/Radio_WebSky/websky_halos-light.hdf5")
+```
 """
 function read_halo_catalog_hdf5(filename)
     hdata = h5open(filename, "r") do file
@@ -18,8 +25,9 @@ function read_halo_catalog_hdf5(filename)
 end
 
 
-
 """
+    chunk(arr_len, chunksize::Integer)
+
 Generates a list of tuples which describe starting and ending chunk indices.
 Useful for parallelizing an array operation.
 """
@@ -48,6 +56,7 @@ function threaded_rand!(arr::Array{T,1};
    end
 end
 
+
 """
 Generate an array where the value at index i corresponds to the index of the
 first source of halo i. Takes an array where the value at index i corresponds
@@ -61,7 +70,10 @@ end
 
 
 """
-Fill in basic halo properties.
+    get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
+                              cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T
+
+Compute distance, redshift, and healpix indices from halo positions and a cosmology.
 """
 function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
                                    cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T

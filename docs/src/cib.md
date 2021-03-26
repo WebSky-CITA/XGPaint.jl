@@ -1,7 +1,7 @@
 
 # Cosmic Infrared Background (CIB) 
 
-The Planck 2013 CIB model can be applied using `CIB_Planck2013{T}()`. The following code is a little more verbose than typical Julia code, as one has to repeatedly specify the type `Float32` when creating objects. This allows one to more easily fit the entire source catalog into memory.
+We provide the Planck 2013 CIB model. The following code is a little more verbose than typical Julia code, as one has to repeatedly specify the type `Float32` when creating objects. This allows one to more easily fit the entire source catalog into memory.
 
 ## Sources
 
@@ -17,7 +17,7 @@ halo_pos, halo_mass = read_halo_catalog_hdf5(
     "$(websky_directory)/websky_halos-light.hdf5")
 ```
 
-Now one specifes the background cosmology and the source model.
+Now one specifes the background cosmology and the source model [`CIB_Planck2013`](@ref).
 
 ```julia
 # configuration objects
@@ -63,6 +63,14 @@ for freq in ["100", "143", "217" "353", "545"]
 end
 ```
 
+## API
 ```@docs
 CIB_Planck2013
-``` 
+generate_sources(
+        model::XGPaint.AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
+        verbose=true) where {T, TH}
+paint!(result_map::Healpix.Map{T_map, RingOrder},
+        nu_obs, model::XGPaint.AbstractCIBModel{T}, sources,
+        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
+```

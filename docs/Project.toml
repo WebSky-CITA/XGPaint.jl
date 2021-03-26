@@ -1,3 +1,5 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 XGPaint = "af630e4a-6754-4ec2-ab8a-f9f8b9ebafbf"
+Cosmology = "76746363-e552-5dba-9a5a-cef6fa9cc5ab"
+Healpix = "9f4e344d-96bc-545a-84a3-ae6b9e1b672b"
