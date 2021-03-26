@@ -32,9 +32,6 @@ not typed are converted to type T. This model has the following parameters and d
 * `jiang_beta_2 = 5.67`
 * `jiang_zeta = 1.19`
 
-```@example
-model = CIB_Planck2013{Float32}(shang_Mpeak=10^12.4)
-```
 """
 @with_kw struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T} @deftype T
     nside::Int64    = 4096
