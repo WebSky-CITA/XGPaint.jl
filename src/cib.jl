@@ -227,14 +227,18 @@ Produce a source catalog from a model and halo catalog.
 """
 function generate_sources(
         # model parameters
-        model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
+        model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         # halo arrays
-        halo_pos::AbstractArray{T,2}, halo_mass::AbstractArray{T,1};
-        verbose=true) where T
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
+        verbose=true) where {T, TH}
 
+    # make sure halo inputs are the CIB type
+    halo_pos = convert(Array{T,2}, halo_pos_inp)
+    halo_mass = convert(Array{T,1}, halo_mass_inp)
+
+    # set up basics
     N_halos = size(halo_mass, 1)
-    interp = get_interpolators( model, cosmo,
-        minimum(halo_mass), maximum(halo_mass))
+    interp = get_interpolators( model, cosmo, minimum(halo_mass), maximum(halo_mass))
     res = Resolution(model.nside)
 
     verbose && println("Allocating for $(N_halos) centrals.")

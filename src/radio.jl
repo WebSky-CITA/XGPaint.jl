@@ -176,15 +176,20 @@ function draw_coeff!(a_coeff, model::Radio_Sehgal2009)
     wait(a3_task)
 end
 
+
 """
 Produce a source catalog from a model and halo catalog.
 """
 function generate_sources(
         # model parameters
-        model::AbstractRadioModel, cosmo::Cosmology.FlatLCDM{T},
+        model::AbstractRadioModel{T}, cosmo::Cosmology.FlatLCDM{T},
         # halo arrays
-        halo_pos::Array{T,2}, halo_mass::Array{T,1};
-        verbose=true) where T
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
+        verbose=true) where {T, TH}
+
+    # make sure halo inputs are the model type
+    halo_pos = convert(Array{T,2}, halo_pos_inp)
+    halo_mass = convert(Array{T,1}, halo_mass_inp)
 
     res = Resolution(model.nside)
 
