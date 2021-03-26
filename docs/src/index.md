@@ -9,7 +9,7 @@ We provide CIB and radio models. The CIB model is described in the Websky paper,
 
 The general workflow is:
 1. Read halos
-2. Generate a background cosmology and source model
+2. Specify a background cosmology and source model
 3. Use the model to put sources in halos
 4. Put the sources on maps
 

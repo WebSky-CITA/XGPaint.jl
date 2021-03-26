@@ -5,7 +5,7 @@ We provide the Planck 2013 CIB model. The following code is a little more verbos
 
 ## Sources
 
-One first loads the halo positions and masses into memory. This package takes halo positions in the shape ``(3, N_{\mathrm{halos}})``, where the first dimension is the Cartesian coordinates ``x, y, z``.
+One first loads the halo positions and masses into memory with [`read_halo_catalog_hdf5`](@ref). This package uses halo positions in the shape ``(3, N_{\mathrm{halos}})``, where the first dimension is the Cartesian coordinates ``x, y, z``.
 
 ```julia
 using XGPaint
