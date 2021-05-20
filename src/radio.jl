@@ -251,7 +251,7 @@ function generate_sources(
 end
 
 
-function paint!(result_map::Map{T_map,RingOrder},
+function paint!(result_map::HealpixMap{T_map,RingOrder},
                 nu_obs::T, model::AbstractRadioModel, sources;
                 return_fluxes=false) where {T_map, T}
 

@@ -119,7 +119,7 @@ function ellpad(arr::Array{T,N}; nzeros=1) where {T,N}
 end
 
 
-function catalog2map!(m::Map{T,RingOrder}, flux, theta, phi) where T
+function catalog2map!(m::HealpixMap{T,RingOrder}, flux, theta, phi) where T
     res = m.resolution
     pixel_array = m.pixels
     N_halo = length(flux)

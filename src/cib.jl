@@ -322,14 +322,14 @@ Paint a source catalog onto a map, recording the fluxes in
 `fluxes_cen` and `fluxes_sat`.
 
 # Arguments:
-- `result_map::Map{T_map, RingOrder}`: Healpix map to paint
+- `result_map::HealpixMap{T_map, RingOrder}`: Healpix map to paint
 - `nu_obs`: frequency in Hz
 - `model::AbstractCIBModel{T}`: source model parameters
 - `sources`: NamedTuple containing source information from generate_sources
 - `fluxes_cen::AbstractArray`: buffer for writing fluxes of centrals
 - `fluxes_sat::AbstractArray`: buffer for writing fluxes of satellites
 """
-function paint!(result_map::Map{T_map, RingOrder},
+function paint!(result_map::HealpixMap{T_map, RingOrder},
         nu_obs, model::AbstractCIBModel{T}, sources,
         fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
 
@@ -366,7 +366,7 @@ Paint a source catalog onto a map.
 
 This function creates the arrays for you.
 """
-function paint!(result_map::Map{T,RingOrder},
+function paint!(result_map::HealpixMap{T,RingOrder},
         nu_obs::T, model::AbstractCIBModel, sources) where T
 
     fluxes_cen = Array{T, 1}(undef, sources.N_cen)
