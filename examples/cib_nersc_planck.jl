@@ -15,7 +15,7 @@ model = CIB_Planck2013{Float32}()
 ## Deposit the sources into maps
 fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
 fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
-m = Map{Float64,RingOrder}(model.nside)
+m = HealpixMap{Float64,RingOrder}(model.nside)
 
 for freq in [
     "18.7", "21.6",

@@ -42,7 +42,7 @@ There are additionally arrays for the satellites,
 
 There are also two integers in `sources`  for the total number of centrals `N_cen` and total number of satellites `N_sat`.
 
-## Map-making
+## HealpixMap-making
 
 Once these sources are generated, one needs to create some buffer arrays for map-making. The fluxes of the centrals and satellites are deposited into these arrays, before the map is generated.
 
@@ -50,7 +50,7 @@ Once these sources are generated, one needs to create some buffer arrays for map
 # Create some empty arrays for the fluxes to be deposited
 fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
 fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
-m = Map{Float64,RingOrder}(model.nside)  # create a Healpix map
+m = HealpixMap{Float64,RingOrder}(model.nside)  # create a Healpix map
 ```
 
 These arrays are used by `paint!` to create maps. We then save those to disk. We add a time macro to get some info on how long it takes. Note that with NERSC's notoriously slow filesystem, writing to disk can take as long as generating the maps!
@@ -130,7 +130,7 @@ generate_sources(
         model::XGPaint.AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
         verbose=true) where {T, TH}
-paint!(result_map::Healpix.Map{T_map, RingOrder},
+paint!(result_map::Healpix.HealpixMap{T_map, RingOrder},
         nu_obs, model::XGPaint.AbstractCIBModel{T}, sources,
         fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
 ```

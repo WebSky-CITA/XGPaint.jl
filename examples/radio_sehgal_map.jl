@@ -15,7 +15,7 @@ radio_model = Radio_Sehgal2009{Float32}(a_0=-1)
 end;
 
 ##
-m = Map{Float64,RingOrder}(radio_model.nside)
+m = HealpixMap{Float64,RingOrder}(radio_model.nside)
 for freq in ["030", "090", "148", "219", "277", "350"]
     @time begin
         paint!(m, parse(Float32, freq) * 1.0f9, radio_model, sources)

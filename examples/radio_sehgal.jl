@@ -24,7 +24,7 @@ end;
 
 freqs = ["143.0"]
 
-m = Map{Float64,RingOrder}(radio_model.nside)
+m = HealpixMap{Float64,RingOrder}(radio_model.nside)
 
 function generate_maps()
     scratch_dir = ENV["SCRATCH"]
