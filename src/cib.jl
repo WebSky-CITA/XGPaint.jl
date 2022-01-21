@@ -215,7 +215,7 @@ function process_sats!(
             z_sat = halo_pos[3,i_halo] + r_sat * cos(theta)
             dist_sat[i_sat] = sqrt(x_sat^2 + y_sat^2 + z_sat^2)
             redshift_sat[i_sat] = interp.r2z(dist_sat[i_sat])
-            theta_sat[i], phi_sat[i] = Healpix.vec2ang(x_sat, y_sat, z_sat)
+            theta_sat[i_sat], phi_sat[i_sat] = Healpix.vec2ang(x_sat, y_sat, z_sat)
 
             # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
             #     redshift_sat[i], model)
