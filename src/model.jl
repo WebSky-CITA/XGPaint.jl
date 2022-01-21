@@ -60,8 +60,8 @@ function get_cosmology(::Type{T}; h=0.69,
         return Cosmology.FlatLCDM{T}(h, OmegaL, OmegaM, OmegaR)
     end
 end
-get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255,
-    w0=-1, wa=0) where T = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK,
+get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255, 
+    w0=-1, wa=0) where T = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
         OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
 """
