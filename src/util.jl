@@ -16,19 +16,6 @@ function read_halo_catalog_hdf5(filename)
     return pos, halo_mass
 end
 
-"""
-Generate an array of random number generators, for each thread.
-
-From KissThreading.jl, which doesn't look like a very stable package.
-"""
-function trandjump(rng = MersenneTwister(0); jump=big(10)^20)
-    n = Threads.nthreads()
-    rngjmp = Vector{MersenneTwister}(undef, n)
-    for i in 1:n
-        rngjmp[i] = randjump(rng, jump*i)
-    end
-    rngjmp
-end
 
 """
 Generates a list of tuples which describe starting and ending chunk indices.
@@ -138,5 +125,5 @@ function catalog2map!(m::HealpixMap{T,RingOrder}, flux, theta, phi) where T
 end
 
 
-export read_halo_catalog_hdf5, chunk, generate_subhalo_offsets, trandjump
+export read_halo_catalog_hdf5, chunk, generate_subhalo_offsets
 
