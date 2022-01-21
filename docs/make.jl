@@ -1,17 +1,26 @@
-using Documenter, XGPaint
+using XGPaint
+using Documenter
+using Healpix
+using Cosmology
 
 makedocs(;
     modules=[XGPaint],
-    format=Documenter.HTML(),
-    pages=[
-        "Home" => "index.md",
-    ],
+    authors="Zack Li",
     repo="https://github.com/xzackli/XGPaint.jl/blob/{commit}{path}#L{line}",
     sitename="XGPaint.jl",
-    authors="Zack Li",
-    assets=String[],
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://xzackli.github.io/XGPaint.jl",
+        assets=String[],
+    ),
+    pages=[
+        "Home" => "index.md",
+        "CIB" => "cib.md",
+        "Index" => "api.md",
+    ],
 )
 
 deploydocs(;
     repo="github.com/xzackli/XGPaint.jl",
+    devbranch = "main"
 )

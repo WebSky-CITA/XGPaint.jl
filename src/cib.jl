@@ -3,42 +3,64 @@
 abstract type AbstractCIBModel{T<:Real} <: AbstractForegroundModel end
 
 """
-    CIB_Planck2013{T}(model parameters...)
+    CIB_Planck2013{T}(; kwargs...)
 
-Define CIB model parameters. Defaults are from Viero et al. 2013.
+Define CIB model parameters. Defaults are from Viero et al. 2013. All numbers
+not typed are converted to type T. This model has the following parameters and default values:
 
-```@example
-model = CIB_Planck2013{Float32}(shang_Mpeak=10^12.4)
-```
+* `nside::Int64 = 4096`
+* `hod::String = "shang"`
+* `Inu_norm = 0.3180384`
+* `min_redshift = 0.0`
+* `max_redshift = 5.0`
+* `min_mass = 1e12`
+* `box_size = 40000`
+* `shang_zplat = 2.0`
+* `shang_Td = 20.7`
+* `shang_betan = 1.6`
+* `shang_eta = 2.4`
+* `shang_alpha = 0.2`
+* `shang_Mpeak = 10^12.3`
+* `shang_sigmaM = 0.3`
+* `shang_Msmin = 1e11`
+* `shang_Mmin = 1e10`
+* `shang_I0 = 46`
+* `jiang_gamma_1 = 0.13`
+* `jiang_alpha_1 = -0.83`
+* `jiang_gamma_2 = 1.33`
+* `jiang_alpha_2 = -0.02`
+* `jiang_beta_2 = 5.67`
+* `jiang_zeta = 1.19`
+
 """
-Base.@kwdef struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T}
+@with_kw struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T} @deftype T
     nside::Int64    = 4096
     hod::String     = "shang"
-    Inu_norm::T     = 0.3180384
-    min_redshift::T = 0.0
-    max_redshift::T = 4.5
-    min_mass::T     = 1e12
-    box_size::T     = 40000
+    Inu_norm     = 0.3180384
+    min_redshift = 0.0
+    max_redshift = 5.0
+    min_mass     = 1e12
+    box_size     = 40000
 
     # shang HOD
-    shang_zplat::T  = 2.0
-    shang_Td::T     = 20.7
-    shang_beta::T   = 1.6
-    shang_eta::T    = 2.4
-    shang_alpha::T  = 0.2
-    shang_Mpeak::T  = 10^12.3
-    shang_sigmaM::T = 0.3
-    shang_Msmin::T  = 1e11
-    shang_Mmin::T   = 1e10
-    shang_I0::T     = 46
+    shang_zplat  = 2.0
+    shang_Td     = 20.7
+    shang_beta   = 1.6
+    shang_eta    = 2.4
+    shang_alpha  = 0.2
+    shang_Mpeak  = 10^12.3
+    shang_sigmaM = 0.3
+    shang_Msmin  = 1e11
+    shang_Mmin   = 1e10
+    shang_I0     = 46
 
     # jiang
-    jiang_gamma_1::T    = 0.13
-    jiang_alpha_1::T    = -0.83
-    jiang_gamma_2::T    = 1.33
-    jiang_alpha_2::T    = -0.02
-    jiang_beta_2::T     = 5.67
-    jiang_zeta::T       = 1.19
+    jiang_gamma_1    = 0.13
+    jiang_alpha_1    = -0.83
+    jiang_gamma_2    = 1.33
+    jiang_alpha_2    = -0.02
+    jiang_beta_2     = 5.67
+    jiang_zeta       = 1.19
 end
 
 
@@ -139,22 +161,20 @@ Construct the necessary interpolator set.
 function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
     min_halo_mass::T, max_halo_mass::T) where T
     return (
-        r2z = XGPaint.build_r2z_interpolator(
+        r2z = build_r2z_interpolator(
             model.min_redshift, model.max_redshift, cosmo),
-        hod_shang = XGPaint.build_shang_interpolator(
+        hod_shang = build_shang_interpolator(
             log(min_halo_mass), log(max_halo_mass), model),
-        c_lnm2r = XGPaint.build_c_lnm2r_interpolator(),
-        sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(
+        c_lnm2r = build_c_lnm2r_interpolator(),
+        sigma_sat = build_sigma_sat_ln_interpolator(
             log(max_halo_mass), model),
-        muofn = XGPaint.build_muofn_interpolator(model)
+        muofn = build_muofn_interpolator(model)
     )
 end
 
 
 
-"""
-Fill up arrays with information related to CIB central sources.
-"""
+# Fill up arrays with information related to CIB central sources.
 function process_centrals!(
     model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution;
     interp, hp_ind_cen, dist_cen, redshift_cen, theta_cen, phi_cen,
@@ -162,7 +182,6 @@ function process_centrals!(
     halo_pos, halo_mass) where T
 
     N_halos = size(halo_mass, 1)
-    r = trandjump()
 
     Threads.@threads for i = 1:N_halos
         # location information for centrals
@@ -174,8 +193,7 @@ function process_centrals!(
 
         # compute HOD
         n_sat_bar[i] = interp.hod_shang(log(halo_mass[i]))
-        n_sat_bar_result[i] = rand(r[Threads.threadid()],
-            Distributions.Poisson(Float64.(n_sat_bar[i])))
+        n_sat_bar_result[i] = rand(Distributions.Poisson(Float64.(n_sat_bar[i])))
 
         # get central luminosity
         lum_cen[i] = sigma_cen(halo_mass[i], model) * shang_z_evo(
@@ -184,9 +202,7 @@ function process_centrals!(
 end
 
 
-"""
-Fill up arrays with information related to CIB satellites.
-"""
+# Fill up arrays with information related to CIB satellites.
 function process_sats!(
         model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         Healpix_res::Resolution;
@@ -228,19 +244,35 @@ function process_sats!(
     end
 end
 
+
 """
-Produce a source catalog from a model and halo catalog.
+    generate_sources(model, cosmo, halo_pos_inp, halo_mass_inp; verbose=true)
+
+Produce a source catalog from a model and halo catalog. This converts the
+halo arrays into the type specified by `model`.
+
+# Arguments:
+- `model::AbstractCIBModel{T}`: source model parameters
+- `cosmo::Cosmology.FlatLCDM{T}`: background cosmology
+- `Healpix_res::Resolution`: Healpix map resolution
+- `halo_pos_inp::AbstractArray{TH,2}`: halo positions with dims (3, nhalos)
+- `halo_mass_inp::AbstractArray{TH,1}`: halo masses
+
+# Keywords
+- `verbose::Bool=true`: print out progress details
 """
 function generate_sources(
-        # model parameters
-        model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
-        # halo arrays
-        halo_pos::AbstractArray{T,2}, halo_mass::AbstractArray{T,1};
-        verbose=true) where T
+        model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
+        verbose=true) where {T, TH}
 
+    # make sure halo inputs are the CIB type
+    halo_pos = convert(Array{T,2}, halo_pos_inp)
+    halo_mass = convert(Array{T,1}, halo_mass_inp)
+
+    # set up basics
     N_halos = size(halo_mass, 1)
-    interp = get_interpolators( model, cosmo,
-        minimum(halo_mass), maximum(halo_mass))
+    interp = get_interpolators( model, cosmo, minimum(halo_mass), maximum(halo_mass))
     res = Resolution(model.nside)
 
     verbose && println("Allocating for $(N_halos) centrals.")
@@ -292,10 +324,21 @@ end
 
 
 """
-Paint a source catalog onto a map, recording the fluxes.
+    paint!(result_map, nu_obs, model, sources, fluxes_cen, fluxes_sat)
+
+Paint a source catalog onto a map, recording the fluxes in
+`fluxes_cen` and `fluxes_sat`.
+
+# Arguments:
+- `result_map::Map{T_map, RingOrder}`: Healpix map to paint
+- `nu_obs`: frequency in Hz
+- `model::AbstractCIBModel{T}`: source model parameters
+- `sources`: NamedTuple containing source information from generate_sources
+- `fluxes_cen::AbstractArray`: buffer for writing fluxes of centrals
+- `fluxes_sat::AbstractArray`: buffer for writing fluxes of satellites
 """
-function paint!(result_map::Map{T_map,RingOrder},
-        nu_obs::T, model::AbstractCIBModel, sources,
+function paint!(result_map::Map{T_map, RingOrder},
+        nu_obs, model::AbstractCIBModel{T}, sources,
         fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
 
     pixel_array = result_map.pixels
@@ -342,14 +385,3 @@ function paint!(result_map::Map{T,RingOrder},
 
     return fluxes_cen, fluxes_sat
 end
-
-export CIB_Planck2013,
-    paint!,
-    generate_sources,
-    get_interpolators,
-    build_c_lnm2r_interpolator,
-    build_muofn_interpolator,
-    build_r2z_interpolator,
-    build_shang_interpolator,
-    build_sigma_sat_ln_interpolator,
-    sigma_cen
