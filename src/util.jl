@@ -2,18 +2,11 @@ using HDF5
 using Healpix
 using Random
 using Random: MersenneTwister
+using Future: randjump
 
 """
-    read_halo_catalog_hdf5(filename)
-
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
-The hdf5 record is "halos". This is a format we use to distribute Websky halos.
-
-## Example
-```julia-repl
-julia> halo_pos, halo_mass = read_halo_catalog_hdf5(
-    "/global/cfs/cdirs/sobs/www/users/Radio_WebSky/websky_halos-light.hdf5")
-```
+The hdf5 record is "halos".
 """
 function read_halo_catalog_hdf5(filename)
     hdata = h5open(filename, "r") do file
@@ -24,10 +17,21 @@ function read_halo_catalog_hdf5(filename)
     return pos, halo_mass
 end
 
+"""
+Generate an array of random number generators, for each thread.
+
+From KissThreading.jl, which doesn't look like a very stable package.
+"""
+function trandjump(rng = MersenneTwister(0); jump=big(10)^20)
+    n = Threads.nthreads()
+    rngjmp = Vector{MersenneTwister}(undef, n)
+    for i in 1:n
+        rngjmp[i] = randjump(rng, jump*i)
+    end
+    rngjmp
+end
 
 """
-    chunk(arr_len, chunksize::Integer)
-
 Generates a list of tuples which describe starting and ending chunk indices.
 Useful for parallelizing an array operation.
 """
@@ -47,15 +51,14 @@ function getrange(n)
 end
 
 
-function threaded_rand!(arr::Array{T,1};
+function threaded_rand!(random_number_generators, arr::Array{T,1};
       chunksize=4096) where T
 
    num = size(arr,1)
    Threads.@threads for (i1, i2) in chunk(num, chunksize)
-      @views rand!(arr[i1:i2])
+      @views rand!(random_number_generators[Threads.threadid()], arr[i1:i2])
    end
 end
-
 
 """
 Generate an array where the value at index i corresponds to the index of the
@@ -70,10 +73,7 @@ end
 
 
 """
-    get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
-                              cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T
-
-Compute distance, redshift, and healpix indices from halo positions and a cosmology.
+Fill in basic halo properties.
 """
 function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
                                    cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T
@@ -108,6 +108,7 @@ function get_angles(halo_pos::Array{T,2}) where T
     return θ, ϕ
 end
 
+
 """
 Utility function which prepends some zeros to an array. It makes a copy instead
 of modifying the input.
@@ -136,3 +137,7 @@ function catalog2map!(m::HealpixMap{T,RingOrder}, flux, theta, phi) where T
     per_pixel_steradian = 1 / nside2pixarea(res.nside)
     pixel_array .*= per_pixel_steradian
 end
+
+
+export read_halo_catalog_hdf5, chunk, generate_subhalo_offsets, trandjump
+

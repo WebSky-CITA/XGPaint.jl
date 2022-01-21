@@ -7,7 +7,7 @@
 <!-- [![Coveralls](https://coveralls.io/repos/github/xzackli/XGPaint.jl/badge.svg?branch=master)](https://coveralls.io/github/xzackli/XGPaint.jl?branch=master) -->
 
 
-`XGPaint.jl` paints maps of extragalactic foregrounds using halo catalogs.
+`XGPaint.jl` paints maps of extragalactic foregrounds using halo catalogs. Please read the [documentation](https://xzackli.github.io/XGPaint.jl/dev).
 
 ## Example (Planck 2013 CIB)
 
