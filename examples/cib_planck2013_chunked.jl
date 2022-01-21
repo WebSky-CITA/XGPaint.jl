@@ -41,7 +41,10 @@ function write_chunk(
 
             # save sources with mass, redshift, angles
             h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_flux_$(freq).h5"), "w") do file
-                write(file, "flux", flux)
+                write(file, "flux", fluxes_cen)
+            end
+            h5open(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_flux_$(freq).h5"), "w") do file
+                write(file, "flux", fluxes_sat)
             end
 
             filename = joinpath(output_dir, "cib_$(freq).fits")
