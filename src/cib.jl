@@ -282,12 +282,10 @@ function generate_sources(
         n_sat_bar=n_sat_bar, n_sat_bar_result=n_sat_bar_result)
 
     return (
-        hp_ind_cen=hp_ind_cen, lum_cen=lum_cen,
+        hp_ind_cen=hp_ind_cen, lum_cen=lum_cen, dist_cen=dist_cen,
+        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat, dist_sat=dist_sat,
         redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, 
         redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat, 
-        dist_cen=dist_cen,
-        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat,
-        redshift_sat=redshift_sat, dist_sat=dist_sat,
         N_cen=N_cen, N_sat=N_sat
     )
 end
