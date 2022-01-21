@@ -81,17 +81,34 @@ function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegrou
     hp_ind = Array{Int64}(undef, N_halos)  # healpix index of halo
     redshift = Array{T}(undef, N_halos)
     dist = Array{T}(undef, N_halos)
+
     r2z = XGPaint.build_r2z_interpolator(
         model.min_redshift, model.max_redshift, cosmo)
     Threads.@threads for i in 1:N_halos
         dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
         redshift[i] = r2z(dist[i])
-        hp_ind[i] = Healpix.vec2pixRing(res,
-            halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+        hp_ind[i] = Healpix.vec2pixRing(res, halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
     end
 
     return dist, redshift, hp_ind
 end
+
+"""
+Compute angles of halos
+"""
+function get_angles(halo_pos::Array{T,2}) where T
+    N_halos = size(halo_pos, 2)
+    θ = Array{T}(undef, N_halos)
+    ϕ = Array{T}(undef, N_halos)
+
+    Threads.@threads for i in 1:N_halos
+        θ[i], ϕ[i] = Healpix.vec2ang(halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+    end
+
+    return θ, ϕ
+end
+
+
 
 """
 Utility function which prepends some zeros to an array. It makes a copy instead

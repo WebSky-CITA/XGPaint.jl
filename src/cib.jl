@@ -157,7 +157,7 @@ Fill up arrays with information related to CIB central sources.
 """
 function process_centrals!(
     model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution;
-    interp, hp_ind_cen, dist_cen, redshift_cen,
+    interp, hp_ind_cen, dist_cen, redshift_cen, theta_cen, phi_cen,
     lum_cen, n_sat_bar, n_sat_bar_result,
     halo_pos, halo_mass) where T
 
@@ -168,6 +168,7 @@ function process_centrals!(
         # location information for centrals
         hp_ind_cen[i] = Healpix.vec2pixRing(Healpix_res,
             halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+        theta_cen[i], phi_cen[i] = Healpix.vec2ang(halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
         dist_cen[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
         redshift_cen[i] = interp.r2z(dist_cen[i])
 
@@ -189,7 +190,7 @@ Fill up arrays with information related to CIB satellites.
 function process_sats!(
         model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         Healpix_res::Resolution;
-        interp, hp_ind_sat, dist_sat, redshift_sat,
+        interp, hp_ind_sat, dist_sat, redshift_sat, theta_sat, phi_sat,
         lum_sat, cumsat,
         halo_mass, halo_pos, redshift_cen, n_sat_bar, n_sat_bar_result) where T
 
@@ -214,6 +215,7 @@ function process_sats!(
             z_sat = halo_pos[3,i_halo] + r_sat * cos(theta)
             dist_sat[i_sat] = sqrt(x_sat^2 + y_sat^2 + z_sat^2)
             redshift_sat[i_sat] = interp.r2z(dist_sat[i_sat])
+            theta_sat[i], phi_sat[i] = Healpix.vec2ang(x_sat, y_sat, z_sat)
 
             # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
             #     redshift_sat[i], model)
@@ -221,6 +223,7 @@ function process_sats!(
                 redshift_sat[i_sat], model)
             hp_ind_sat[i_sat] = Healpix.vec2pixRing(
                 Healpix_res, x_sat, y_sat, z_sat)
+
         end
     end
 end
@@ -244,6 +247,8 @@ function generate_sources(
     hp_ind_cen = Array{Int64}(undef, N_halos)  # healpix index of halo
     lum_cen = Array{T}(undef, N_halos)  # Lum of central w/o ν-dependence
     redshift_cen = Array{T}(undef, N_halos)
+    theta_cen = Array{T}(undef, N_halos)
+    phi_cen = Array{T}(undef, N_halos)
     dist_cen = Array{T}(undef, N_halos)
     n_sat_bar = Array{T}(undef, N_halos)
     n_sat_bar_result = Array{Int32}(undef, N_halos)
@@ -252,7 +257,8 @@ function generate_sources(
     verbose && println("Processing centrals on $(Threads.nthreads()) threads.")
     process_centrals!(model, cosmo, res,
         interp=interp, hp_ind_cen=hp_ind_cen, dist_cen=dist_cen,
-        redshift_cen=redshift_cen, lum_cen=lum_cen, n_sat_bar=n_sat_bar,
+        redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, 
+        lum_cen=lum_cen, n_sat_bar=n_sat_bar,
         n_sat_bar_result=n_sat_bar_result,
         halo_pos=halo_pos, halo_mass=halo_mass)
 
@@ -262,23 +268,27 @@ function generate_sources(
     hp_ind_sat = Array{Int64}(undef, total_n_sat)  # healpix index of halo
     lum_sat = Array{T}(undef, total_n_sat)  # Lum of central w/o ν-dependence
     redshift_sat = Array{T}(undef, total_n_sat)
+    theta_sat = Array{T}(undef, total_n_sat)
+    phi_sat = Array{T}(undef, total_n_sat)
     dist_sat = Array{T}(undef, total_n_sat)
 
     # STEP 3: compute satellite properties -----------------------------------
     verbose && println("Processing $(total_n_sat) satellites.")
     process_sats!(model, cosmo, res,
         interp=interp, hp_ind_sat=hp_ind_sat, dist_sat=dist_sat,
-        redshift_sat=redshift_sat,
+        redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat,
         lum_sat=lum_sat, cumsat=cumsat,
         halo_mass=halo_mass, halo_pos=halo_pos, redshift_cen=redshift_cen,
         n_sat_bar=n_sat_bar, n_sat_bar_result=n_sat_bar_result)
 
     return (
         hp_ind_cen=hp_ind_cen, lum_cen=lum_cen,
-        redshift_cen=redshift_cen, dist_cen=dist_cen,
+        redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, 
+        redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat, 
+        dist_cen=dist_cen,
         hp_ind_sat=hp_ind_sat, lum_sat=lum_sat,
         redshift_sat=redshift_sat, dist_sat=dist_sat,
-        N_cen=N_halos, N_sat=total_n_sat
+        N_cen=N_cen, N_sat=N_sat
     )
 end
 
