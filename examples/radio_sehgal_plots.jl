@@ -15,7 +15,7 @@ end;
 
 ##
 @time begin
-m = Map{Float64,RingOrder}(radio_model.nside)
+m = HealpixMap{Float64,RingOrder}(radio_model.nside)
 flux_I, flux_II, redshift_I, redshift_II = paint!(
     m, 151f6, radio_model, sources, return_fluxes=true)
 end

@@ -1,12 +1,12 @@
 """
-Map utilities for rectangular pixels.
+General map utilities for rectangular pixels.
 """
 
 using WCS  # wraps the WCSLIB C library
 using FFTW
 
 """
-Map type, contains an AbstractArray and a WCS object, but behaves like the
+Rectangular map type, contains an AbstractArray and a WCS object, but behaves like the
 AbstractArray it contains for array operations.
 
 It only implements the subset of Base.Array operations which are common on maps.

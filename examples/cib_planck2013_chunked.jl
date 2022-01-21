@@ -19,7 +19,7 @@ function write_chunk(
     # Deposit the sources into maps
     fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
     fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
-    m = Map{Float64,RingOrder}(model.nside)
+    m = HealpixMap{Float64,RingOrder}(model.nside)
 
     h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index).h5"), "w") do file
         write(file, "redshift", sources.redshift_cen)
@@ -50,7 +50,7 @@ function write_chunk(
             filename = joinpath(output_dir, "cib_$(freq).fits")
 
             if chunk_index > 1
-                m0 = Healpix.readMapFromFITS(filename, 1, Float32)
+                m0 = Healpix.readHealpixMapFromFITS(filename, 1, Float32)
                 m.pixels = m.pixels + m0.pixels
             end
             Healpix.saveToFITS(m, "!$(filename)", typechar="D")

@@ -145,7 +145,7 @@ function l2f(luminosity::T, r_comoving::T, redshift::T) where T
 end
 
 
-function flux2map!(result_map::Map{T_map,RingOrder}, fluxes, theta, phi) where {T_map, T}
+function flux2map!(result_map::HealpixMap{T_map,RingOrder}, fluxes, theta, phi) where {T_map, T}
 
     pixel_array = result_map.pixels
     fill!(pixel_array, zero(T))  # prepare the frequency map

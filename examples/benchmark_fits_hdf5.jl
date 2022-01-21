@@ -1,4 +1,4 @@
-m = Map{Float64,RingOrder}(model.nside)
+m = HealpixMap{Float64,RingOrder}(model.nside)
 
 using BenchmarkTools
 using HDF5
