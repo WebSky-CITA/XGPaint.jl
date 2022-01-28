@@ -110,7 +110,8 @@ function nu2theta(nu::T, z::T, model::AbstractCIBModel) where T
     phys_k = T(1.3806488e-16)    # erg/K
     Td = model.shang_Td * (one(T)+z)^model.shang_alpha
     xnu = phys_h * nu / phys_k / Td
-    return xnu^(T(4) + model.shang_beta) / expm1(xnu) / nu / model.shang_I0
+    fixnorm = Td^(4 + model.shang_beta)
+    return xnu^(4 + model.shang_beta) / expm1(xnu) / nu / model.shang_I0 * fixnorm
 end
 
 """
