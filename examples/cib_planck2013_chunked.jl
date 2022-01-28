@@ -50,7 +50,7 @@ function write_chunk(
             filename = joinpath(output_dir, "cib_$(freq).fits")
 
             if chunk_index > 1
-                m0 = Healpix.readHealpixMapFromFITS(filename, 1, Float32)
+                m0 = Healpix.readMapFromFITS(filename, 1, Float32)
                 m.pixels = m.pixels + m0.pixels
             end
             Healpix.saveToFITS(m, "!$(filename)", typechar="D")
@@ -77,16 +77,16 @@ function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
 end
 ## compute on all chunks, on all halos
 
-freqs = [
-    "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
-    "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
-    "153", "164", "189", "210", "217", "232", "256", "275", "294", "306", "314",
-    "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
-    "857", "906", "994", "1080"
-]
-# freqs = ["143"]
+# freqs = [
+#     "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
+#     "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
+#     "153", "164", "189", "210", "217", "232", "256", "275", "294", "306", "314",
+#     "340", "353", "375", "409", "467", "525", "545", "584", "643", "729", "817",
+#     "857", "906", "994", "1080"
+# ]
+freqs = ["100", "143", "353", "545"]
 
-scratch_dir = joinpath(ENV["SCRATCH"], "cib_sources")
+scratch_dir = joinpath(ENV["SCRATCH"], "cib_sources_debug")
 println("SCRATCH: ", scratch_dir)
 mkpath(scratch_dir)
 mkpath(joinpath(scratch_dir, "sources"))
