@@ -4,11 +4,13 @@ module XGPaint
 using Interpolations
 using QuadGK
 using Roots
+using LoopVectorization
 using Cosmology
 using Unitful, UnitfulAstro
 using Parameters
 using Random
-using Healpix
+using Distances
+using Healpix, Pixell
 
 import ThreadsX
 import Distributions
@@ -16,6 +18,8 @@ import Distributions
 include("./pixell.jl")
 include("./model.jl")
 include("./util.jl")
+include("profile.jl")
+
 include("./cib.jl")
 include("./radio.jl")
 
