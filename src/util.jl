@@ -46,6 +46,12 @@ function threaded_rand!(random_number_generators, arr::Array{T,1};
    end
 end
 
+# if no RNG is supplied, make some
+function threaded_rand!(arr::Array{T,1}; chunksize=4096) where T
+    random_number_generators = [Random.default_rng(i) for i in 1: Threads.nthreads()]
+    threaded_rand!(random_number_generators, arr; chunksize=chunksize)
+end
+
 """
 Generate an array where the value at index i corresponds to the index of the
 first source of halo i. Takes an array where the value at index i corresponds
