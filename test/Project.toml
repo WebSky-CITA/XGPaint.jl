@@ -1,0 +1,4 @@
+[deps]
+DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
+PhysicalConstants = "5ad8b20f-a522-5ce9-bfc9-ddf1d5bda6ab"
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"

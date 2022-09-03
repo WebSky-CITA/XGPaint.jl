@@ -9,11 +9,12 @@ using Unitful, UnitfulAstro
 using Parameters
 using Random
 using Healpix
+using PhysicalConstants
 
 import ThreadsX
 import Distributions
 
-include("./pixell.jl")
+# include("./profiles.jl")
 include("./model.jl")
 include("./util.jl")
 include("./cib.jl")
