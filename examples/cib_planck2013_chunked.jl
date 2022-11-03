@@ -50,7 +50,7 @@ function write_chunk(
             filename = joinpath(output_dir, "cib_$(freq).fits")
 
             if chunk_index > 1
-                m0 = Healpix.readHealpixMapFromFITS(filename, 1, Float32)
+                m0 = Healpix.readMapFromFITS(filename, 1, Float32)
                 m.pixels = m.pixels + m0.pixels
             end
             Healpix.saveToFITS(m, "!$(filename)", typechar="D")
