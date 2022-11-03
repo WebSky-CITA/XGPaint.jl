@@ -5,8 +5,6 @@ const M_sun = 1.98847e30u"kg"
 const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 using Cosmology
 using QuadGK
-using XGPaint
-
 
 abstract type AbstractProfile{T} end
 
@@ -22,6 +20,8 @@ function BattagliaProfile(Omega_c::T=0.2589, Omega_b::T=0.0486) where {T <: Real
     return BattagliaProfile(f_b, cosmo)
 end
 
+const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
+
 
 function ρ_crit(𝕡, z)
     H_z = H(𝕡.cosmo, z)
@@ -29,15 +29,15 @@ function ρ_crit(𝕡, z)
 end
 
 function R_Δ(𝕡, M_Δ, z, Δ=200)
-    return (M_Δ / (4π/3 * Δ * ρ_crit(𝕡, z)))^(1/3)
+    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(𝕡, z)))
 end
 
-function angular_size(𝕡::AbstractProfile, physical_size, z)
+function angular_size(𝕡::AbstractProfile{T}, physical_size, z) where T
     d_A = angular_diameter_dist(𝕡.cosmo, z)
 
     # convert both to the same units and strip units for atan
-    phys_siz_unitless = ustrip(uconvert(unit(d_A), physical_size))
-    d_A_unitless = ustrip(d_A)
+    phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
+    d_A_unitless = T(ustrip(d_A))
     return atan(phys_siz_unitless, d_A_unitless)
 end
 
@@ -63,13 +63,14 @@ function get_params(::BattagliaProfile{T}, M_200, z) where T
     return (xc=T(xc), α=T(α), β=T(β), γ=T(γ), P₀=T(P₀))
 end
 
-_tsz_y₁(x, _a) = (x*(_a+1))^(1/(_a+1))
-_tsz_x₁(y, _a) = y^(_a+1)/(_a+1)
-function _tsz_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, _a=8, rtol=eps())
+# _tsz_y₁(x, _a) = (x*(_a+1))^(1/(_a+1))
+# _tsz_x₁(y, _a) = y^(_a+1)/(_a+1)
+function _tsz_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), order=9)
     x² = x^2
-    integral, err = quadgk(y -> y^_a * generalized_nfw(√(_tsz_x₁(y,_a)^2 + x²), xc, α, β, γ),
-                      0.0, _tsz_y₁(zmax,_a), rtol=rtol)
-    return 2integral
+    scale = 1e9
+    integral, err = quadgk(y -> scale * generalized_nfw(√(y^2 + x²), xc, α, β, γ),
+                      0.0, zmax, rtol=rtol, order=order)
+    return 2integral / scale
 end
 
 function dimensionless_P_profile_los(𝕡::BattagliaProfile{T}, M_200, z, r) where T
@@ -91,227 +92,112 @@ function compton_y(𝕡, M_200, z, r)
 end
 
 
-##
-using BenchmarkTools, Test
-p = BattagliaProfile()
-@test abs(1 - compton_y(p, 3e15M_sun, 1.0, 0.0) / 0.000791435242101093) < 1e-5
-@test abs(1 - compton_y(p, 5e11M_sun, 0.5, 1e-5) / 2.038204776991399e-08) < 1e-5
-@test abs(1 - compton_y(p, 5e11M_sun, 1.0, 2e-5) / 1.6761760790073166e-08) < 1e-5
-@test abs(1 - compton_y(p, 1e12M_sun, 2.0, 3e-5) /  4.646234867480562e-08) < 1e-5
+# using StaticArrays
 
+function profile_grid(𝕡::BattagliaProfile{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
+              logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
-##
-rr = LinRange(0., deg2rad(4/60), 100)
-plot(rad2deg.(rr) * 60,
-    [compton_y(p, 1e12M_sun, 2.0, r) for r in rr],
-    ylim=(0., 1e-10))
+    logθs = LinRange(logθ_min, logθ_max, N_logθ)
+    redshifts = LinRange(z_min, z_max, N_z)
+    logMs = LinRange(logM_min, logM_max, N_logM)
 
-##
-function gaussbeamA(fwhm::T, lmax::Int; pol=false) where T
-    Bl = Array{T,1}(undef, lmax+1)
-    fwhm²_to_σ² = 1 / (8log(T(2)))  # constant
-    σ² = fwhm²_to_σ² * fwhm^2
+    return profile_grid(𝕡, logθs, redshifts, logMs)
+end
 
-    if pol
-        for l = 0:lmax
-            Bl[l+1] = exp(-(l * (l+1) - 4) * σ² / 2)
-        end
-    else
-        for l = 0:lmax
-            Bl[l+1] = exp(-l * (l+1) * σ² / 2)
+function profile_grid(𝕡::BattagliaProfile{T}, logθs, redshifts, logMs) where T
+
+    N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
+    A = zeros(T, (N_logθ, N_z, N_logM))
+
+    Threads.@threads for im in 1:N_logM
+        logM = logMs[im]
+        M = 10^(logM) * M_sun
+        for (iz, z) in enumerate(redshifts)
+            for iθ in 1:N_logθ
+                θ = exp(logθs[iθ])
+                y = compton_y(𝕡, M, z, θ)
+                A[iθ, iz, im] = max(zero(T), y)
+            end
         end
     end
-    return Bl
+
+    return logθs, redshifts, logMs, A
+end
+
+# get angular size in radians of radius to stop at
+function θmax(𝕡::AbstractProfile{T}, M_Δ, z; mult=4) where T
+    r = R_Δ(𝕡, M_Δ, z)
+    return T(mult * angular_size(𝕡, r, z))
 end
 
 
-##
-using Pixell
-rft = RadialFourierTransform(n=256, pad=128)
-ells = rft.l
-# lbeam = exp.(-ells .* (ells .+ 1) .* deg2rad(0.01/60)^2)
+function websky_m200m_to_m200c(m200m, z, cosmo)
+    Ω_m = cosmo.Ω_m
+    omz = Ω_m * (1+z)^3 / ( Ω_m * (1+z)^3 + 1 - Ω_m )
+    m200c = omz^0.35 * m200m
 
-fwhm = deg2rad(1)
-fwhm²_to_σ² = 1 / (8log(2))  # constant
-σ² = fwhm²_to_σ² * fwhm^2
-
-lbeam = @. exp(-ells * (ells+1) * σ² / 2)
-plot(ells, lbeam, xlim=(0,1000))
-
-# plot!(gaussbeamA(fwhm, 1000), ls=:dash)
-
-##
-# rprofs = [compton_y(p, 1e12M_sun, 2.0, r) for r in rft.r]
-rprofs = [compton_y(p, 1e12M_sun, 2.0, r) for r in rft.r]
-# rprofs = @. (rft.r[1]/4) ./ (rft.r)
-##
-using StaticArrays
-z_min = 1e-3
-z_max = 5.0
-logM_min = 10  # 1e10 Msun
-logM_max = 15
-
-logθ_min = log(rft.r[begin+rft.pad])
-logθ_max = log(rft.r[end-rft.pad])
+    return m200c
+end
 
 
-N_z, N_logM, N_logθ = 64, 256, 512
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
+                α₀, δ₀, p::AbstractProfile{T}, psa, sitp, z, Ms) where T
 
-##
-Ms = LinRange(logM_min, logM_max, N_logM)
-logθs = LinRange(logθ_min, logθ_max, N_logθ)
-redshifts = LinRange(z_min, z_max, N_z)
+    # get indices of the region to work on
+    θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
+    i1, j1 = sky2pix(m, α₀ - θ_rad, δ₀ - θ_rad)
+    i2, j2 = sky2pix(m, α₀ + θ_rad, δ₀ + θ_rad)
+    i_start = floor(Int, max(min(i1, i2), 1))
+    i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
+    j_start = floor(Int, max(min(j1, j2), 1))
+    j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
 
-LI = LinearIndices((1:N_logθ, 1:N_z, 1:N_logM))
-# ys = zeros(N_logθ * N_z * N_logM)
-# xs = zeros(SVector{3, Float64}, length(ys))
-A = zeros((N_logθ, N_z, N_logM))
+    x₀ = cos(δ₀) * cos(α₀)
+    y₀ = cos(δ₀) * sin(α₀) 
+    z₀ = sin(δ₀)
 
-Threads.@threads for im in 1:N_logM
-    logM = Ms[im]
-    M = 10^(logM) * M_sun
-    for (iz, z) in enumerate(redshifts)
-        norm = compton_y(p, M, z, 0.0)
-        for iθ in 1:N_logθ
-            ii = LI[iθ, iz, im]
-            θ = exp(logθs[iθ])
-            A[iθ, iz, im] = compton_y(p, M, z, θ) / norm
-            # ys[ii] = compton_y(p, M, z, θ)
-            # xs[ii] = SA[logM, z, logθs[iθ]]
+    @inbounds for j in j_start:j_stop
+        for i in i_start:i_stop
+            x₁ = psa.cos_δ[j] * psa.cos_α[i]
+            y₁ = psa.cos_δ[j] * psa.sin_α[i]
+            z₁ = psa.sin_δ[j]
+            d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+            θ =  acos(1 - d² / 2)
+            m[i,j] += ifelse(θ < θ_rad, 
+                             exp(sitp(log(θ), z, log10(Ms))),
+                             zero(T))
         end
     end
 end
 
 
-##
-using Interpolations
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
+            α₀, δ₀, p::AbstractProfile{T}, psa, sitp, z, Ms) where T
 
-itp = interpolate(A, BSpline(Cubic(Line(OnGrid()))))
-sitp = scale(itp, logθs, redshifts, Ms)
+    # get indices of the region to work on
+    θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
+    i1, j1 = sky2pix(m, α₀ - θ_rad, δ₀ - θ_rad)
+    i2, j2 = sky2pix(m, α₀ + θ_rad, δ₀ + θ_rad)
+    i_start = floor(Int, max(min(i1, i2), 1))
+    i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
+    j_start = floor(Int, max(min(j1, j2), 1))
+    j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
 
-##
-@btime $sitp(-5.0, 1.0, 14.0)
+    x₀ = cos(δ₀) * cos(α₀)
+    y₀ = cos(δ₀) * sin(α₀) 
+    z₀ = sin(δ₀)
 
+    @inbounds for j in j_start:j_stop
+        for i in i_start:i_stop
+            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
+            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
+            z₁ = psa.sin_δ[i,j]
+            d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+            θ =  acos(1 - d² / 2)
+            m[i,j] += ifelse(θ < θ_rad, 
+                             exp(sitp(log(θ), z, log10(Ms))),
+                             zero(T))
+        end
+    end
+end
 
-##
-
-ref(th, z, m) =  compton_y(p, 10^m * M_sun, z, exp(th)) / compton_y(p, 10^m * M_sun, z, 0.)
-
-θs = exp.(logθs)
-plot()
-# plot(logθs, [abs(sitp(th, redshifts[10], Ms[14]) - ref(th, redshifts[10], Ms[14])) for th in logθs])
-plot!(logθs, [abs(sitp(th, 0.5, 14.0) - ref(th, 0.5, 14.0)) for th in logθs])
-plot!(logθs, [abs(sitp(th, redshifts[60], 14.1) - ref(th, redshifts[60], 14.1)) for th in logθs])
-
-##
-
-plot(logθs, [(sitp(th, 1e-3, 13.0)) for th in logθs])
-plot!(logθs, [(ref(th,  0.5, 13.0)) for th in logθs])
-plot!(logθs, [(sitp(th, 1.0, 13.0)) for th in logθs])
-plot!(logθs, [(sitp(th, 2.0, 13.0)) for th in logθs])
-# plot!(xscale=:log10)
-
-
-##
-plot(θs, A[:,1,64])
-plot!(θs, A[:,2,64])
-plot!(θs, A[:,32,64])
-plot!(θs, A[:,64,64])
-# plot!(θs, A[:,128,64])
-# plot!(xscale=:log10, yscale=:log10)
-plot!(xscale=:log10)
-# plot!(xlim=(0, 0.1))
-
-
-##
-
-using FastChebInterp
-
-# lb = minimum.((x[1], x[2], x[3]))
-# ub = maximum.((x[1], x[2], x[3]))
-
-c = chebregression(xs, ys, (10,10,10))
-
-
-##
-
-lprofs = real2harm(rft, rprofs)
-lprofs .*= (lbeam)
-rprofs2 = harm2real(rft, reverse(lprofs))
-
-
-##
-plot(rft.r[(begin+rft.pad):(end-rft.pad)], rprofs[(begin+rft.pad):(end-rft.pad)])
-plot!(rft.r[(begin+rft.pad):(end-rft.pad)], rprofs2[(begin+rft.pad):(end-rft.pad)], ls=:dash, 
-# xscale=:log10,
-xlim=(0., 4e-2), 
-ylim=(0.0, 2rprofs2[rft.pad])
-)
-vline!([fwhm/2])
-# vline!([sol], ls=:dash)
-# vline!([fwhm])
-
-
-##
-
-
-##
-using DataInterpolations
-yy = LinearInterpolation(rprofs2[rft.pad:(end-rft.pad)], rft.r[rft.pad:(end-rft.pad)])
-using NonlinearSolve
-
-ff(u,p) = yy(u) - rprofs2[rft.pad]/2
-probB = NonlinearProblem(ff, 0.005)
-sol = solve(probB, NewtonRaphson(), tol=1e-9).u
-
-# lprofs .*= exp.(-rft.l .* (rft.l .+ 1) .* deg2rad(1/60)^2)
-
-##
-
-##
-using DataInterpolations
-r, rprofs = Pixell.unpad(rft, rft.r, rprofs)
-
-##
-plot(r, rprofs, xscale=:log)
-
-##
-plot(rft.r[64:end], rprofs[64:end], xscale=:log10)
-
-##
-
-
-
-
-##
-
-
-
-##
-
-using FastChebInterp
-
-
-xr = rand(10000) * 10 # 10000 uniform random points in [0, 10]
-c = chebregression(xr, f.(xr), 0, 10, 200) 
-
-
-##
-g(x) = sin(x[1] + cos(x[2]))
-lb, ub = [1,3], [2, 4] # lower and upper bounds of the domain, respectively
-x = chebpoints((10,20), lb, ub)
-c = chebinterp(g.(x), lb, ub)
-
-##
-using StaticArrays
-@btime $c(x) setup=(x=SA[1.5, 3.5])
-
-##
-@btime log(x) setup=(x=rand())
-
-
-
-##
-
-
-##
