@@ -114,3 +114,6 @@ end
     @test all(XGPaint.chunk(10, 10) == [(1,10)])
 
 end
+
+##
+include("test_query.jl")

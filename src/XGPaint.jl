@@ -11,6 +11,7 @@ using Random
 using Healpix
 using PhysicalConstants
 using Pixell
+using Healpix: checkPixelRing
 
 import ThreadsX
 import Distributions
