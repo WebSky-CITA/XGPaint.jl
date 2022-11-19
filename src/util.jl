@@ -135,13 +135,12 @@ end
 @doc raw"""
     queryDiscRing!(result, ringinfo, resol::Resolution, theta, phi, radius; fact=0)
 
-Return a list of the indices of those pixels whose centers are closer
+In-place calculation of a list of the indices of those pixels whose centers are closer
 than `radius` to direction `(theta, phi)`. The three angles `radius`,
 `theta`, and `phi` must be expressed in radians.
 
 If `fact` is nonzero, it must be a positive integer; it requires to
 carry the computation at a resolution `fact * nside`.
-
 """
 function queryDiscRing!(
     result::AbstractArray{Int,1},
@@ -258,6 +257,100 @@ function queryDiscRing!(
     end
 
     result
+end
+
+
+"""
+Compute the real-space beam from a harmonic-space beam.
+"""
+function bl2beam(bl::AbstractArray{T,1}, θ::AbstractArray) where T
+    lmax = length(bl) - 1
+    nx = length(θ)
+    x = cos.(θ)
+    p0 = ones(T, nx)
+    p1 = x
+
+    beam = bl[0+1] * p0 + bl[1+1] * p1 * 3
+
+    for ℓ in 2:lmax
+        p2 = @. x * p1 * (2ℓ - 1) / ℓ - p0 * (ℓ - 1) / ℓ
+        p0 = p1
+        p1 = p2
+        beam += bl[ℓ+1] * p2 * (2ℓ + 1)
+    end
+
+    beam /= 4 * T(π)
+    return beam
+end
+
+
+"""
+    vecmap([T=Float64], nside::Int)
+
+Generate a map of 3-tuples, showing the (x,y,z) values of the points on the unit 2-sphere
+for a Healpix map.
+"""
+function vectorhealpixmap(::Type{T}, nside::Int) where T
+    npix = nside2npix(nside)
+    res = Resolution(nside)
+    arr = Vector{Tuple{T, T, T}}(undef, npix)
+    posmap = HealpixMap{Tuple{T, T, T}, RingOrder}(arr)
+    Threads.@threads for i in 1:npix
+        posmap.pixels[i] = pix2vecRing(res, i)
+    end
+    return posmap
+end
+vectorhealpixmap(nside::Int) = vectorhealpixmap(Float64, nside)
+
+
+"""
+Computes a real-space beam interpolator and a maximum
+"""
+function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) where {T,Ti}
+    Nlmax = ceil(Int, log2(8π / θ_FWHM))
+    lmax = 2^Nlmax
+
+    b_l = gaussbeam(θ_FWHM, lmax)
+    θs = LinRange(zero(θ_FWHM), 5θ_FWHM, N_θ)
+    b_θ = XGPaint.bl2beam(b_l, θs)
+    atol = b_θ[begin] * rtol
+    i_max = findfirst(<(atol), b_θ)
+
+    θs = convert(LinRange{T, Int}, θs[begin:i_max])
+    beam_real_interp = cubic_spline_interpolation(
+        θs, T.(b_θ[begin:i_max]))
+    return beam_real_interp, θs
+end
+
+
+struct PaintingWorkspace{T, BI}
+    ringinfo::RingInfo
+    disc_buffer::Vector{Int}
+    θmax::T
+    posmap::HealpixMap{Tuple{T,T,T}, RingOrder}
+    beam_real_interp::BI
+end
+
+function PaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
+    ringinfo = RingInfo(0, 0, 0, 0.0, true)
+    disc_buffer = Int[]
+    approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
+    sizehint!(disc_buffer, approx_size)
+    posmap = vectorhealpixmap(T, nside)
+    return PaintingWorkspace{T, BI}(ringinfo, disc_buffer, θmax, posmap, beam_interp)
+end
+
+function realspacebeampaint!(hp_map, w::PaintingWorkspace, flux, θ₀, ϕ₀)
+    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
+
+    for ir in w.disc_buffer
+        x₁, y₁, z₁ = w.posmap[ir]
+        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+        θ = acos(1 - d² / 2)
+
+        hp_map.pixels[ir] += flux * w.beam_real_interp(θ)
+    end
 end
 
 
