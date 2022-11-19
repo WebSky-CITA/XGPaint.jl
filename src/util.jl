@@ -323,7 +323,7 @@ function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) 
 end
 
 
-struct PaintingWorkspace{T, BI}
+struct BeamPaintingWorkspace{T, BI}
     ringinfo::RingInfo
     disc_buffer::Vector{Int}
     θmax::T
@@ -331,16 +331,16 @@ struct PaintingWorkspace{T, BI}
     beam_real_interp::BI
 end
 
-function PaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
+function BeamPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
     ringinfo = RingInfo(0, 0, 0, 0.0, true)
     disc_buffer = Int[]
     approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
     sizehint!(disc_buffer, approx_size)
     posmap = vectorhealpixmap(T, nside)
-    return PaintingWorkspace{T, BI}(ringinfo, disc_buffer, θmax, posmap, beam_interp)
+    return BeamPaintingWorkspace{T, BI}(ringinfo, disc_buffer, θmax, posmap, beam_interp)
 end
 
-function realspacebeampaint!(hp_map, w::PaintingWorkspace, flux, θ₀, ϕ₀)
+function realspacebeampaint!(hp_map, w::BeamPaintingWorkspace, flux, θ₀, ϕ₀)
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
 
