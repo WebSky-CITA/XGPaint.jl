@@ -323,11 +323,11 @@ function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) 
 end
 
 
-struct BeamPaintingWorkspace{T, BI}
+struct BeamPaintingWorkspace{T, HM, BI}
     ringinfo::RingInfo
     disc_buffer::Vector{Int}
     θmax::T
-    posmap::HealpixMap{Tuple{T,T,T}, RingOrder}
+    posmap::HM
     beam_real_interp::BI
 end
 
@@ -337,7 +337,8 @@ function BeamPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, 
     approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
     sizehint!(disc_buffer, approx_size)
     posmap = vectorhealpixmap(T, nside)
-    return BeamPaintingWorkspace{T, BI}(ringinfo, disc_buffer, θmax, posmap, beam_interp)
+    return BeamPaintingWorkspace{T, typeof(posmap), BI}(
+        ringinfo, disc_buffer, θmax, posmap, beam_interp)
 end
 
 function realspacebeampaint!(hp_map, w::BeamPaintingWorkspace, flux, θ₀, ϕ₀)
@@ -345,7 +346,7 @@ function realspacebeampaint!(hp_map, w::BeamPaintingWorkspace, flux, θ₀, ϕ�
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
 
     for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap[ir]
+        x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ = acos(1 - d² / 2)
 
