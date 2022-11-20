@@ -318,7 +318,7 @@ function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) 
 
     θs = convert(LinRange{T, Int}, θs[begin:i_max])
     beam_real_interp = cubic_spline_interpolation(
-        θs, T.(b_θ[begin:i_max]))
+        θs, T.(b_θ[begin:i_max]), extrapolation_bc=zero(T))
     return beam_real_interp, θs
 end
 
@@ -332,13 +332,17 @@ struct BeamPaintingWorkspace{T, HM, BI}
 end
 
 function BeamPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
+    vecmap = vectorhealpixmap(T, nside)
+    return BeamPaintingWorkspace(nside, θmax, beam_interp, vecmap)
+end
+
+function BeamPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
     ringinfo = RingInfo(0, 0, 0, 0.0, true)
     disc_buffer = Int[]
     approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
     sizehint!(disc_buffer, approx_size)
-    posmap = vectorhealpixmap(T, nside)
-    return BeamPaintingWorkspace{T, typeof(posmap), BI}(
-        ringinfo, disc_buffer, θmax, posmap, beam_interp)
+    return BeamPaintingWorkspace{T, V, BI}(
+        ringinfo, disc_buffer, θmax, vecmap, beam_interp)
 end
 
 function realspacebeampaint!(hp_map, w::BeamPaintingWorkspace, flux, θ₀, ϕ₀)
