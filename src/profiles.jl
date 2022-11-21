@@ -13,12 +13,13 @@ struct BattagliaProfile{T,C} <: AbstractProfile{T}
     cosmo::C
 end
 
-function BattagliaProfile(Omega_c::T=0.2589, Omega_b::T=0.0486) where {T <: Real}
+function BattagliaProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
-    cosmo = get_cosmology(Float64, h=0.6774, OmegaM=OmegaM)
+    cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     return BattagliaProfile(f_b, cosmo)
 end
+
 
 const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
 
