@@ -16,9 +16,9 @@ using Healpix: checkPixelRing
 import ThreadsX
 import Distributions
 
-include("./profiles.jl")
-include("./model.jl")
 include("./util.jl")
+include("./model.jl")
+include("./profiles.jl")
 include("./cib.jl")
 include("./radio.jl")
 

@@ -202,3 +202,26 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
     end
 end
 
+
+function profile_paint!(m::HealpixMap{T, RingOrder}, 
+            α₀, δ₀, p::AbstractProfile{T}, w::HealpixPaintingWorkspace, z, Mh) where T
+    ϕ₀ = α₀
+    θ₀ = π/2 - δ₀
+    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    # get indices of the region to work on
+    θ_rad = XGPaint.θmax(p, Mh * XGPaint.M_sun, z)
+        x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θ_rad)
+
+    sitp = w.profile_real_interp
+
+    for ir in w.disc_buffer
+        x₁, y₁, z₁ = w.posmap.pixels[ir]
+        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+        θ = acos(1 - d² / 2)
+
+        m.pixels[ir] += ifelse(θ < θ_rad, 
+                                    exp(sitp(log(θ), z, log10(Mh))),
+                                    zero(T))
+    end
+end

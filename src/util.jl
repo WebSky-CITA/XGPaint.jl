@@ -323,29 +323,29 @@ function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) 
 end
 
 
-struct BeamPaintingWorkspace{T, HM, BI}
+struct HealpixPaintingWorkspace{T, HM, BI}
     ringinfo::RingInfo
     disc_buffer::Vector{Int}
     θmax::T
     posmap::HM
-    beam_real_interp::BI
+    profile_real_interp::BI
 end
 
-function BeamPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
+function HealpixPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
     vecmap = vectorhealpixmap(T, nside)
-    return BeamPaintingWorkspace(nside, θmax, beam_interp, vecmap)
+    return HealpixPaintingWorkspace(nside, θmax, beam_interp, vecmap)
 end
 
-function BeamPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
+function HealpixPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
     ringinfo = RingInfo(0, 0, 0, 0.0, true)
     disc_buffer = Int[]
     approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
     sizehint!(disc_buffer, approx_size)
-    return BeamPaintingWorkspace{T, V, BI}(
+    return HealpixPaintingWorkspace{T, V, BI}(
         ringinfo, disc_buffer, θmax, vecmap, beam_interp)
 end
 
-function realspacebeampaint!(hp_map, w::BeamPaintingWorkspace, flux, θ₀, ϕ₀)
+function realspacebeampaint!(hp_map, w::HealpixPaintingWorkspace, flux, θ₀, ϕ₀)
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
 
@@ -354,7 +354,7 @@ function realspacebeampaint!(hp_map, w::BeamPaintingWorkspace, flux, θ₀, ϕ�
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ = acos(1 - d² / 2)
 
-        hp_map.pixels[ir] += flux * w.beam_real_interp(θ)
+        hp_map.pixels[ir] += flux * w.profile_real_interp(θ)
     end
 end
 
