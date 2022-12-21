@@ -64,44 +64,6 @@ function generate_subhalo_offsets(num_subhalos)
     return result
 end
 
-
-"""
-Fill in basic halo properties.
-"""
-function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
-                                   cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T
-    N_halos = size(halo_pos, 2)
-    hp_ind = Array{Int64}(undef, N_halos)  # healpix index of halo
-    redshift = Array{T}(undef, N_halos)
-    dist = Array{T}(undef, N_halos)
-
-    r2z = build_r2z_interpolator(
-        model.min_redshift, model.max_redshift, cosmo)
-    Threads.@threads for i in 1:N_halos
-        dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
-        redshift[i] = r2z(dist[i])
-        hp_ind[i] = Healpix.vec2pixRing(res, halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
-    end
-
-    return dist, redshift, hp_ind
-end
-
-"""
-Compute angles of halos
-"""
-function get_angles(halo_pos::Array{T,2}) where T
-    N_halos = size(halo_pos, 2)
-    θ = Array{T}(undef, N_halos)
-    ϕ = Array{T}(undef, N_halos)
-
-    Threads.@threads for i in 1:N_halos
-        θ[i], ϕ[i] = Healpix.vec2ang(halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
-    end
-
-    return θ, ϕ
-end
-
-
 """
 Utility function which prepends some zeros to an array. It makes a copy instead
 of modifying the input.
@@ -326,23 +288,29 @@ end
 struct HealpixPaintingWorkspace{T, HM, BI}
     ringinfo::RingInfo
     disc_buffer::Vector{Int}
+    θmin::T
     θmax::T
     posmap::HM
     profile_real_interp::BI
 end
 
-function HealpixPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI) where {T, BI}
-    vecmap = vectorhealpixmap(T, nside)
-    return HealpixPaintingWorkspace(nside, θmax, beam_interp, vecmap)
+function Base.show(io::IO, imap::HealpixPaintingWorkspace{T}) where T
+    expr = "HealpixPaintingWorkspace{$(T)}"
+    print(io, expr)
 end
 
-function HealpixPaintingWorkspace(nside::Int, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
+function HealpixPaintingWorkspace(nside::Int, θmin::T, θmax::T, beam_interp::BI) where {T, BI}
+    vecmap = vectorhealpixmap(T, nside)
+    return HealpixPaintingWorkspace(nside, θmin, θmax, beam_interp, vecmap)
+end
+
+function HealpixPaintingWorkspace(nside::Int, θmin::T, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
     ringinfo = RingInfo(0, 0, 0, 0.0, true)
     disc_buffer = Int[]
     approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
     sizehint!(disc_buffer, approx_size)
     return HealpixPaintingWorkspace{T, V, BI}(
-        ringinfo, disc_buffer, θmax, vecmap, beam_interp)
+        ringinfo, disc_buffer, θmin, θmax, vecmap, beam_interp)
 end
 
 function realspacebeampaint!(hp_map, w::HealpixPaintingWorkspace, flux, θ₀, ϕ₀)
@@ -355,6 +323,42 @@ function realspacebeampaint!(hp_map, w::HealpixPaintingWorkspace, flux, θ₀, �
         θ = acos(1 - d² / 2)
 
         hp_map.pixels[ir] += flux * w.profile_real_interp(θ)
+    end
+end
+
+
+
+"""Apply a beam to a profile grid"""
+function transform_profile_grid!(y_prof_grid, rft, lbeam)
+    rprof = y_prof_grid[:,1,1]
+    for i in axes(y_prof_grid, 2)
+        for j in axes(y_prof_grid, 3)
+            rprof .= y_prof_grid[:,i,j]
+            lprof = real2harm(rft, rprof)
+            lprof .*= lbeam
+            reverse!(lprof)
+            rprof′ = harm2real(rft, lprof)
+            y_prof_grid[:,i,j] .= rprof′
+        end
+    end
+end
+
+"prune a profile grid for negative values, extrapolate instead"
+function cleanup_negatives!(y_prof_grid)
+    for i in axes(y_prof_grid, 2)
+        for j in axes(y_prof_grid, 3)
+            extrapolating = false
+            fact = 1.0
+            for k in axes(y_prof_grid, 1)
+                if y_prof_grid[k,i,j] <= 0
+                    extrapolating = true
+                    fact = y_prof_grid[k-1,i,j] / y_prof_grid[k-2,i,j]
+                end
+                if extrapolating
+                    y_prof_grid[k,i,j] = max(fact * y_prof_grid[k-1,i,j], nextfloat(0.0))
+                end
+            end
+        end
     end
 end
 

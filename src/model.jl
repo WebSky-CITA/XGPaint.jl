@@ -64,6 +64,44 @@ get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb
     w0=-1, wa=0) where T = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
         OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
+
+"""
+Fill in basic halo properties.
+"""
+function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegroundModel,
+                                   cosmo::Cosmology.FlatLCDM{T}, res::Resolution) where T
+    N_halos = size(halo_pos, 2)
+    hp_ind = Array{Int64}(undef, N_halos)  # healpix index of halo
+    redshift = Array{T}(undef, N_halos)
+    dist = Array{T}(undef, N_halos)
+
+    r2z = build_r2z_interpolator(
+        model.min_redshift, model.max_redshift, cosmo)
+    Threads.@threads for i in 1:N_halos
+        dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
+        redshift[i] = r2z(dist[i])
+        hp_ind[i] = Healpix.vec2pixRing(res, halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+    end
+
+    return dist, redshift, hp_ind
+end
+
+"""
+Compute angles of halos
+"""
+function get_angles(halo_pos::Array{T,2}) where T
+    N_halos = size(halo_pos, 2)
+    θ = Array{T}(undef, N_halos)
+    ϕ = Array{T}(undef, N_halos)
+
+    Threads.@threads for i in 1:N_halos
+        θ[i], ϕ[i] = Healpix.vec2ang(halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
+    end
+
+    return θ, ϕ
+end
+
+
 """
     build_r2z_interpolator(min_z::T, max_z::T,
         cosmo::Cosmology.AbstractCosmology; n_bins=2000) where T

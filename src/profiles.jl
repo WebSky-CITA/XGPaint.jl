@@ -131,7 +131,7 @@ function θmax(𝕡::AbstractProfile{T}, M_Δ, z; mult=4) where T
     return T(mult * angular_size(𝕡, r, z))
 end
 
-
+# DEBUGGING ONLY: VERY APPROXIMATE
 function websky_m200m_to_m200c(m200m, z, cosmo)
     Ω_m = cosmo.Ω_m
     omz = Ω_m * (1+z)^3 / ( Ω_m * (1+z)^3 + 1 - Ω_m )
@@ -140,14 +140,52 @@ function websky_m200m_to_m200c(m200m, z, cosmo)
     return m200c
 end
 
+# find maximum radius to integrate to
+function build_max_paint_logradius(logθs, redshifts, logMs, 
+                              A::AbstractArray{T}; rtol=1e-2) where T
+    
+    logRs = zeros(T, (size(A)[2:3]))
+    N_logM = length(logMs)
+    N_logθ = length(logθs)
+    dF_r = zeros(N_logθ)
+    
+    for im in 1:N_logM
+        for (iz, z) in enumerate(redshifts)
+            s = zero(T)
+            for iθ in 1:(N_logθ-1)
+                θ₁ = exp(logθs[iθ])
+                θ₂ = exp(logθs[iθ+1])
+                f₁ = A[iθ, iz, im] * θ₁
+                f₂ = A[iθ+1, iz, im] * θ₂
+                s += (θ₂ - θ₁) * (f₁ + f₂) / 2
+
+                dF_r[iθ] = s
+            end
+
+            threshold = (1-rtol) * s
+            for iθ in (N_logθ-1):-1:1
+                if dF_r[iθ] < threshold
+                    logRs[iz, im] = min(logθs[iθ], log(π))
+                    break
+                end
+            end
+            
+        end
+    end
+
+    return scale(
+        Interpolations.interpolate(logRs, BSpline(Cubic(Line(OnGrid())))), 
+        redshifts, logMs);
+end
+
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                α₀, δ₀, p::AbstractProfile{T}, psa, sitp, z, Ms) where T
+                        α₀, δ₀, psa, sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
-    θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
-    i1, j1 = sky2pix(m, α₀ - θ_rad, δ₀ - θ_rad)
-    i2, j2 = sky2pix(m, α₀ + θ_rad, δ₀ + θ_rad)
+    # θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
+    i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
+    i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
     i_start = floor(Int, max(min(i1, i2), 1))
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
@@ -164,7 +202,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             z₁ = psa.sin_δ[j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
-            m[i,j] += ifelse(θ < θ_rad, 
+            m[i,j] += ifelse(θ < θmax, 
                              exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
         end
@@ -173,12 +211,11 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, p::AbstractProfile{T}, psa, sitp, z, Ms) where T
+            α₀, δ₀, psa, sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
-    θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
-    i1, j1 = sky2pix(m, α₀ - θ_rad, δ₀ - θ_rad)
-    i2, j2 = sky2pix(m, α₀ + θ_rad, δ₀ + θ_rad)
+    i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
+    i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
     i_start = floor(Int, max(min(i1, i2), 1))
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
@@ -195,7 +232,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
-            m[i,j] += ifelse(θ < θ_rad, 
+            m[i,j] += ifelse(θ < θmax, 
                              exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
         end
@@ -204,23 +241,20 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, p::AbstractProfile{T}, w::HealpixPaintingWorkspace, z, Mh) where T
+            α₀, δ₀, w::HealpixPaintingWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = π/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    # get indices of the region to work on
-    θ_rad = XGPaint.θmax(p, Mh * XGPaint.M_sun, z)
-        x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θ_rad)
-
+    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
 
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ = acos(1 - d² / 2)
+        θ = max(w.θmin, θ)  # clamp to minimum θ
 
-        m.pixels[ir] += ifelse(θ < θ_rad, 
+        m.pixels[ir] += ifelse(θ < θmax, 
                                     exp(sitp(log(θ), z, log10(Mh))),
                                     zero(T))
     end
