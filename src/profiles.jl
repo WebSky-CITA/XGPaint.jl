@@ -197,9 +197,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[j] * psa.cos_α[i]
-            y₁ = psa.cos_δ[j] * psa.sin_α[i]
-            z₁ = psa.sin_δ[j]
+            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
+            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
+            z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
             m[i,j] += ifelse(θ < θmax, 
