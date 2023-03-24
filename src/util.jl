@@ -2,7 +2,7 @@ using HDF5
 using Healpix
 using Random
 using Random: MersenneTwister
-
+using Interpolations
 
 """
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
