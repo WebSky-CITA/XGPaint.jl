@@ -28,11 +28,13 @@ function BattagliaProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) w
     return BattagliaProfile(f_b, cosmo)
 end
 
-function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_break::T=1.5, M_break::T=2.0*10^14) where {T <: Real}
-    #alpha_break = 1.486 from Shivam P paper by Nate's sleuthing
+function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_break::T=0.972, M_break_h::T=2.0*10^14) where {T <: Real}
+    # break model from Pandey et al 2022 ACT y x DES shear analysis
+    # alpha_break = 0.972 from mean of marginalized constraints
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
+    M_break = M_break_h / h
     return BreakModel(f_b, cosmo, alpha_break, M_break)
 end
 
