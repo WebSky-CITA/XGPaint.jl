@@ -215,7 +215,7 @@ function write_chunk(
 end
 
 ## the rest of this is more or less the same as cib_planck2013_chunked.jl
-function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=3)
+function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
     # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
