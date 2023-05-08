@@ -51,6 +51,18 @@ function write_chunk(
     nuJ_sat = Array{Float32,2}(undef,(sources.N_sat,7))
     quasiTcoJ_cen = Array{Float32,2}(undef,(sources.N_cen,7))
     quasiTcoJ_sat = Array{Float32,2}(undef,(sources.N_sat,7))
+    fluxCO_090_cen = Array{Float32,2}(undef,(sources.N_cen,7))
+    fluxCO_090_sat = Array{Float32,2}(undef,(sources.N_sat,7))
+    fill!(fluxCO_090_cen,zero(Float32))
+    fill!(fluxCO_090_sat,zero(Float32))
+    fluxCO_150_cen = Array{Float32,2}(undef,(sources.N_cen,7))
+    fluxCO_150_sat = Array{Float32,2}(undef,(sources.N_sat,7))
+    fill!(fluxCO_150_cen,zero(Float32))
+    fill!(fluxCO_150_sat,zero(Float32))
+    fluxCO_220_cen = Array{Float32,2}(undef,(sources.N_cen,7))
+    fluxCO_220_sat = Array{Float32,2}(undef,(sources.N_sat,7))
+    fill!(fluxCO_220_cen,zero(Float32))
+    fill!(fluxCO_220_sat,zero(Float32))
     Threads.@threads for i in 1:sources.N_cen
         # calculate dust temperatures and bolometric LIR for each source
         Td = model.shang_Td * (1.f0 .+sources.redshift_cen[i])^model.shang_alpha;
@@ -93,15 +105,18 @@ function write_chunk(
         for J in 1:7
             j = searchsortedlast(bandpass_PA6_090_edges,nuJ_cen[i,J])
             if (j>0) && (j<=bandpass_PA6_090_len)
-                mCO090[sources.hp_ind_cen[i]]+= quasiTcoJ_cen[i,J]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
+                fluxCO_090_cen[i,J] = quasiTcoJ_cen[i,J]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
+                mCO090[sources.hp_ind_cen[i]]+= fluxCO_090_cen[i,J];
             end
             j = searchsortedlast(bandpass_PA6_150_edges,nuJ_cen[i,J])
             if (j>0) && (j<=bandpass_PA6_150_len)
-                mCO150[sources.hp_ind_cen[i]]+= quasiTcoJ_cen[i,J]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
+                fluxCO_150_cen[i,J] = quasiTcoJ_cen[i,J]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
+                mCO150[sources.hp_ind_cen[i]]+= fluxCO_150_cen[i,J];
             end
             j = searchsortedlast(bandpass_PA4_220_edges,nuJ_cen[i,J])
             if (j>0) && (j<=bandpass_PA4_220_len)
-                mCO220[sources.hp_ind_cen[i]]+= quasiTcoJ_cen[i,J]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
+                fluxCO_220_cen[i,J] = quasiTcoJ_cen[i,J]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
+                mCO220[sources.hp_ind_cen[i]]+= fluxCO_220_cen[i,J];
             end
         end
     end
@@ -110,15 +125,18 @@ function write_chunk(
         for J in 1:7
             j = searchsortedlast(bandpass_PA6_090_edges,nuJ_sat[i,J])
             if (j>0) && (j<=bandpass_PA6_090_len)
-                mCO090[sources.hp_ind_sat[i]]+= quasiTcoJ_sat[i,J]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
+                fluxCO_090_sat[i,J] = quasiTcoJ_sat[i,J]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
+                mCO090[sources.hp_ind_sat[i]]+= fluxCO_090_sat[i,J];
             end
             j = searchsortedlast(bandpass_PA6_150_edges,nuJ_sat[i,J])
             if (j>0) && (j<=bandpass_PA6_150_len)
-                mCO150[sources.hp_ind_sat[i]]+= quasiTcoJ_sat[i,J]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
+                fluxCO_150_sat[i,J] = quasiTcoJ_sat[i,J]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
+                mCO150[sources.hp_ind_sat[i]]+= fluxCO_150_sat[i,J];
             end
             j = searchsortedlast(bandpass_PA4_220_edges,nuJ_sat[i,J])
             if (j>0) && (j<=bandpass_PA4_220_len)
-                mCO220[sources.hp_ind_sat[i]]+= quasiTcoJ_sat[i,J]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
+                fluxCO_220_sat[i,J] = quasiTcoJ_sat[i,J]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
+                mCO220[sources.hp_ind_sat[i]]+= fluxCO_220_sat[i,J];
             end
         end
     end
@@ -141,6 +159,25 @@ function write_chunk(
         mCO220.pixels = mCO220.pixels + m0.pixels
     end
     Healpix.saveToFITS(mCO220, "!$(filename)", typechar="D")
+    println("writing CO fluxes ...")
+    h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCO_090.h5"), "w") do file
+        write(file, "flux", fluxCO_090_cen)
+    end
+    h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCO_150.h5"), "w") do file
+        write(file, "flux", fluxCO_150_cen)
+    end
+    h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCO_220.h5"), "w") do file
+        write(file, "flux", fluxCO_220_cen)
+    end
+    h5open(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCO_090.h5"), "w") do file
+        write(file, "flux", fluxCO_090_sat)
+    end
+    h5open(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCO_150.h5"), "w") do file
+        write(file, "flux", fluxCO_150_sat)
+    end
+    h5open(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCO_220.h5"), "w") do file
+        write(file, "flux", fluxCO_220_sat)
+    end
     h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index).h5"), "w") do file
         write(file, "redshift", sources.redshift_cen)
         write(file, "theta", sources.theta_cen)
@@ -159,7 +196,14 @@ function write_chunk(
 
         XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
             fluxes_cen, fluxes_sat)
-
+        # save fluxes
+        h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_flux_$(freq).h5"), "w") do file
+            write(file, "flux", fluxes_cen)
+        end
+        h5open(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_flux_$(freq).h5"), "w") do file
+            write(file, "flux", fluxes_sat)
+        end
+        # save maps
         filename = joinpath(output_dir, "cib_$(freq).fits")
 
         if chunk_index > 1
@@ -171,7 +215,7 @@ function write_chunk(
 end
 
 ## the rest of this is more or less the same as cib_planck2013_chunked.jl
-function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
+function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=3)
     # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
