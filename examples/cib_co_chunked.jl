@@ -45,7 +45,7 @@ function write_chunk(
     LIR_sat = Array{Float32,1}(undef,sources.N_sat)
     LcoJ_cen = Array{Float32,2}(undef,sources.N_cen,7)
     LcoJ_sat = Array{Float32,2}(undef,sources.N_sat,7)
-    Lnu_to_LIR(Td) = 9.521f8*(143.35-9.8603*Td+0.28919*Td^2);
+    Lnu_to_LIR(Td) = 9.521f8*(208.71 - 14.077*Td + 0.41223*Td^2);
     # calculate observing frequencies and quasi-temperatures for each halo
     nuJ_cen = Array{Float32,2}(undef,(sources.N_cen,7))
     nuJ_sat = Array{Float32,2}(undef,(sources.N_sat,7))

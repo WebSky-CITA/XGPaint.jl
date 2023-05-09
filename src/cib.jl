@@ -10,7 +10,6 @@ not typed are converted to type T. This model has the following parameters and d
 
 * `nside::Int64 = 4096`
 * `hod::String = "shang"`
-* `Inu_norm = 0.3180384`
 * `min_redshift = 0.0`
 * `max_redshift = 5.0`
 * `min_mass = 1e12`
@@ -24,7 +23,7 @@ not typed are converted to type T. This model has the following parameters and d
 * `shang_sigmaM = 0.3`
 * `shang_Msmin = 1e11`
 * `shang_Mmin = 1e10`
-* `shang_I0 = 46`
+* `shang_I0 = 92`
 * `jiang_gamma_1 = 0.13`
 * `jiang_alpha_1 = -0.83`
 * `jiang_gamma_2 = 1.33`
@@ -36,7 +35,6 @@ not typed are converted to type T. This model has the following parameters and d
 @with_kw struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T} @deftype T
     nside::Int64    = 4096
     hod::String     = "shang"
-    Inu_norm     = 0.3180384
     min_redshift = 0.0
     max_redshift = 5.0
     min_mass     = 1e12
@@ -52,7 +50,7 @@ not typed are converted to type T. This model has the following parameters and d
     shang_sigmaM = 0.3
     shang_Msmin  = 1e11
     shang_Mmin   = 1e10
-    shang_I0     = 46
+    shang_I0     = 92
 
     # jiang
     jiang_gamma_1    = 0.13
