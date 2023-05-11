@@ -1,0 +1,8 @@
+# a simple Artifacts.toml file
+[tsz_example]
+git-tree-sha1 = "9eb0ccaa501270ff9c6a00fbe5d1ea81b474e285"
+lazy = true
+
+    [[tsz_example.download]]
+    url = "https://github.com/WebSky-CITA/XGPaint.jl/releases/download/tsz_example/tsz_example.tar.gz"
+    sha256 = "5e0803e9d6e16c9a3d392c58e38f597fec3fbd6530b5106aba4720693359c379"

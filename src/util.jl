@@ -2,6 +2,7 @@ using HDF5
 using Healpix
 using Random
 using Random: MersenneTwister
+using Pkg.Artifacts
 
 """
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
@@ -14,6 +15,20 @@ function read_halo_catalog_hdf5(filename)
     pos = hdata[1:3,:]
     halo_mass = hdata[4,:]
     return pos, halo_mass
+end
+
+"""
+Reads a collection of example halos, and returns RA (rad), DEC (rad), redshift, 
+and halo mass (M200c).
+"""
+function load_example_halos()
+    rootpath = artifact"tsz_example"
+    fid = h5open(joinpath(rootpath, "little_box_m200c_v2.h5"), "r")
+    ra, dec = deg2rad.(fid["ra"]), deg2rad.(fid["dec"])
+    redshift, halo_mass = collect(fid["redshift"]), collect(fid["halo_mass"])
+    close(fid)
+
+    return ra, dec, redshift, halo_mass
 end
 
 

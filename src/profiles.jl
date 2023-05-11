@@ -118,9 +118,6 @@ function compton_y(𝕡, M_200, z, r)
     return P_e_los(𝕡, M_200, z, r) * P_e_factor
 end
 
-
-# using StaticArrays
-
 function profile_grid(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
               logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
@@ -210,7 +207,6 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
                         α₀, δ₀, psa, sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
-    # θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
     i_start = floor(Int, max(min(i1, i2), 1))
