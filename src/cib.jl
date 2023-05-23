@@ -40,6 +40,12 @@ not typed are converted to type T. This model has the following parameters and d
     min_mass     = 1e12
     box_size     = 40000
 
+    z_evo::String= "shang"
+    # defaults for hacky redshift evo
+    scarfy_A     = 9.86
+    scarfy_a0    = 0.55586
+    scarfy_alpha = 8.86
+    scarfy_beta  = 0.586
     # shang HOD
     shang_zplat  = 2.0
     shang_Td     = 20.7
@@ -153,6 +159,12 @@ function shang_z_evo(z::T, model::AbstractCIBModel) where T
     return (one(T) + min(z, model.shang_zplat))^model.shang_eta
 end
 
+function scarfy_z_evo(z::T, model::AbstractCIBModel) where T
+    #return (erf((z-T(model.scarfy_alpha))*T(model.scarfy_beta))+1)*model.scarfy_A
+    scaled_scalefac = one(T)/(one(T)+z)/model.scarfy_a0
+    return model.scarfy_A/(scaled_scalefac^model.scarfy_alpha+scaled_scalefac^model.scarfy_beta)
+end
+
 """
 Construct the necessary interpolator set.
 """
@@ -194,8 +206,12 @@ function process_centrals!(
         n_sat_bar_result[i] = rand(Distributions.Poisson(Float64.(n_sat_bar[i])))
 
         # get central luminosity
-        lum_cen[i] = sigma_cen(halo_mass[i], model) * shang_z_evo(
-            redshift_cen[i], model)
+        lum_cen[i] = sigma_cen(halo_mass[i], model)
+        if model.z_evo == "scarfy"
+            lum_cen[i]*= scarfy_z_evo(redshift_cen[i], model)
+        else
+            lum_cen[i]*= shang_z_evo(redshift_cen[i], model)
+        end
     end
 end
 
@@ -233,8 +249,12 @@ function process_sats!(
 
             # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
             #     redshift_sat[i], model)
-            lum_sat[i_sat] = sigma_cen(m_sat, model) * shang_z_evo(
-                redshift_sat[i_sat], model)
+            lum_sat[i_sat] = sigma_cen(m_sat, model)
+            if model.z_evo == "scarfy"
+                lum_sat[i_sat]*= scarfy_z_evo(redshift_sat[i_sat], model)
+            else             
+                lum_sat[i_sat]*= shang_z_evo(redshift_sat[i_sat], model)
+            end
             hp_ind_sat[i_sat] = Healpix.vec2pixRing(
                 Healpix_res, x_sat, y_sat, z_sat)
 
