@@ -41,11 +41,22 @@ not typed are converted to type T. This model has the following parameters and d
     box_size     = 40000
 
     z_evo::String= "shang"
-    # defaults for hacky redshift evo
-    scarfy_A     = 9.86
+    # defaults for Scarfy redshift evo
+    scarfy_A     = 21.86
     scarfy_a0    = 0.55586
-    scarfy_alpha = 8.86
-    scarfy_beta  = 0.586
+    scarfy_alpha = 4.386
+    scarfy_beta  = 0.386
+    # UniverseMachine-derived quenching fraction
+    quench::Bool = true
+    quench_Qmin0 = -1.944
+    quench_Qmina = -2.419
+    quench_VQ0 = 2.248
+    quench_VQa = 0.018
+    quench_VQz = 0.124
+    quench_sigVQ0 = 0.227
+    quench_sigVQa = 0.037
+    quench_sigVQl = 0.107
+    fquench_max  = 1.0
     # shang HOD
     shang_zplat  = 2.0
     shang_Td     = 20.7
@@ -166,6 +177,31 @@ function scarfy_z_evo(z::T, model::AbstractCIBModel) where T
 end
 
 """
+Quiescent fraction recipe from UniverseMachine
+"""
+function fquench_UM(Mh::T,z::T,model::AbstractCIBModel) where T
+    a = one(T)/(one(T)+z);
+    M200kms = T(1.64e12)/((a/T(0.378))^T(-0.142)+(a/T(0.378))^T(-1.79)) # MSol
+    vMpeak = T(200)*(Mh/M200kms)^T(0.3) # km/s
+    Qmin = max(T(0),T(model.quench_Qmin0)+T(model.quench_Qmina)*(one(T)-a));
+    logVQ = T(model.quench_VQ0) - T(model.quench_VQa)*(T(1)-a) + T(model.quench_VQz)*z;
+    sigVQ = T(model.quench_sigVQ0) + T(model.quench_sigVQa)*(T(1)-a) - T(model.quench_sigVQl)*log(T(1)+z);
+    return Qmin + (one(T)-Qmin)*(T(0.5)+T(0.5)*erf((log10(vMpeak)-logVQ)/(T(sqrt(2))*sigVQ)))
+end
+
+function build_fquench_interpolator(
+    max_log_M::T, model::AbstractCIBModel;
+    n_bin=1000) where T
+
+    logMh_range = LinRange(log(model.shang_Mmin), max_log_M, n_bin)
+    log1z_range = LinRange(log(one(T)+model.min_redshift),log(one(T)+model.max_redshift),n_bin)
+
+    fquench_table = [fquench_UM(exp(Mh),exp(zp1)-1,model) for Mh in logMh_range, zp1 in log1z_range]
+
+    return linear_interpolation((logMh_range,log1z_range),fquench_table)
+end
+
+"""
 Construct the necessary interpolator set.
 """
 function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
@@ -178,7 +214,9 @@ function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T}
         c_lnm2r = build_c_lnm2r_interpolator(),
         sigma_sat = build_sigma_sat_ln_interpolator(
             log(max_halo_mass), model),
-        muofn = build_muofn_interpolator(model)
+        muofn = build_muofn_interpolator(model),
+        fquench = build_fquench_interpolator(
+            log(max_halo_mass), model)
     )
 end
 
@@ -207,6 +245,14 @@ function process_centrals!(
 
         # get central luminosity
         lum_cen[i] = sigma_cen(halo_mass[i], model)
+        if model.quench
+            fquench_result = min(model.fquench_max,interp.fquench(log(halo_mass[i]),log(1+redshift_cen[i])))
+            if rand(T) > fquench_result
+                lum_cen[i]/= one(T)# - fquench_result
+            else
+                lum_cen[i] = zero(T)
+            end
+        end
         if model.z_evo == "scarfy"
             lum_cen[i]*= scarfy_z_evo(redshift_cen[i], model)
         else
@@ -250,6 +296,14 @@ function process_sats!(
             # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
             #     redshift_sat[i], model)
             lum_sat[i_sat] = sigma_cen(m_sat, model)
+            if model.quench
+                fquench_result = min(model.fquench_max,interp.fquench(log(m_sat),log(1+redshift_sat[i_sat])))
+                if rand(T) > fquench_result
+                    lum_sat[i_sat]/= one(T)# - fquench_result
+                else
+                    lum_sat[i_sat] = zero(T)
+                end
+            end
             if model.z_evo == "scarfy"
                 lum_sat[i_sat]*= scarfy_z_evo(redshift_sat[i_sat], model)
             else             

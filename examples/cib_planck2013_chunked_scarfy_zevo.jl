@@ -5,7 +5,7 @@ using HDF5
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 @time halo_pos, halo_mass = read_halo_catalog_hdf5("/fs/lustre/cita/zack/projects/websky/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
-model = CIB_Planck2013{Float32}(nside=4096,z_evo="scarfy")
+model = CIB_Planck2013{Float32}(nside=4096,z_evo="scarfy",quench=true)
 
 ## Write one chunk to disk
 
@@ -87,7 +87,7 @@ freqs = [
 """
 freqs = ["143", "857", "217", "353", "545"]
 
-scratch_dir = "/home/dongwooc/scratchspace/cib_sources_test"
+scratch_dir = "/home/dongwooc/scratchspace/cib_scarfy_test"
 println("SCRATCH: ", scratch_dir)
 mkpath(scratch_dir)
 mkpath(joinpath(scratch_dir, "sources"))
