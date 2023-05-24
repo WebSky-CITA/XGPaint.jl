@@ -14,6 +14,13 @@ not typed are converted to type T. This model has the following parameters and d
 * `max_redshift = 5.0`
 * `min_mass = 1e12`
 * `box_size = 40000`
+* `z_evo::String= "scarfy"`
+* `scarfy_A     = 21.86`
+* `scarfy_a0    = 0.55586`
+* `scarfy_alpha = 4.86`
+* `scarfy_beta  = 0.2786`
+* `quench::Bool = true`
+* `quench_sfrfac = 0.01`
 * `shang_zplat = 2.0`
 * `shang_Td = 20.7`
 * `shang_betan = 1.6`
@@ -40,12 +47,12 @@ not typed are converted to type T. This model has the following parameters and d
     min_mass     = 1e12
     box_size     = 40000
 
-    z_evo::String= "shang"
+    z_evo::String= "scarfy"
     # defaults for Scarfy redshift evo
     scarfy_A     = 21.86
     scarfy_a0    = 0.55586
-    scarfy_alpha = 4.386
-    scarfy_beta  = 0.386
+    scarfy_alpha = 4.86
+    scarfy_beta  = 0.2786
     # UniverseMachine-derived quenching fraction
     quench::Bool = true
     quench_Qmin0 = -1.944
@@ -57,6 +64,7 @@ not typed are converted to type T. This model has the following parameters and d
     quench_sigVQa = 0.037
     quench_sigVQl = 0.107
     fquench_max  = 1.0
+    quench_sfrfac = 0.01
     # shang HOD
     shang_zplat  = 2.0
     shang_Td     = 20.7
@@ -247,10 +255,8 @@ function process_centrals!(
         lum_cen[i] = sigma_cen(halo_mass[i], model)
         if model.quench
             fquench_result = min(model.fquench_max,interp.fquench(log(halo_mass[i]),log(1+redshift_cen[i])))
-            if rand(T) > fquench_result
-                lum_cen[i]/= one(T)# - fquench_result
-            else
-                lum_cen[i] = zero(T)
+            if rand(T) < fquench_result
+                lum_cen[i]*= model.quench_sfrfac
             end
         end
         if model.z_evo == "scarfy"
@@ -298,10 +304,8 @@ function process_sats!(
             lum_sat[i_sat] = sigma_cen(m_sat, model)
             if model.quench
                 fquench_result = min(model.fquench_max,interp.fquench(log(m_sat),log(1+redshift_sat[i_sat])))
-                if rand(T) > fquench_result
-                    lum_sat[i_sat]/= one(T)# - fquench_result
-                else
-                    lum_sat[i_sat] = zero(T)
+                if rand(T) < fquench_result
+                    lum_sat[i_sat]*= model.quench_sfrfac
                 end
             end
             if model.z_evo == "scarfy"
