@@ -39,6 +39,18 @@ not typed are converted to type T. This model has the following parameters and d
     
     # need to account for where this param is actually from
     shang_Msmin = 1e11
+    
+    # UniverseMachine-derived quenching fraction
+    quench_account::Bool = false
+    quench_Qmin0 = -1.944
+    quench_Qmina = -2.419
+    quench_VQ0 = 2.248
+    quench_VQa = 0.018
+    quench_VQz = 0.124
+    quench_sigVQ0 = 0.227
+    quench_sigVQa = 0.037
+    quench_sigVQl = 0.107
+    fquench_max  = 1.0
 
     # zheng HOD
     zheng_Mcut = 10^12.7/0.677
@@ -148,6 +160,32 @@ end
 """
 
 """
+Quiescent fraction recipe from UniverseMachine
+"""
+function fquench_UM(Mh::T,z::T,model::AbstractLRGModel) where T
+    a = one(T)/(one(T)+z);
+    M200kms = T(1.64e12)/((a/T(0.378))^T(-0.142)+(a/T(0.378))^T(-1.79)) # MSol
+    vMpeak = T(200)*(Mh/M200kms)^T(0.3) # km/s
+    Qmin = max(T(0),T(model.quench_Qmin0)+T(model.quench_Qmina)*(one(T)-a));
+    logVQ = T(model.quench_VQ0) - T(model.quench_VQa)*(T(1)-a) + T(model.quench_VQz)*z;
+    sigVQ = T(model.quench_sigVQ0) + T(model.quench_sigVQa)*(T(1)-a) - T(model.quench_sigVQl)*log(T(1)+z);
+    return Qmin + (one(T)-Qmin)*(T(0.5)+T(0.5)*erf((log10(vMpeak)-logVQ)/(T(sqrt(2))*sigVQ)))
+end
+
+function build_fquench_interpolator(
+    max_log_M::T, model::AbstractLRGModel;
+    n_bin=1000) where T
+
+    logMh_range = LinRange(log(model.shang_Msmin), max_log_M, n_bin)
+    log1z_range = LinRange(log(one(T)+model.min_redshift),log(one(T)+model.max_redshift),n_bin)
+
+    fquench_table = [fquench_UM(exp(Mh),exp(zp1)-1,model) for Mh in logMh_range, zp1 in log1z_range]
+
+    return linear_interpolation((logMh_range,log1z_range),fquench_table)
+end
+
+
+"""
 Construct the necessary interpolator set.
 """
 function get_interpolators(model::AbstractLRGModel, cosmo::Cosmology.FlatLCDM{T},
@@ -162,7 +200,9 @@ function get_interpolators(model::AbstractLRGModel, cosmo::Cosmology.FlatLCDM{T}
         hod_zhengsat = build_zhengsat_interpolator(
             log(min_halo_mass), log(max_halo_mass), model),
         c_lnm2r = build_c_lnm2r_interpolator(),
-        muofn = build_muofn_interpolator(model)
+        muofn = build_muofn_interpolator(model),
+        fquench = build_fquench_interpolator(
+            log(max_halo_mass), model)
     )
 end
 
@@ -173,7 +213,7 @@ function process_centrals!(
     model::AbstractLRGModel{T}, cosmo::Cosmology.FlatLCDM{T}, Healpix_res::Resolution;
     interp, hp_ind_cen, dist_cen, redshift_cen, theta_cen, phi_cen, m200c_cen,
     lrg_cen, n_sh_bar, n_sh_bar_result,
-    halo_pos, halo_mass) where T
+    halo_pos, halo_mass, halo_quenched) where T
 
     N_halos = size(halo_mass, 1)
 
@@ -186,9 +226,25 @@ function process_centrals!(
         redshift_cen[i] = interp.r2z(dist_cen[i])
         # deformation of Bocquet+16
         m200c_cen[i] = halo_mass[i]*((0.01*redshift_cen[i]-0.0225)*log10(halo_mass[i])-0.0197*redshift_cen[i]+1.0564)
-
         # compute central HOD
-        lrg_cen[i] = rand(T) < interp.hod_zhengcen(log(m200c_cen[i]))
+        lrg_frac = interp.hod_zhengcen(log(m200c_cen[i]))
+        if model.quench_account
+            lrg_cen[i] = false
+            fquench_result = min(model.fquench_max,interp.fquench(log(halo_mass[i]),log(1+redshift_cen[i])))
+            if fquench_result >= lrg_frac
+                if halo_quenched[i]
+                    lrg_cen[i] = rand(T) < lrg_frac/fquench_result
+                end
+            else
+                if halo_quenched[i]
+                    lrg_cen[i] = true
+                else
+                    lrg_cen[i] = rand(T) < (lrg_frac-fquench_result)/(1-fquench_result)
+                end
+            end
+        else
+            lrg_cen[i] = rand(T) < lrg_frac
+        end
         # compute ***total*** subhalo (not satellite LRG) count
         n_sh_bar[i] = interp.hod_jiang(log(m200c_cen[i]))
         n_sh_bar_result[i] = rand(Distributions.Poisson(Float64.(n_sh_bar[i])))
@@ -264,7 +320,8 @@ halo arrays into the type specified by `model`.
 """
 function generate_sources(
         model::AbstractLRGModel{T}, cosmo::Cosmology.FlatLCDM{T},
-        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1},
+        halo_quenched::AbstractArray{Bool,1};
         verbose=true) where {T, TH}
 
     # make sure halo inputs are the CIB type
@@ -294,7 +351,7 @@ function generate_sources(
         redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, 
         m200c_cen=m200c_cen, lrg_cen=lrg_cen, n_sh_bar=n_sh_bar,
         n_sh_bar_result=n_sh_bar_result,
-        halo_pos=halo_pos, halo_mass=halo_mass)
+        halo_pos=halo_pos, halo_mass=halo_mass, halo_quenched=halo_quenched)
 
     # STEP 2: Generate subhalo arrays -----------------------------
     cumush = generate_subhalo_offsets(n_sh_bar_result)
@@ -326,6 +383,15 @@ function generate_sources(
     )
 end
 
+function generate_sources(
+        model::AbstractLRGModel{T}, cosmo::Cosmology.FlatLCDM{T},
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
+        verbose=true) where {T, TH}
+    dummy_quench = BitArray(undef, length(halo_mass_inp))
+    fill!(dummy_quench,true)
+    return generate_sources(model,cosmo,halo_pos_inp,halo_mass_inp,dummy_quench;
+                             verbose=verbose)
+end
 
 """
     paint!(result_map, model, sources, min_redshift, max_redshift)

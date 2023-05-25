@@ -49,10 +49,10 @@ not typed are converted to type T. This model has the following parameters and d
 
     z_evo::String= "scarfy"
     # defaults for Scarfy redshift evo
-    scarfy_A     = 21.86
+    scarfy_A     = 23.86
     scarfy_a0    = 0.55586
     scarfy_alpha = 4.86
-    scarfy_beta  = 0.2786
+    scarfy_beta  = 2.586
     # UniverseMachine-derived quenching fraction
     quench::Bool = true
     quench_Qmin0 = -1.944
@@ -67,10 +67,10 @@ not typed are converted to type T. This model has the following parameters and d
     quench_sfrfac = 0.01
     # shang HOD
     shang_zplat  = 2.0
-    shang_Td     = 20.7
+    shang_Td     = 23.0
     shang_beta   = 1.6
     shang_eta    = 2.4
-    shang_alpha  = 0.2
+    shang_alpha  = 0.4
     shang_Mpeak  = 10^12.3
     shang_sigmaM = 0.3
     shang_Msmin  = 1e11
