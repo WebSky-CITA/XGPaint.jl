@@ -9,6 +9,7 @@ cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
 model = CIB_Planck2013{Float32}(z_evo="scarfy")
 println(model.z_evo)
 R_CO10_CI = 0.18*77.83 # r=0.18 times cubic frequency scaling
+xRJ_GHz = 0.0176086
 
 freqs = [
     "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
@@ -98,10 +99,14 @@ function write_chunk(
         for J in 1:7
             nuJ_cen[i,J] = 115.27f0*J/(1.0f0+sources.redshift_cen[i])
             quasiTcoJ_cen[i,J] = LcoJ_cen[i,J]*(1.315415f0/4.0f0/pi/nuJ_cen[i,J]^2.0f0/sources.dist_cen[i]^2.0f0/(1.0f0+sources.redshift_cen[i])^2.0f0) # divide by dnu in GHz
+            xRJ = xRJ_GHz*nuJ_cen[i,J]
+            quasiTcoJ_cen[i,J]*= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
         end
         nuCI_cen[i] = 492.16f0/(1.0f0+sources.redshift_cen[i])
         LCI_cen[i] = LcoJ_cen[i,1]*R_CO10_CI*exp((randn()-0.5*2.302585*0.2)*2.302585*0.2)
         quasiTCI_cen[i] = LCI_cen[i]*(1.315415f0/4.0f0/pi/nuCI_cen[i]^2.0f0/sources.dist_cen[i]^2.0f0/(1.0f0+sources.redshift_cen[i])^2.0f0) # divide by dnu in GHz
+        xRJ = xRJ_GHz*nuCI_cen[i]
+        quasiTCI_cen[i]*= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
     end
     Threads.@threads for i in 1:sources.N_sat
         Td = model.shang_Td * (1.f0 .+sources.redshift_sat[i])^model.shang_alpha;
@@ -115,10 +120,14 @@ function write_chunk(
         for J in 1:7
             nuJ_sat[i,J] = 115.27f0*J/(1.0f0+sources.redshift_sat[i])
             quasiTcoJ_sat[i,J] = LcoJ_sat[i,J]*(1.315415f0/4.0f0/pi/nuJ_sat[i,J]^2.0f0/sources.dist_sat[i]^2.0f0/(1.0f0+sources.redshift_sat[i])^2.0f0) # divide by dnu in GHz
+            xRJ = xRJ_GHz*nuJ_sat[i,J]
+            quasiTcoJ_sat[i,J]*= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
         end
         nuCI_sat[i] = 492.16f0/(1.0f0+sources.redshift_sat[i])
         LCI_sat[i] = LcoJ_sat[i,1]*R_CO10_CI*exp((randn()-0.5*2.302585*0.2)*2.302585*0.2)
         quasiTCI_sat[i] = LCI_sat[i]*(1.315415f0/4.0f0/pi/nuCI_sat[i]^2.0f0/sources.dist_sat[i]^2.0f0/(1.0f0+sources.redshift_sat[i])^2.0f0) # divide by dnu in GHz
+        xRJ = xRJ_GHz*nuCI_sat[i]
+        quasiTCI_sat[i]*= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
     end
     println("writing info for ",sources.N_cen," centrals")
     h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index).h5"), "w") do file
