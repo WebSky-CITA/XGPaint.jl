@@ -49,10 +49,10 @@ not typed are converted to type T. This model has the following parameters and d
 
     z_evo::String= "scarfy"
     # defaults for Scarfy redshift evo
-    scarfy_A     = 25.86
-    scarfy_a0    = 0.55586
-    scarfy_alpha = 4.086
-    scarfy_beta  = 2.386
+    scarfy_A     = 27.86
+    scarfy_a0    = 0.6386
+    scarfy_alpha = 3.086
+    scarfy_beta  = 2.986
     # UniverseMachine-derived quenching fraction
     quench::Bool = true
     quench_Qmin0 = -1.944
@@ -64,18 +64,24 @@ not typed are converted to type T. This model has the following parameters and d
     quench_sigVQa = 0.037
     quench_sigVQl = 0.107
     fquench_max  = 1.0
-    quench_sfrfac = 0.01
+    quench_sfrfac = 0.0
     # shang HOD
     shang_zplat  = 2.0
     shang_Td     = 23.0
     shang_beta   = 1.6
     shang_eta    = 2.4
     shang_alpha  = 0.36
+    m_evo::String= "scarfy"
     shang_Mpeak  = 10^12.3
     shang_sigmaM = 0.3
     shang_Msmin  = 1e11
     shang_Mmin   = 1e10
     shang_I0     = 92
+    scarfy_Mpeak  = 10^13.5086
+    scarfy_alphaM = -0.86
+    scarfy_betaM  = 1.86
+    scarfy_I0     = 6.0e12
+    scarfy_lumdex = 0.1
 
     # jiang
     jiang_gamma_1    = 0.13
@@ -124,8 +130,14 @@ end
 
 
 function sigma_cen(m::T, model::AbstractCIBModel) where T
-    return (exp( -(log10(m) - log10(model.shang_Mpeak))^2 /
+    if model.m_evo=="scarfy"
+        lsf = exp((randn()-0.5*2.302585*model.scarfy_lumdex)*2.302585*model.scarfy_lumdex)
+        return model.scarfy_I0/((m/model.scarfy_Mpeak)^model.scarfy_alphaM
+                                +(m/model.scarfy_Mpeak)^model.scarfy_betaM)*lsf
+    else
+        return (exp( -(log10(m) - log10(model.shang_Mpeak))^2 /
         (T(2)*model.shang_sigmaM) ) * m) / sqrt(T(2π) * model.shang_sigmaM)
+    end
 end
 
 function nu2theta(nu::T, z::T, model::AbstractCIBModel) where T

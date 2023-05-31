@@ -6,8 +6,9 @@ using DelimitedFiles
 
 halo_pos, halo_mass = read_halo_catalog_hdf5("/fs/lustre/cita/zack/projects/websky/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
-model = CIB_Planck2013{Float32}(z_evo="scarfy")
+model = CIB_Planck2013{Float32}(z_evo="scarfy",m_evo="scarfy")
 println(model.z_evo)
+println(model.m_evo)
 R_CO10_CI = 0.18*77.83 # r=0.18 times cubic frequency scaling
 xRJ_GHz = 0.0176086
 
