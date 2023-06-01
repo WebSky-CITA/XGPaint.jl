@@ -131,9 +131,8 @@ end
 
 function sigma_cen(m::T, model::AbstractCIBModel) where T
     if model.m_evo=="scarfy"
-        lsf = exp((randn()-0.5*2.302585*model.scarfy_lumdex)*2.302585*model.scarfy_lumdex)
         return model.scarfy_I0/((m/model.scarfy_Mpeak)^model.scarfy_alphaM
-                                +(m/model.scarfy_Mpeak)^model.scarfy_betaM)*lsf
+                                +(m/model.scarfy_Mpeak)^model.scarfy_betaM)
     else
         return (exp( -(log10(m) - log10(model.shang_Mpeak))^2 /
         (T(2)*model.shang_sigmaM) ) * m) / sqrt(T(2π) * model.shang_sigmaM)
@@ -265,6 +264,8 @@ function process_centrals!(
 
         # get central luminosity
         lum_cen[i] = sigma_cen(halo_mass[i], model)
+        lsf = exp((randn()-0.5*2.302585*model.scarfy_lumdex)*2.302585*model.scarfy_lumdex)
+        lum_cen[i]*= lsf
         if model.quench
             fquench_result = min(model.fquench_max,interp.fquench(log(halo_mass[i]),log(1+redshift_cen[i])))
             if rand(T) < fquench_result
@@ -314,6 +315,8 @@ function process_sats!(
             # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
             #     redshift_sat[i], model)
             lum_sat[i_sat] = sigma_cen(m_sat, model)
+            lsf = exp((randn()-0.5*2.302585*model.scarfy_lumdex)*2.302585*model.scarfy_lumdex)
+            lum_sat[i_sat]*= lsf
             if model.quench
                 fquench_result = min(model.fquench_max,interp.fquench(log(m_sat),log(1+redshift_sat[i_sat])))
                 if rand(T) < fquench_result
