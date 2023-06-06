@@ -5,7 +5,7 @@ CurrentModule = XGPaint
 
 # The Sunyaev–Zeldovich Effect
 
-Let's make some maps of the Sunyaev-Zeldovich (SZ) effect. First, let's load up the example halo catalog included in this package. These will be automatically downloaded the first time you load them.
+Let's make some maps of the thermal Sunyaev-Zeldovich (SZ) effect. First, let's load up the example halo catalog included in this package. These will be automatically downloaded the first time you load them.
 
 ```@example tsz
 using XGPaint, Plots
