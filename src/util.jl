@@ -2,6 +2,7 @@ using HDF5
 using Healpix
 using Random
 using Random: MersenneTwister
+using Pkg.Artifacts
 
 """
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
@@ -14,6 +15,37 @@ function read_halo_catalog_hdf5(filename)
     pos = hdata[1:3,:]
     halo_mass = hdata[4,:]
     return pos, halo_mass
+end
+
+"""
+Reads a collection of example halos, and returns RA (rad), DEC (rad), redshift, 
+and halo mass (M200c).
+"""
+function load_example_halos()
+    rootpath = artifact"tsz_example"
+    fid = h5open(joinpath(rootpath, "tsz_example", "little_box_m200c_v2.h5"), "r")
+    ra, dec = deg2rad.(fid["ra"]), deg2rad.(fid["dec"])
+    redshift, halo_mass = collect(fid["redshift"]), collect(fid["halo_mass"])
+    close(fid)
+
+    return ra, dec, redshift, halo_mass
+end
+
+
+"""
+Reads in a standard Battaglia 2016 model from disk for tSZ.
+"""
+function load_precomputed_battaglia()
+    rootpath = artifact"tsz_example"
+    model_file = joinpath(rootpath, "tsz_example", "battaglia_interpolation.jld2")
+    model = load(model_file)
+    prof_logθs, prof_redshift, prof_logMs, prof_y = model["prof_logθs"], 
+        model["prof_redshift"], model["prof_logMs"], model["prof_y"]
+
+    itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
+    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs);
+    p = XGPaint.BattagliaProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
+    return p, sitp
 end
 
 
@@ -71,6 +103,15 @@ function ellpad(arr::Array{T,N}; nzeros=1) where {T,N}
     result = arr[:]
     pushfirst!(result, zeros(T, nzeros)...)
     return result
+end
+
+function sort_halo_catalog(ra, dec, redshift, halo_mass)
+    perm = sortperm(dec)  # sortperm(dec, alg=ThreadsX.MergeSort)
+    ra = ra[perm]
+    dec = dec[perm]
+    redshift = redshift[perm]
+    halo_mass = halo_mass[perm]
+    return ra, dec, redshift, halo_mass
 end
 
 
@@ -284,7 +325,7 @@ function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) 
 end
 
 
-struct HealpixPaintingWorkspace{T, HM, BI}
+struct HealpixProfileWorkspace{T, HM, BI}
     ringinfo::RingInfo
     disc_buffer::Vector{Int}
     θmin::T
@@ -293,26 +334,26 @@ struct HealpixPaintingWorkspace{T, HM, BI}
     profile_real_interp::BI
 end
 
-function Base.show(io::IO, imap::HealpixPaintingWorkspace{T}) where T
-    expr = "HealpixPaintingWorkspace{$(T)}"
+function Base.show(io::IO, imap::HealpixProfileWorkspace{T}) where T
+    expr = "HealpixProfileWorkspace{$(T)}"
     print(io, expr)
 end
 
-function HealpixPaintingWorkspace(nside::Int, θmin::T, θmax::T, beam_interp::BI) where {T, BI}
+function HealpixProfileWorkspace(nside::Int, θmin::T, θmax::T, beam_interp::BI) where {T, BI}
     vecmap = vectorhealpixmap(T, nside)
-    return HealpixPaintingWorkspace(nside, θmin, θmax, beam_interp, vecmap)
+    return HealpixProfileWorkspace(nside, θmin, θmax, beam_interp, vecmap)
 end
 
-function HealpixPaintingWorkspace(nside::Int, θmin::T, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
+function HealpixProfileWorkspace(nside::Int, θmin::T, θmax::T, beam_interp::BI, vecmap::V) where {T, BI, V}
     ringinfo = RingInfo(0, 0, 0, 0.0, true)
     disc_buffer = Int[]
     approx_size = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))  # 1.1 is fudge factor
     sizehint!(disc_buffer, approx_size)
-    return HealpixPaintingWorkspace{T, V, BI}(
+    return HealpixProfileWorkspace{T, V, BI}(
         ringinfo, disc_buffer, θmin, θmax, vecmap, beam_interp)
 end
 
-function realspacebeampaint!(hp_map, w::HealpixPaintingWorkspace, flux, θ₀, ϕ₀)
+function realspacebeampaint!(hp_map, w::HealpixProfileWorkspace, flux, θ₀, ϕ₀)
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
 

@@ -6,6 +6,40 @@ const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 using Cosmology
 using QuadGK
 
+
+
+# RECTANGULAR WORKSPACES
+
+abstract type AbstractProfileWorkspace end
+
+struct CarClenshawCurtisProfileWorkspace{A} <: AbstractProfileWorkspace
+    sin_α::A
+    cos_α::A
+    sin_δ::A
+    cos_δ::A
+end
+
+function profileworkspace(shape, wcs::CarClenshawCurtis)
+    α_map, δ_map = posmap(shape, wcs)
+    return CarClenshawCurtisProfileWorkspace(
+        sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
+end
+
+struct GnomonicProfileWorkspace{A} <: AbstractProfileWorkspace
+    sin_α::A
+    cos_α::A
+    sin_δ::A
+    cos_δ::A
+end
+
+function profileworkspace(shape, wcs::Gnomonic)
+    α_map, δ_map = posmap(shape, wcs)
+    return GnomonicProfileWorkspace(
+        sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
+end
+
+
+
 abstract type AbstractProfile{T} end
 abstract type AbstractGNFW{T} <: AbstractProfile{T} end
 
@@ -27,6 +61,9 @@ function BattagliaProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) w
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     return BattagliaProfile(f_b, cosmo)
 end
+
+abstract type AbstractPaintingProblem{T} end
+
 
 function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_break::T=1.5, M_break::T=2.0*10^14) where {T <: Real}
     #alpha_break = 1.486 from Shivam P paper by Nate's sleuthing
@@ -118,9 +155,6 @@ function compton_y(𝕡, M_200, z, r)
     return P_e_los(𝕡, M_200, z, r) * P_e_factor
 end
 
-
-# using StaticArrays
-
 function profile_grid(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
               logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
@@ -207,10 +241,10 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        α₀, δ₀, psa, sitp, z, Ms, θmax) where T
+                        α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
+                        sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
-    # θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
     i_start = floor(Int, max(min(i1, i2), 1))
@@ -238,7 +272,7 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, psa, sitp, z, Ms, θmax) where T
+            α₀, δ₀, psa::GnomonicProfileWorkspace, sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -268,7 +302,7 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, w::HealpixPaintingWorkspace, z, Mh, θmax) where T
+            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = π/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
@@ -284,3 +318,46 @@ function profile_paint!(m::HealpixMap{T, RingOrder},
                                     zero(T))
     end
 end
+
+
+
+
+
+# for rectangular pixelizations
+
+# multi-halo painting utilities
+function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, 
+                masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
+    for i in irange
+        α₀ = αs[i]
+        δ₀ = δs[i]
+        mh = masses[i]
+        z = redshifts[i]
+        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
+        profile_paint!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
+    end
+end
+
+function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV, 
+                        redshifts::AV, αs::AV, δs::AV)  where AV
+    m .= 0.0
+    
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+    
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+    end
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+    end
+end
+
+
+
