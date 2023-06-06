@@ -3,9 +3,51 @@
 
 We provide the Planck 2013 CIB model. The following code is a little more verbose than typical Julia code, as one has to repeatedly specify the type `Float32` when creating objects. This allows one to more easily fit the entire source catalog into memory.
 
-## Sources
 
-One first loads the halo positions and masses into memory with [`read_halo_catalog_hdf5`](@ref). This package uses halo positions in the shape ``(3, N_{\mathrm{halos}})``, where the first dimension is the Cartesian coordinates ``x, y, z``.
+## Tutorial
+
+
+```@example cib
+using XGPaint, Plots, Pixell
+
+# example , ra and dec in radians, halo mass in M200c (Msun)
+ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
+
+# sort
+ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass)
+
+print("Number of halos: ", length(halo_mass))
+```
+
+Next, we'll generate a cosmology. Note how we use Float32 throughout.
+
+```@example cib
+
+cosmo = get_cosmology(h=0.6774f0, OmegaM=0.3075f0)
+x, y, z = XGPaint.ra_dec_redshift_to_xyz(ra, dec, redshift, cosmo)
+halo_pos = [x'; y'; z';]
+
+model = CIB_Planck2013{Float32}()
+```
+
+
+```@example cib
+@time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
+fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
+fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
+
+using Pixell
+box = [4.5   -4.5;           # RA
+       -3     3] * Pixell.degree  # DEC
+shape, wcs = geometry(CarClenshawCurtis{Float64}, box, 0.5 * Pixell.arcminute)
+m = Enmap(zeros(Float32, shape), wcs)
+XGPaint.paint!(m, 143.0f0 * 1.0f9, model, sources, fluxes_cen, fluxes_sat)
+plot(log10.(m), c=:coolwarm)
+```
+
+## Sources from HDF5
+
+To work with the Websky halo catalogs, you can't just use the example catalogs! One first loads the halo positions and masses into memory with [`read_halo_catalog_hdf5`](@ref). This package uses halo positions in the shape ``(3, N_{\mathrm{halos}})``, where the first dimension is the Cartesian coordinates ``x, y, z``.
 
 ```julia
 using XGPaint

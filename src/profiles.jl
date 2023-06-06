@@ -43,7 +43,7 @@ end
 abstract type AbstractProfile{T} end
 abstract type AbstractGNFW{T} <: AbstractProfile{T} end
 
-struct BattagliaProfile{T,C} <: AbstractGNFW{T}
+struct Battaglia16ThermalSZProfile{T,C} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
 end
@@ -55,11 +55,11 @@ struct BreakModel{T,C} <: AbstractGNFW{T}
     M_break::T
 end
 
-function BattagliaProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
+function Battaglia16ThermalSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
-    return BattagliaProfile(f_b, cosmo)
+    return Battaglia16ThermalSZProfile(f_b, cosmo)
 end
 
 abstract type AbstractPaintingProblem{T} end
@@ -126,7 +126,7 @@ function _tsz_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), or
     return 2integral / scale
 end
 
-function dimensionless_P_profile_los(𝕡::BattagliaProfile{T}, M_200, z, r) where T
+function dimensionless_P_profile_los(𝕡::Battaglia16ThermalSZProfile{T}, M_200, z, r) where T
     par = get_params(𝕡, M_200, z)
     R_200 = R_Δ(𝕡, M_200, z, 200)
     x = r / angular_size(𝕡, R_200, z)
@@ -240,6 +240,34 @@ function build_max_paint_logradius(logθs, redshifts, logMs,
 end
 
 
+"""Helper function to build a tSZ interpolator"""
+function build_interpolator(model::AbstractGNFW; cache_file::String="", 
+                            N_logθ=512, pad=256, overwrite=true, verbose=true)
+
+    if overwrite || (isfile(cache_file) == false)
+        verbose && print("Building new interpolator from model.\n")
+        rft = RadialFourierTransform(n=N_logθ, pad=pad)
+        logθ_min, logθ_max = log(minimum(rft.r)), log(maximum(rft.r))
+        prof_logθs, prof_redshift, prof_logMs, prof_y = profile_grid(model; 
+            N_logθ=N_logθ, logθ_min=logθ_min, logθ_max=logθ_max)
+        if length(cache_file) > 0
+            verbose && print("Saving new interpolator to $(cache_file).\n")
+            save(cache_file, Dict("prof_logθs"=>prof_logθs, 
+                "prof_redshift"=>prof_redshift, "prof_logMs"=>prof_logMs, "prof_y"=>prof_y))
+        end
+    else
+        print("Found cached Battaglia profile model. Loading from disk.\n")
+        model_grid = load(cache_file)
+        prof_logθs, prof_redshift, prof_logMs, prof_y = model_grid["prof_logθs"], 
+            model_grid["prof_redshift"], model_grid["prof_logMs"], model_grid["prof_y"]
+    end
+
+    itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
+    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs)
+    return sitp
+end
+
+
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         sitp, z, Ms, θmax) where T
@@ -304,7 +332,7 @@ end
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
-    θ₀ = π/2 - δ₀
+    θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
@@ -318,9 +346,6 @@ function profile_paint!(m::HealpixMap{T, RingOrder},
                                     zero(T))
     end
 end
-
-
-
 
 
 # for rectangular pixelizations
@@ -340,7 +365,7 @@ end
 
 function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
-    m .= 0.0
+    fill!(m, 0)
     
     N_sources = length(masses)
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))

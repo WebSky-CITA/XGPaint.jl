@@ -23,12 +23,13 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://github.com/WebSky-CITA/XGPaint.jl",
-        assets=["assets/custom.css"]
+        assets=["assets/custom.css"],
+        edit_link="main"
     ),
     pages=[
         "Home" => "index.md",
-        "CIB" => "cib.md",
-        "SZ" => "sz.md",
+        "Sunyaev–Zeldovich Effect" => "sz.md",
+        "Cosmic Infrared Background" => "cib.md",
         "API" => "api.md",
         "Developer Notes" => "developer_notes.md"
     ],
