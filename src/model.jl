@@ -122,6 +122,42 @@ function build_r2z_interpolator(min_z::T, max_z::T,
 end
 
 """
+Construct a z2r linear interpolator.
+"""
+function build_z2r_interpolator(min_z::T, max_z::T,
+    cosmo::Cosmology.AbstractCosmology; n_bins=2000) where T
+
+    zrange = LinRange(min_z, max_z, n_bins)
+    rrange = zero(zrange)
+    for i in 1:n_bins
+        rrange[i] = ustrip(T, u"Mpc",
+            Cosmology.comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
+    end
+    z2r = DataInterpolations.LinearInterpolation(rrange, zrange);
+    return z2r
+end
+
+
+"""
+Convert RA (rad), DEC (rad), and redshift to xyz comoving radial dist.
+"""
+function ra_dec_redshift_to_xyz(ra, dec, redshift, cosmo::XGPaint.Cosmology.FlatLCDM{T}) where T
+
+    N_halos = length(ra)
+    dist = Array{T}(undef, N_halos)
+    x, y, z = Array{T}(undef, N_halos), Array{T}(undef, N_halos), Array{T}(undef, N_halos)
+
+    z2r = XGPaint.build_z2r_interpolator(minimum(redshift), maximum(redshift), cosmo)
+    for i in 1:N_halos
+
+        dist[i] = z2r(redshift[i])
+        x[i], y[i], z[i] = dist[i] .* Healpix.ang2vec(T(π)/2 - dec[i], ra[i])
+    end
+
+    return x, y, z
+end
+
+"""
     mz2c(m::T, z::T, cosmo::Cosmology.FlatLCDM{T}) where T
 
 Compute concentration factor from Duffy et al. 2008.

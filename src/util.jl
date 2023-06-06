@@ -18,8 +18,8 @@ function read_halo_catalog_hdf5(filename)
 end
 
 """
-Reads a collection of example halos, and returns RA (rad), DEC (rad), redshift, 
-and halo mass (M200c).
+Reads a collection of example halos out of the WebSky halo catalogs, and returns 
+RA (rad), DEC (rad), redshift, and halo mass (M200c).
 """
 function load_example_halos()
     rootpath = artifact"tsz_example"
@@ -44,7 +44,7 @@ function load_precomputed_battaglia()
 
     itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
     sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs);
-    p = XGPaint.BattagliaProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
+    p = Battaglia16ThermalSZProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
     return p, sitp
 end
 
@@ -131,6 +131,38 @@ function catalog2map!(m::HealpixMap{T,RingOrder}, flux, theta, phi) where T
     # divide by healpix pixel size
     per_pixel_steradian = 1 / nside2pixarea(res.nside)
     pixel_array .*= per_pixel_steradian
+end
+
+
+function catalog2map!(m::Enmap{T}, flux, theta, phi, pixsizes; erase_first=true) where T
+    N_halo = length(flux)
+    pixel_array = parent(m)
+    
+    if erase_first
+        fill!(pixel_array, zero(T))
+    end
+
+    α = phi
+    δ = T(π)/2 .- theta
+
+    ipix, jpix = sky2pix(size(m), m.wcs, α, δ)
+
+    len1, len2 = size(m)
+
+    # try to prevent thread issues by sorting by theta
+    perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
+    Threads.@threads for i_perm in 1:N_halo
+        i_halo = perm[i_perm]
+        i = round(Int, ipix[i_halo])
+        i = mod(i - 1, size(m, 1)) + 1
+        j = round(Int, jpix[i_halo])
+        if (1 ≤ i ≤ len1) && (1 ≤ j ≤ len2)
+            pixel_array[i, j] += flux[i_halo]
+        end
+    end
+    
+    pixel_array ./= pixsizes
+    return m
 end
 
 
