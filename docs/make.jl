@@ -35,6 +35,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/xzackli/XGPaint.jl",
+    repo="github.com/WebSky-CITA/XGPaint.jl",
     devbranch = "main"
 )
