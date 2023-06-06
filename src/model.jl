@@ -61,7 +61,7 @@ function get_cosmology(::Type{T}; h=0.69,
     end
 end
 get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255, 
-    w0=-1, wa=0) where T = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
+    w0=-1, wa=0) = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
         OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
 
@@ -183,7 +183,7 @@ function l2f(luminosity::T, r_comoving::T, redshift::T) where T
 end
 
 
-function flux2map!(result_map::HealpixMap{T_map,RingOrder}, fluxes, theta, phi) where {T_map, T}
+function flux2map!(result_map::HealpixMap{T_map,RingOrder}, fluxes, theta, phi) where {T_map}
 
     pixel_array = result_map.pixels
     fill!(pixel_array, zero(T))  # prepare the frequency map
