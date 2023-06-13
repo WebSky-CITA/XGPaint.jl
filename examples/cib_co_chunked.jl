@@ -1,4 +1,5 @@
 using XGPaint
+using SparseArrays
 using Healpix
 using HDF5
 using JLD2, FileIO, CodecZlib
@@ -6,12 +7,8 @@ using DelimitedFiles
 
 halo_pos, halo_mass = read_halo_catalog_hdf5("/fs/lustre/cita/zack/projects/websky/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
-model = CIB_Planck2013{Float32}(z_evo="scarfy",m_evo="scarfy")
-println(model.z_evo)
-println(model.m_evo)
-R_CO10_CI = 0.18*77.83 # r=0.18 times cubic frequency scaling
-xRJ_GHz = 0.0176086
-
+modelCIB = CIB_Scarfy{Float32}()
+model_CO = CO_CROWNED{Float32}()
 freqs = [
     "18.7", "21.6", "24.5", "27.3", "30.0", "35.9", "41.7", "44.0", "47.4",
     "63.9", "67.8", "70.0", "73.7", "79.6", "90.2", "100", "111", "129", "143",
@@ -24,210 +21,44 @@ bandpass_PA6_090 = open(readdlm,"/home/dongwooc/lustrespace/tilec/data/PA6_avg_p
 bandpass_PA6_150 = open(readdlm,"/home/dongwooc/lustrespace/tilec/data/PA6_avg_passband_f150_wErr_trunc_20200505.txt")
 bandpass_PA4_220 = open(readdlm,"/home/dongwooc/lustrespace/tilec/data/PA4_avg_passband_f220_wErr_trunc_20200505.txt")
 
-bandpass_PA6_090_edges = [bandpass_PA6_090[1,1].-diff(bandpass_PA6_090[1:2,1])/2;bandpass_PA6_090[1:end-1,1]+diff(bandpass_PA6_090[:,1])/2;bandpass_PA6_090[end,1].+diff(bandpass_PA6_090[end-1:end,1])/2]
-bandpass_PA6_150_edges = [bandpass_PA6_150[1,1].-diff(bandpass_PA6_150[1:2,1])/2;bandpass_PA6_150[1:end-1,1]+diff(bandpass_PA6_150[:,1])/2;bandpass_PA6_150[end,1].+diff(bandpass_PA6_150[end-1:end,1])/2]
-bandpass_PA4_220_edges = [bandpass_PA4_220[1,1].-diff(bandpass_PA4_220[1:2,1])/2;bandpass_PA4_220[1:end-1,1]+diff(bandpass_PA4_220[:,1])/2;bandpass_PA4_220[end,1].+diff(bandpass_PA4_220[end-1:end,1])/2]
-
-bandpass_PA6_090_norm = bandpass_PA6_090[:,2]/sum(bandpass_PA6_090[:,2])
-bandpass_PA6_150_norm = bandpass_PA6_150[:,2]/sum(bandpass_PA6_150[:,2])
-bandpass_PA4_220_norm = bandpass_PA4_220[:,2]/sum(bandpass_PA4_220[:,2])
-
-bandpass_PA6_090_diff = diff(bandpass_PA6_090_edges)
-bandpass_PA6_150_diff = diff(bandpass_PA6_150_edges)
-bandpass_PA4_220_diff = diff(bandpass_PA4_220_edges)
-
-bandpass_PA6_090_len = length(bandpass_PA6_090_norm)
-bandpass_PA6_150_len = length(bandpass_PA6_150_norm)
-bandpass_PA4_220_len = length(bandpass_PA4_220_norm)
-
 function write_chunk(
-                     output_dir, chunk_index, model, cosmo,
+                     output_dir, chunk_index, modelCIB, model_CO, cosmo,
                      pos, mass, freqs)
-    sources = generate_sources(model, cosmo, pos, mass);
-    fluxes_cen = Array{Float32,1}(undef,sources.N_cen)
-    fluxes_sat = Array{Float32,1}(undef,sources.N_sat)
-    LIR_cen = Array{Float32,1}(undef,sources.N_cen)
-    LIR_sat = Array{Float32,1}(undef,sources.N_sat)
-    LcoJ_cen = Array{Float32,2}(undef,sources.N_cen,7)
-    LcoJ_sat = Array{Float32,2}(undef,sources.N_sat,7)
-    Lnu_to_LIR(Td) = 9.521f8*(53.865 + 3.086*Td - 0.213*Td^2 + 0.00749*Td^3);
-    # calculate observing frequencies and quasi-temperatures for each halo
-    nuJ_cen = Array{Float32,2}(undef,(sources.N_cen,7))
-    nuJ_sat = Array{Float32,2}(undef,(sources.N_sat,7))
-    quasiTcoJ_cen = Array{Float32,2}(undef,(sources.N_cen,7))
-    quasiTcoJ_sat = Array{Float32,2}(undef,(sources.N_sat,7))
-    fluxCO_090_cen = Array{Float32,2}(undef,(sources.N_cen,7))
-    fluxCO_090_sat = Array{Float32,2}(undef,(sources.N_sat,7))
-    fill!(fluxCO_090_cen,zero(Float32))
-    fill!(fluxCO_090_sat,zero(Float32))
-    fluxCO_150_cen = Array{Float32,2}(undef,(sources.N_cen,7))
-    fluxCO_150_sat = Array{Float32,2}(undef,(sources.N_sat,7))
-    fill!(fluxCO_150_cen,zero(Float32))
-    fill!(fluxCO_150_sat,zero(Float32))
-    fluxCO_220_cen = Array{Float32,2}(undef,(sources.N_cen,7))
-    fluxCO_220_sat = Array{Float32,2}(undef,(sources.N_sat,7))
-    fill!(fluxCO_220_cen,zero(Float32))
-    fill!(fluxCO_220_sat,zero(Float32))
-    nuCI_cen = Array{Float32,1}(undef,sources.N_cen)
-    nuCI_sat = Array{Float32,1}(undef,sources.N_sat)
-    LCI_cen = Array{Float32,1}(undef,sources.N_cen)
-    LCI_sat = Array{Float32,1}(undef,sources.N_sat)
-    quasiTCI_cen = Array{Float32,1}(undef,sources.N_cen)
-    quasiTCI_sat = Array{Float32,1}(undef,sources.N_sat)
-    fluxCI_090_cen = Array{Float32,1}(undef,sources.N_cen)
-    fill!(fluxCI_090_cen,zero(Float32))
-    fluxCI_150_cen = Array{Float32,1}(undef,sources.N_cen)
-    fill!(fluxCI_150_cen,zero(Float32))
-    fluxCI_220_cen = Array{Float32,1}(undef,sources.N_cen)
-    fill!(fluxCI_220_cen,zero(Float32))
-    fluxCI_090_sat = Array{Float32,1}(undef,sources.N_sat)
-    fill!(fluxCI_090_sat,zero(Float32))
-    fluxCI_150_sat = Array{Float32,1}(undef,sources.N_sat)
-    fill!(fluxCI_150_sat,zero(Float32))
-    fluxCI_220_sat = Array{Float32,1}(undef,sources.N_sat)
-    fill!(fluxCI_220_sat,zero(Float32))
-    Threads.@threads for i in 1:sources.N_cen
-        # calculate dust temperatures and bolometric LIR for each source
-        Td = model.shang_Td * (1.f0 .+sources.redshift_cen[i])^model.shang_alpha;
-        LIR_cen[i] = Lnu_to_LIR(Td)*sources.lum_cen[i]*XGPaint.nu2theta(2.10833f12,sources.redshift_cen[i],model)
-        rnd = Float32(randn())
-        r21 = 0.75f0+0.11f0*(rnd/2.0f0+373.f0/275.f0-sqrt(rnd^2.0f0/4.0f0-252.0f0/275.0f0*rnd+139129.0f0/75625.0f0))
-        # generate CO SLED for each source with log-normal LCO(1-0) scatter
-        LcoJ_cen[i,1] = LIR_cen[i]^(1/1.37)*10^(1.74/1.37)*exp.((randn().-0.5*2.302585*0.3)*2.302585*0.3)*4.9e-5
-        for J in 2:7
-            LcoJ_cen[i,J] = LcoJ_cen[i,1]/(1.0f0+exp((log.(1.0f0/r21-1.0f0)-1.0f0)+Float32(J-1)))*J^3
-        end
-        for J in 1:7
-            nuJ_cen[i,J] = 115.27f0*J/(1.0f0+sources.redshift_cen[i])
-            quasiTcoJ_cen[i,J] = LcoJ_cen[i,J]*(1.315415f0/4.0f0/pi/nuJ_cen[i,J]^2.0f0/sources.dist_cen[i]^2.0f0/(1.0f0+sources.redshift_cen[i])^2.0f0) # divide by dnu in GHz
-            xRJ = xRJ_GHz*nuJ_cen[i,J]
-            quasiTcoJ_cen[i,J]/= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
-        end
-        nuCI_cen[i] = 492.16f0/(1.0f0+sources.redshift_cen[i])
-        LCI_cen[i] = LcoJ_cen[i,1]*R_CO10_CI*exp((randn()-0.5*2.302585*0.2)*2.302585*0.2)
-        quasiTCI_cen[i] = LCI_cen[i]*(1.315415f0/4.0f0/pi/nuCI_cen[i]^2.0f0/sources.dist_cen[i]^2.0f0/(1.0f0+sources.redshift_cen[i])^2.0f0) # divide by dnu in GHz
-        xRJ = xRJ_GHz*nuCI_cen[i]
-        quasiTCI_cen[i]/= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
-    end
-    Threads.@threads for i in 1:sources.N_sat
-        Td = model.shang_Td * (1.f0 .+sources.redshift_sat[i])^model.shang_alpha;
-        LIR_sat[i] = Lnu_to_LIR(Td)*sources.lum_sat[i]*XGPaint.nu2theta(2.10833f12,sources.redshift_sat[i],model)
-        rnd = Float32(randn())
-        r21 = 0.75f0+0.11f0*(rnd/2.0f0+373.f0/275.f0-sqrt(rnd^2.0f0/4.0f0-252.0f0/275.0f0*rnd+139129.0f0/75625.0f0))
-        LcoJ_sat[i,1] = LIR_sat[i]^(1/1.37)*10^(1.74/1.37)*exp((randn()-0.5*2.302585*0.3)*2.302585*0.3)*4.9e-5
-        for J in 2:7
-            LcoJ_sat[i,J] = LcoJ_sat[i,1]/(1.0f0+exp((log.(1.0f0/r21-1.0f0)-1.0f0)+Float32(J-1)))*J^3
-        end
-        for J in 1:7
-            nuJ_sat[i,J] = 115.27f0*J/(1.0f0+sources.redshift_sat[i])
-            quasiTcoJ_sat[i,J] = LcoJ_sat[i,J]*(1.315415f0/4.0f0/pi/nuJ_sat[i,J]^2.0f0/sources.dist_sat[i]^2.0f0/(1.0f0+sources.redshift_sat[i])^2.0f0) # divide by dnu in GHz
-            xRJ = xRJ_GHz*nuJ_sat[i,J]
-            quasiTcoJ_sat[i,J]/= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
-        end
-        nuCI_sat[i] = 492.16f0/(1.0f0+sources.redshift_sat[i])
-        LCI_sat[i] = LcoJ_sat[i,1]*R_CO10_CI*exp((randn()-0.5*2.302585*0.2)*2.302585*0.2)
-        quasiTCI_sat[i] = LCI_sat[i]*(1.315415f0/4.0f0/pi/nuCI_sat[i]^2.0f0/sources.dist_sat[i]^2.0f0/(1.0f0+sources.redshift_sat[i])^2.0f0) # divide by dnu in GHz
-        xRJ = xRJ_GHz*nuCI_sat[i]
-        quasiTCI_sat[i]/= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
-    end
-    println("writing info for ",sources.N_cen," centrals")
+    sourcesCIB = generate_sources(modelCIB, cosmo, pos, mass);
+    sources_CO = process_sources(model_CO, sourcesCIB, modelCIB);
+    fluxes_cen = Array{Float32,1}(undef,sourcesCIB.N_cen)
+    fluxes_sat = Array{Float32,1}(undef,sourcesCIB.N_sat)
+    println("writing info for ",sourcesCIB.N_cen," centrals")
     h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index).h5"), "w") do file
-        write(file, "redshift", sources.redshift_cen)
-        write(file, "theta", sources.theta_cen)
-        write(file, "phi", sources.phi_cen)
-        write(file, "LIR", LIR_cen)
-        write(file, "LCO", LcoJ_cen)
-        write(file, "LCI", LCI_cen)
+        write(file, "redshift", sourcesCIB.redshift_cen)
+        write(file, "theta", sourcesCIB.theta_cen)
+        write(file, "phi", sourcesCIB.phi_cen)
+        write(file, "LIR", sources_CO.LIR_cen)
+        write(file, "LCO", sources_CO.LcoJ_cen)
+        write(file, "LCI", sources_CO.LCI_cen)
     end
-    println("writing info for ",sources.N_sat," satellites")
+    println("writing info for ",sourcesCIB.N_sat," satellites")
     h5open(joinpath(output_dir, "sources/sat_chunk$(chunk_index).h5"), "w") do file
-        write(file, "redshift", sources.redshift_sat)
-        write(file, "theta", sources.theta_sat)
-        write(file, "phi", sources.phi_sat)
-        write(file, "LIR", LIR_sat)
-        write(file, "LCO", LcoJ_sat)
-        write(file, "LCI", LCI_sat)
+        write(file, "redshift", sourcesCIB.redshift_sat)
+        write(file, "theta", sourcesCIB.theta_sat)
+        write(file, "phi", sourcesCIB.phi_sat)
+        write(file, "LIR", sources_CO.LIR_sat)
+        write(file, "LCO", sources_CO.LcoJ_sat)
+        write(file, "LCI", sources_CO.LCI_sat)
     end
-    m = HealpixMap{Float64,RingOrder}(model.nside)
-    mCO090 = HealpixMap{Float64,RingOrder}(model.nside)
-    mCO150 = HealpixMap{Float64,RingOrder}(model.nside)
-    mCO220 = HealpixMap{Float64,RingOrder}(model.nside)
-    mCO090_pixsr = nside2pixarea(mCO090.resolution.nside)
-    mCO150_pixsr = nside2pixarea(mCO150.resolution.nside)
-    mCO220_pixsr = nside2pixarea(mCO220.resolution.nside)
-    mCI090 = HealpixMap{Float64,RingOrder}(model.nside)
-    mCI150 = HealpixMap{Float64,RingOrder}(model.nside)
-    mCI220 = HealpixMap{Float64,RingOrder}(model.nside)
-    println("painting CO/CI from ",sources.N_cen," centrals")
-    Threads.@threads for i in 1:sources.N_cen
-        for J in 1:7
-            j = searchsortedlast(bandpass_PA6_090_edges,nuJ_cen[i,J])
-            if (j>0) && (j<=bandpass_PA6_090_len)
-                fluxCO_090_cen[i,J] = quasiTcoJ_cen[i,J]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
-                mCO090[sources.hp_ind_cen[i]]+= fluxCO_090_cen[i,J];
-            end
-            j = searchsortedlast(bandpass_PA6_150_edges,nuJ_cen[i,J])
-            if (j>0) && (j<=bandpass_PA6_150_len)
-                fluxCO_150_cen[i,J] = quasiTcoJ_cen[i,J]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
-                mCO150[sources.hp_ind_cen[i]]+= fluxCO_150_cen[i,J];
-            end
-            j = searchsortedlast(bandpass_PA4_220_edges,nuJ_cen[i,J])
-            if (j>0) && (j<=bandpass_PA4_220_len)
-                fluxCO_220_cen[i,J] = quasiTcoJ_cen[i,J]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
-                mCO220[sources.hp_ind_cen[i]]+= fluxCO_220_cen[i,J];
-            end
-        end
-        j = searchsortedlast(bandpass_PA6_090_edges,nuCI_cen[i])
-        if (j>0) && (j<=bandpass_PA6_090_len)
-            fluxCI_090_cen[i] = quasiTCI_cen[i]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
-            mCI090[sources.hp_ind_cen[i]]+= fluxCI_090_cen[i];
-        end
-        j = searchsortedlast(bandpass_PA6_150_edges,nuCI_cen[i])
-        if (j>0) && (j<=bandpass_PA6_150_len)
-            fluxCI_150_cen[i] = quasiTCI_cen[i]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
-            mCI150[sources.hp_ind_cen[i]]+= fluxCI_150_cen[i];
-        end
-        j = searchsortedlast(bandpass_PA4_220_edges,nuCI_cen[i])
-        if (j>0) && (j<=bandpass_PA4_220_len)
-            fluxCI_220_cen[i] = quasiTCI_cen[i]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
-            mCI220[sources.hp_ind_cen[i]]+= fluxCI_220_cen[i];
-        end
-    end
-    println("painting CO/CI from ",sources.N_sat," satellites")
-    Threads.@threads for i in 1:sources.N_sat
-        for J in 1:7
-            j = searchsortedlast(bandpass_PA6_090_edges,nuJ_sat[i,J])
-            if (j>0) && (j<=bandpass_PA6_090_len)
-                fluxCO_090_sat[i,J] = quasiTcoJ_sat[i,J]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
-                mCO090[sources.hp_ind_sat[i]]+= fluxCO_090_sat[i,J];
-            end
-            j = searchsortedlast(bandpass_PA6_150_edges,nuJ_sat[i,J])
-            if (j>0) && (j<=bandpass_PA6_150_len)
-                fluxCO_150_sat[i,J] = quasiTcoJ_sat[i,J]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
-                mCO150[sources.hp_ind_sat[i]]+= fluxCO_150_sat[i,J];
-            end
-            j = searchsortedlast(bandpass_PA4_220_edges,nuJ_sat[i,J])
-            if (j>0) && (j<=bandpass_PA4_220_len)
-                fluxCO_220_sat[i,J] = quasiTcoJ_sat[i,J]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
-                mCO220[sources.hp_ind_sat[i]]+= fluxCO_220_sat[i,J];
-            end
-        end
-        j = searchsortedlast(bandpass_PA6_090_edges,nuCI_sat[i])
-        if (j>0) && (j<=bandpass_PA6_090_len)
-            fluxCI_090_sat[i] = quasiTCI_sat[i]*bandpass_PA6_090_norm[j]/bandpass_PA6_090_diff[j]/mCO090_pixsr;
-            mCI090[sources.hp_ind_sat[i]]+= fluxCI_090_sat[i];
-        end
-        j = searchsortedlast(bandpass_PA6_150_edges,nuCI_sat[i])
-        if (j>0) && (j<=bandpass_PA6_150_len)
-            fluxCI_150_sat[i] = quasiTCI_sat[i]*bandpass_PA6_150_norm[j]/bandpass_PA6_150_diff[j]/mCO150_pixsr;
-            mCI150[sources.hp_ind_sat[i]]+= fluxCI_150_sat[i];
-        end
-        j = searchsortedlast(bandpass_PA4_220_edges,nuCI_sat[i])
-        if (j>0) && (j<=bandpass_PA4_220_len)
-            fluxCI_220_sat[i] = quasiTCI_sat[i]*bandpass_PA4_220_norm[j]/bandpass_PA4_220_diff[j]/mCO220_pixsr;
-            mCI220[sources.hp_ind_sat[i]]+= fluxCI_220_sat[i];
-        end
-    end
+    m = HealpixMap{Float64,RingOrder}(modelCIB.nside)
+    mCO090 = HealpixMap{Float64,RingOrder}(model_CO.nside)
+    mCO150 = HealpixMap{Float64,RingOrder}(model_CO.nside)
+    mCO220 = HealpixMap{Float64,RingOrder}(model_CO.nside)
+    mCI090 = HealpixMap{Float64,RingOrder}(model_CO.nside)
+    mCI150 = HealpixMap{Float64,RingOrder}(model_CO.nside)
+    mCI220 = HealpixMap{Float64,RingOrder}(model_CO.nside)
+    println("***  90 GHz ***")
+    fluxCO_090_cen, fluxCI_090_cen, fluxCO_090_sat, fluxCI_090_sat = XGPaint.paint!(mCO090, mCI090, bandpass_PA6_090, model_CO, sources_CO)
+    println("*** 150 GHz ***")
+    fluxCO_150_cen, fluxCI_150_cen, fluxCO_150_sat, fluxCI_150_sat = XGPaint.paint!(mCO150, mCI150, bandpass_PA6_150, model_CO, sources_CO)
+    println("*** 220 GHz ***")
+    fluxCO_220_cen, fluxCI_220_cen, fluxCO_220_sat, fluxCI_220_sat = XGPaint.paint!(mCO220, mCI220, bandpass_PA4_220, model_CO, sources_CO)
     println("writing CO maps ...")
     filename = joinpath(output_dir, "co_090.fits")
     if chunk_index > 1
@@ -269,46 +100,46 @@ function write_chunk(
     println("writing CO fluxes ...")
     for J in 1:7
         jldopen(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCO$(J)_090.jld2"), "w") do file
-            write(file, "flux", fluxCO_090_cen[:,J]; compress=true)
+            write(file, "flux", sparse(fluxCO_090_cen[:,J]))
         end
         jldopen(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCO$(J)_150.jld2"), "w") do file
-            write(file, "flux", fluxCO_150_cen[:,J]; compress=true)
+            write(file, "flux", sparse(fluxCO_150_cen[:,J]))
         end
         jldopen(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCO$(J)_220.jld2"), "w") do file
-            write(file, "flux", fluxCO_220_cen[:,J]; compress=true)
+            write(file, "flux", sparse(fluxCO_220_cen[:,J]))
         end
         jldopen(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCO$(J)_090.jld2"), "w") do file
-            write(file, "flux", fluxCO_090_sat[:,J]; compress=true)
+            write(file, "flux", sparse(fluxCO_090_sat[:,J]))
         end
         jldopen(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCO$(J)_150.jld2"), "w") do file
-            write(file, "flux", fluxCO_150_sat[:,J]; compress=true)
+            write(file, "flux", sparse(fluxCO_150_sat[:,J]))
         end
         jldopen(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCO$(J)_220.jld2"), "w") do file
-            write(file, "flux", fluxCO_220_sat[:,J]; compress=true)
+            write(file, "flux", sparse(fluxCO_220_sat[:,J]))
         end
     end
     println("writing CI fluxes ...")
     jldopen(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCI_090.jld2"), "w") do file
-        write(file, "flux", fluxCI_090_cen; compress=true)
+        write(file, "flux", sparse(fluxCI_090_cen))
     end
     jldopen(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCI_150.jld2"), "w") do file
-        write(file, "flux", fluxCI_150_cen; compress=true)
+        write(file, "flux", sparse(fluxCI_150_cen))
     end
     jldopen(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_fluxCI_220.jld2"), "w") do file
-        write(file, "flux", fluxCI_220_cen; compress=true)
+        write(file, "flux", sparse(fluxCI_220_cen))
     end
     jldopen(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCI_090.jld2"), "w") do file
-        write(file, "flux", fluxCI_090_sat; compress=true)
+        write(file, "flux", sparse(fluxCI_090_sat))
     end
     jldopen(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCI_150.jld2"), "w") do file
-        write(file, "flux", fluxCI_150_sat; compress=true)
+        write(file, "flux", sparse(fluxCI_150_sat))
     end
     jldopen(joinpath(output_dir, "sources/sat_chunk$(chunk_index)_fluxCI_220.jld2"), "w") do file
-        write(file, "flux", fluxCI_220_sat; compress=true)
+        write(file, "flux", sparse(fluxCI_220_sat))
     end
     for freq in freqs
 
-        XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, model, sources,
+        XGPaint.paint!(m, parse(Float32, freq) * 1.0f9, modelCIB, sourcesCIB,
             fluxes_cen, fluxes_sat)
         # save fluxes
         h5open(joinpath(output_dir, "sources/cen_chunk$(chunk_index)_flux_$(freq).h5"), "w") do file
@@ -328,7 +159,6 @@ function write_chunk(
     end
 end
 
-## the rest of this is more or less the same as cib_planck2013_chunked.jl
 function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
     # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
@@ -340,12 +170,12 @@ function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
             " ", left_ind, " ", right_ind)
         pos = @view halo_pos[:, left_ind:right_ind]
         mass = @view halo_mass[left_ind:right_ind]
-        write_chunk(output_dir, chunk_index, model, cosmo,
+        write_chunk(output_dir, chunk_index, modelCIB, model_CO, cosmo,
             pos, mass, freqs)
     end
     # save maps
     println("writing CO+CI maps ...")
-    m = HealpixMap{Float64,RingOrder}(model.nside)
+    m = HealpixMap{Float64,RingOrder}(model_CO.nside)
     filename = joinpath(output_dir, "co_ci_090.fits")
     m0 = Healpix.readMapFromFITS(joinpath(output_dir, "co_090.fits"),
                                   1, Float32)
@@ -369,7 +199,7 @@ function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=4)
     Healpix.saveToFITS(m, "!$(filename)", typechar="D")
 end
 ## compute on all chunks, on all halos
-scratch_dir = "/home/dongwooc/scratchspace/cib_co_sources_scarfy"
+scratch_dir = "/home/dongwooc/projectscratchspace/cib_co_sources_scarfy_refactor"
 println("SCRATCH: ", scratch_dir)
 mkpath(scratch_dir)
 mkpath(joinpath(scratch_dir, "sources"))
