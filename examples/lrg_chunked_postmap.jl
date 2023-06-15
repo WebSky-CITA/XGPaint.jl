@@ -1,3 +1,4 @@
+# OBSOLETE! DO NOT USE WITH CURRENT XGPAINT
 # hackish script for generating LRG maps after the fact
 using XGPaint
 using Healpix

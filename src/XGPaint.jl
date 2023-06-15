@@ -26,7 +26,7 @@ include("./lrg.jl")
 include("./radio.jl")
 
 export get_cosmology, read_halo_catalog_hdf5
-export Radio_Sehgal2009, CIB_Planck2013, CIB_Scarfy, CO_CROWNED, LRG_Yuan22
+export Radio_Sehgal2009, CIB_Planck2013, CIB_Scarfy, CO_CROWNED, LRG_Yuan23
 export paint!, generate_sources, process_sources, profile_grid, profile_paint!
 
 end # module
