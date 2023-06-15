@@ -9,8 +9,6 @@ Define CIB model parameters. Defaults are from Viero et al. 2013. All numbers
 not typed are converted to type T. This model has the following parameters and default values:
 
 * `nside::Int64 = 4096`
-* `hod::String = "shang"`
-* `Inu_norm = 0.3180384`
 * `min_redshift = 0.0`
 * `max_redshift = 5.0`
 * `min_mass = 1e12`
@@ -24,7 +22,7 @@ not typed are converted to type T. This model has the following parameters and d
 * `shang_sigmaM = 0.3`
 * `shang_Msmin = 1e11`
 * `shang_Mmin = 1e10`
-* `shang_I0 = 46`
+* `shang_I0 = 92`
 * `jiang_gamma_1 = 0.13`
 * `jiang_alpha_1 = -0.83`
 * `jiang_gamma_2 = 1.33`
@@ -35,8 +33,6 @@ not typed are converted to type T. This model has the following parameters and d
 """
 @with_kw struct CIB_Planck2013{T<:Real} <: AbstractCIBModel{T} @deftype T
     nside::Int64    = 4096
-    hod::String     = "shang"
-    Inu_norm     = 0.3180384
     min_redshift = 0.0
     max_redshift = 5.0
     min_mass     = 1e12
@@ -52,7 +48,7 @@ not typed are converted to type T. This model has the following parameters and d
     shang_sigmaM = 0.3
     shang_Msmin  = 1e11
     shang_Mmin   = 1e10
-    shang_I0     = 46
+    shang_I0     = 92
 
     # jiang
     jiang_gamma_1    = 0.13
@@ -63,6 +59,50 @@ not typed are converted to type T. This model has the following parameters and d
     jiang_zeta       = 1.19
 end
 
+@with_kw struct CIB_Scarfy{T<:Real} <: AbstractCIBModel{T} @deftype T
+    nside::Int64    = 4096
+    min_redshift = 0.0
+    max_redshift = 5.0
+    min_mass     = 1e12
+    box_size     = 40000
+
+    # defaults for Scarfy redshift evo
+    scarfy_A     = 57.3686
+    scarfy_a0    = 0.5493
+    scarfy_alpha = 3.102086
+    scarfy_beta  = 3.088586
+    # UniverseMachine-derived quenching fraction
+    quench::Bool = true
+    quench_Qmin0 = -1.944
+    quench_Qmina = -2.419
+    quench_VQ0 = 2.248
+    quench_VQa = 0.018
+    quench_VQz = 0.124
+    quench_sigVQ0 = 0.227
+    quench_sigVQa = 0.037
+    quench_sigVQl = 0.107
+    # shang HOD
+    shang_Td     = 23.0
+    shang_beta   = 1.6
+    shang_alpha  = 0.36
+    shang_Msmin  = 1e11
+    shang_Mmin   = 1e10
+    shang_I0     = 92
+
+    scarfy_Mpeak  = 10^13.6586
+    scarfy_alphaM = -0.862555
+    scarfy_betaM  = 2.786
+    scarfy_I0     = 6.0e12
+    scarfy_lumdex = 0.1
+
+    # jiang
+    jiang_gamma_1    = 0.13
+    jiang_alpha_1    = -0.83
+    jiang_gamma_2    = 1.33
+    jiang_alpha_2    = -0.02
+    jiang_beta_2     = 5.67
+    jiang_zeta       = 1.19
+end
 
 function jiang_shmf(m, M_halo, model)
     dndm = (((model.jiang_gamma_1*((m/M_halo)^model.jiang_alpha_1))+
@@ -98,11 +138,15 @@ function build_shang_interpolator(
     return LinearInterpolation(x_m, N_sat_i)
 end
 
-
-
-function sigma_cen(m::T, model::AbstractCIBModel) where T
+function sigma_cen(m::T, model::CIB_Planck2013) where T
     return (exp( -(log10(m) - log10(model.shang_Mpeak))^2 /
         (T(2)*model.shang_sigmaM) ) * m) / sqrt(T(2π) * model.shang_sigmaM)
+end
+
+function sigma_cen(m::T, model::CIB_Scarfy) where T
+    lsf = exp((randn()-0.5*2.302585*model.scarfy_lumdex)*2.302585*model.scarfy_lumdex)
+    return model.scarfy_I0/((m/model.scarfy_Mpeak)^model.scarfy_alphaM
+                            +(m/model.scarfy_Mpeak)^model.scarfy_betaM)*lsf
 end
 
 function nu2theta(nu::T, z::T, model::AbstractCIBModel) where T
@@ -111,30 +155,6 @@ function nu2theta(nu::T, z::T, model::AbstractCIBModel) where T
     Td = model.shang_Td * (one(T)+z)^model.shang_alpha
     xnu = phys_h * nu / phys_k / Td
     return xnu^(T(4) + model.shang_beta) / expm1(xnu) / nu / model.shang_I0
-end
-
-"""
-<L_sat> interpolation values
-"""
-function integrand_L(lm, lM_halo, model::AbstractCIBModel)
-    m = exp(lm)
-    return sigma_cen(m, model) * jiang_shmf(m, exp(lM_halo), model)
-end
-
-
-"""
-Build a linear interpolator that takes in ln(M_halo) and returns sigma.
-"""
-function build_sigma_sat_ln_interpolator(
-        max_ln_M::T, model::AbstractCIBModel; n_bin=1000) where T
-    x = LinRange(log(model.shang_Mmin), max_ln_M, n_bin)
-    L_mean = zero(x)
-
-    for i in 1:n_bin
-        L_mean[i], err = quadgk( t->integrand_L(t, x[i], model),
-                log(model.shang_Mmin), x[i], rtol=1e-6)
-    end
-    return LinearInterpolation(T.(x), T.(L_mean), extrapolation_bc=zero(T))
 end
 
 function build_muofn_interpolator(model;
@@ -151,14 +171,44 @@ end
 """
 Compute redshift evolution factor for LF.
 """
-function shang_z_evo(z::T, model::AbstractCIBModel) where T
+function z_evo(z::T, model::CIB_Planck2013) where T
     return (one(T) + min(z, model.shang_zplat))^model.shang_eta
+end
+
+function z_evo(z::T, model::CIB_Scarfy) where T
+    scaled_scalefac = one(T)/(one(T)+z)/model.scarfy_a0
+    return model.scarfy_A/(scaled_scalefac^model.scarfy_alpha+scaled_scalefac^model.scarfy_beta)
+end
+
+"""
+Quiescent fraction recipe from UniverseMachine
+"""
+function fquench_UM(Mh::T,z::T,model::AbstractCIBModel) where T
+    a = one(T)/(one(T)+z);
+    M200kms = T(1.64e12)/((a/T(0.378))^T(-0.142)+(a/T(0.378))^T(-1.79)) # MSol
+    vMpeak = T(200)*(Mh/M200kms)^T(0.3) # km/s
+    Qmin = max(T(0),T(model.quench_Qmin0)+T(model.quench_Qmina)*(one(T)-a));
+    logVQ = T(model.quench_VQ0) - T(model.quench_VQa)*(T(1)-a) + T(model.quench_VQz)*z;
+    sigVQ = T(model.quench_sigVQ0) + T(model.quench_sigVQa)*(T(1)-a) - T(model.quench_sigVQl)*log(T(1)+z);
+    return Qmin + (one(T)-Qmin)*(T(0.5)+T(0.5)*erf((log10(vMpeak)-logVQ)/(T(sqrt(2))*sigVQ)))
+end
+
+function build_fquench_interpolator(
+    max_log_M::T, model::AbstractCIBModel;
+    n_bin=1000) where T
+
+    logMh_range = LinRange(log(model.shang_Mmin), max_log_M, n_bin)
+    log1z_range = LinRange(log(one(T)+model.min_redshift),log(one(T)+model.max_redshift),n_bin)
+
+    fquench_table = [fquench_UM(exp(Mh),exp(zp1)-1,model) for Mh in logMh_range, zp1 in log1z_range]
+
+    return linear_interpolation((logMh_range,log1z_range),fquench_table)
 end
 
 """
 Construct the necessary interpolator set.
 """
-function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T},
+function get_interpolators(model::CIB_Planck2013, cosmo::Cosmology.FlatLCDM{T},
     min_halo_mass::T, max_halo_mass::T) where T
     return (
         r2z = build_r2z_interpolator(
@@ -166,12 +216,24 @@ function get_interpolators(model::AbstractCIBModel, cosmo::Cosmology.FlatLCDM{T}
         hod_shang = build_shang_interpolator(
             log(min_halo_mass), log(max_halo_mass), model),
         c_lnm2r = build_c_lnm2r_interpolator(),
-        sigma_sat = build_sigma_sat_ln_interpolator(
-            log(max_halo_mass), model),
-        muofn = build_muofn_interpolator(model)
+        muofn = build_muofn_interpolator(model),
+        fquench = (m,z)->zero(T)
     )
 end
 
+function get_interpolators(model::CIB_Scarfy, cosmo::Cosmology.FlatLCDM{T},
+    min_halo_mass::T, max_halo_mass::T) where T
+    return (
+        r2z = build_r2z_interpolator(
+            model.min_redshift, model.max_redshift, cosmo),
+        hod_shang = build_shang_interpolator(
+            log(min_halo_mass), log(max_halo_mass), model),
+        c_lnm2r = build_c_lnm2r_interpolator(),
+        muofn = build_muofn_interpolator(model),
+        fquench = build_fquench_interpolator(
+            log(max_halo_mass), model)
+    )
+end
 
 
 # Fill up arrays with information related to CIB central sources.
@@ -196,8 +258,10 @@ function process_centrals!(
         n_sat_bar_result[i] = rand(Distributions.Poisson(Float64.(n_sat_bar[i])))
 
         # get central luminosity
-        lum_cen[i] = sigma_cen(halo_mass[i], model) * shang_z_evo(
-            redshift_cen[i], model)
+        lum_cen[i] = sigma_cen(halo_mass[i], model)
+        fquench_result = min(one(T),interp.fquench(log(halo_mass[i]),log(1+redshift_cen[i])))
+        lum_cen[i]*= zero(T)^(rand(T) < fquench_result)
+        lum_cen[i]*= z_evo(redshift_cen[i], model)
     end
 end
 
@@ -233,10 +297,10 @@ function process_sats!(
             redshift_sat[i_sat] = interp.r2z(dist_sat[i_sat])
             theta_sat[i_sat], phi_sat[i_sat] = Healpix.vec2ang(x_sat, y_sat, z_sat)
 
-            # lum_sat[i_sat] = interp.sigma_sat(log(m_sat)) * shang_z_evo(
-            #     redshift_sat[i], model)
-            lum_sat[i_sat] = sigma_cen(m_sat, model) * shang_z_evo(
-                redshift_sat[i_sat], model)
+            lum_sat[i_sat] = sigma_cen(m_sat, model)
+            fquench_result = min(one(T),interp.fquench(log(m_sat),log(1+redshift_sat[i_sat])))
+            lum_sat[i_sat]*= zero(T)^(rand(T) < fquench_result)
+            lum_sat[i_sat]*= z_evo(redshift_sat[i_sat], model)
             hp_ind_sat[i_sat] = Healpix.vec2pixRing(
                 Healpix_res, x_sat, y_sat, z_sat)
 
