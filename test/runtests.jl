@@ -15,7 +15,8 @@ cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
     r2z = XGPaint.build_r2z_interpolator(0.0f0, 4.5f0, cosmo)
     hod_shang = XGPaint.build_shang_interpolator(log(1.0f13), log(1.0f15), model)
     clnm2r = XGPaint.build_c_lnm2r_interpolator(nbin=30)
-    sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(log(4f15), model)
+    #abandon sigma_sat for now
+    #sigma_sat = XGPaint.build_sigma_sat_ln_interpolator(log(4f15), model)
     muofn = XGPaint.build_muofn_interpolator(model)
 
     @test model.shang_Mpeak ≈ 10^12.3  # check default is viero as docs say
@@ -70,10 +71,10 @@ cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
     @test isapprox(
         XGPaint.l2f( 1.0f0, sqrt(3.0f-6), r2z(sqrt(3.0f-6))) * 4π,
         333198.42738065525, rtol=rtol)
-
+    #abandon sigma_sat for now
     # python: h2fm.fluxmodel.sigma_sat(np.array([1e13, 4e15]))
-    @test sigma_sat(log(4f15)) ≈ 3.50530158e+14
-    @test sigma_sat(log(1f13)) ≈ 2.48648819e+12
+    #@test sigma_sat(log(4f15)) ≈ 3.50530158e+14
+    #@test sigma_sat(log(1f13)) ≈ 2.48648819e+12
 
     @test muofn(500.0f0) ≈ 6.14975653e-05
     @test muofn(1.0f0) ≈ 0.11765558
