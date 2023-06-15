@@ -136,48 +136,6 @@ function build_jiang_interpolator(
     return LinearInterpolation(x_m, N_sh_i)
 end
 
-"""
-Build a linear interpolator for drawing masses from the subhalo mass function.
-[already in cib.jl, avoiding duplication]
-
-function build_muofn_interpolator(model;
-        min_mu::T=-6.0f0, max_mu::T=0.0f0, nbin=1000) where T
-    mu = T(10) .^ LinRange(min_mu, max_mu, nbin)
-    n  = zero(mu)
-    for i in 1:nbin
-        n[i], err = quadgk( lmu->jiang_shmf(exp(lmu), one(T), model),
-                log(mu[i]), 0.0f0, rtol=1.0f-6)
-    end
-    return LinearInterpolation(T.(reverse(n)), T.(reverse(mu)))
-end
-"""
-
-"""
-Quiescent fraction recipe from UniverseMachine
-
-function fquench_UM(Mh::T,z::T,model::AbstractLRGModel) where T
-    a = one(T)/(one(T)+z);
-    M200kms = T(1.64e12)/((a/T(0.378))^T(-0.142)+(a/T(0.378))^T(-1.79)) # MSol
-    vMpeak = T(200)*(Mh/M200kms)^T(0.3) # km/s
-    Qmin = max(T(0),T(model.quench_Qmin0)+T(model.quench_Qmina)*(one(T)-a));
-    logVQ = T(model.quench_VQ0) - T(model.quench_VQa)*(T(1)-a) + T(model.quench_VQz)*z;
-    sigVQ = T(model.quench_sigVQ0) + T(model.quench_sigVQa)*(T(1)-a) - T(model.quench_sigVQl)*log(T(1)+z);
-    return Qmin + (one(T)-Qmin)*(T(0.5)+T(0.5)*erf((log10(vMpeak)-logVQ)/(T(sqrt(2))*sigVQ)))
-end
-
-function build_fquench_interpolator(
-    max_log_M::T, model::AbstractLRGModel;
-    n_bin=1000) where T
-
-    logMh_range = LinRange(log(model.shang_Msmin), max_log_M, n_bin)
-    log1z_range = LinRange(log(one(T)+model.min_redshift),log(one(T)+model.max_redshift),n_bin)
-
-    fquench_table = [fquench_UM(exp(Mh),exp(zp1)-1,model) for Mh in logMh_range, zp1 in log1z_range]
-
-    return linear_interpolation((logMh_range,log1z_range),fquench_table)
-end
-"""
-
 
 """
 Construct the necessary interpolator set.
