@@ -387,6 +387,30 @@ function generate_sources(
 end
 
 
+
+function fill_fluxes!(nu_obs, model::AbstractCIBModel{T}, sources,
+        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where T
+        
+    # process centrals for this frequency
+    Threads.@threads for i in 1:sources.N_cen
+        nu = (one(T) + sources.redshift_cen[i]) * nu_obs
+        fluxes_cen[i] = l2f(
+            sources.lum_cen[i] * nu2theta(
+                nu, sources.redshift_cen[i], model),
+            sources.dist_cen[i], sources.redshift_cen[i])
+    end
+
+    # process satellites for this frequency
+    Threads.@threads for i in 1:sources.N_sat
+        nu = (one(T) + sources.redshift_sat[i]) * nu_obs
+        fluxes_sat[i] = l2f(
+            sources.lum_sat[i] * nu2theta(
+                nu, sources.redshift_sat[i], model),
+            sources.dist_sat[i], sources.redshift_sat[i])
+    end
+end
+
+
 """
     paint!(result_map, nu_obs, model, sources, fluxes_cen, fluxes_sat)
 
@@ -408,30 +432,41 @@ function paint!(result_map::HealpixMap{T_map, RingOrder},
     pixel_array = result_map.pixels
     fill!(pixel_array, zero(T))  # prepare the frequency map
 
+    fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)
+
     # process centrals for this frequency
     Threads.@threads for i in 1:sources.N_cen
-        nu = (one(T) + sources.redshift_cen[i]) * nu_obs
-        fluxes_cen[i] = l2f(
-            sources.lum_cen[i] * nu2theta(
-                nu, sources.redshift_cen[i], model),
-            sources.dist_cen[i], sources.redshift_cen[i])
         pixel_array[sources.hp_ind_cen[i]] += fluxes_cen[i]
     end
 
     # process satellites for this frequency
     Threads.@threads for i in 1:sources.N_sat
-        nu = (one(T) + sources.redshift_sat[i]) * nu_obs
-        fluxes_sat[i] = l2f(
-            sources.lum_sat[i] * nu2theta(
-                nu, sources.redshift_sat[i], model),
-            sources.dist_sat[i], sources.redshift_sat[i])
         pixel_array[sources.hp_ind_sat[i]] += fluxes_sat[i]
     end
 
     # divide by healpix pixel size
     per_pixel_steradian = 1 / nside2pixarea(result_map.resolution.nside)
     pixel_array .*= per_pixel_steradian
+    return result_map
 end
+
+# CAR version
+function paint!(result_map::Enmap{TM},
+        nu_obs, model::AbstractCIBModel{T}, sources,
+        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {TM, T}
+
+    fill!(result_map, zero(TM))  # zero out the frequency map
+    fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)  # generate fluxes
+
+    pixsizes = pixareamap(result_map)
+    catalog2map!(result_map, fluxes_cen, sources.theta_cen, sources.phi_cen, pixsizes, erase_first=false)
+    catalog2map!(result_map, fluxes_sat, sources.theta_sat, sources.phi_sat, pixsizes, erase_first=false)
+    return result_map
+end
+
+
+
+
 
 """
 Paint a source catalog onto a map.

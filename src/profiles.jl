@@ -6,20 +6,72 @@ const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 using Cosmology
 using QuadGK
 
-abstract type AbstractProfile{T} end
 
-struct BattagliaProfile{T,C} <: AbstractProfile{T}
+
+# RECTANGULAR WORKSPACES
+
+abstract type AbstractProfileWorkspace end
+
+struct CarClenshawCurtisProfileWorkspace{A} <: AbstractProfileWorkspace
+    sin_α::A
+    cos_α::A
+    sin_δ::A
+    cos_δ::A
+end
+
+function profileworkspace(shape, wcs::CarClenshawCurtis)
+    α_map, δ_map = posmap(shape, wcs)
+    return CarClenshawCurtisProfileWorkspace(
+        sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
+end
+
+struct GnomonicProfileWorkspace{A} <: AbstractProfileWorkspace
+    sin_α::A
+    cos_α::A
+    sin_δ::A
+    cos_δ::A
+end
+
+function profileworkspace(shape, wcs::Gnomonic)
+    α_map, δ_map = posmap(shape, wcs)
+    return GnomonicProfileWorkspace(
+        sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
+end
+
+
+
+abstract type AbstractProfile{T} end
+abstract type AbstractGNFW{T} <: AbstractProfile{T} end
+
+struct Battaglia16ThermalSZProfile{T,C} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
 end
 
-function BattagliaProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
+struct BreakModel{T,C} <: AbstractGNFW{T}
+    f_b::T
+    cosmo::C
+    alpha_break::T
+    M_break::T
+end
+
+function Battaglia16ThermalSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
-    return BattagliaProfile(f_b, cosmo)
+    return Battaglia16ThermalSZProfile(f_b, cosmo)
 end
 
+abstract type AbstractPaintingProblem{T} end
+
+
+function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_break::T=1.5, M_break::T=2.0*10^14) where {T <: Real}
+    #alpha_break = 1.486 from Shivam P paper by Nate's sleuthing
+    OmegaM=Omega_b+Omega_c
+    f_b = Omega_b / OmegaM
+    cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
+    return BreakModel(f_b, cosmo, alpha_break, M_break)
+end
 
 const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
 
@@ -52,7 +104,7 @@ function _generalized_scaled_nfw(x̄, α, β, γ)
 end
 
 
-function get_params(::BattagliaProfile{T}, M_200, z) where T
+function get_params(::AbstractGNFW{T}, M_200, z) where T
 	z₁ = z + 1
 	m = M_200 / (1e14M_sun)
 	P₀ = 18.1 * m^0.154 * z₁^-0.758
@@ -74,11 +126,22 @@ function _tsz_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), or
     return 2integral / scale
 end
 
-function dimensionless_P_profile_los(𝕡::BattagliaProfile{T}, M_200, z, r) where T
+function dimensionless_P_profile_los(𝕡::Battaglia16ThermalSZProfile{T}, M_200, z, r) where T
     par = get_params(𝕡, M_200, z)
     R_200 = R_Δ(𝕡, M_200, z, 200)
     x = r / angular_size(𝕡, R_200, z)
     return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+end
+
+function dimensionless_P_profile_los(𝕡::BreakModel{T}, M_200, z, r) where T
+    par = get_params(𝕡, M_200, z)
+    R_200 = R_Δ(𝕡, M_200, z, 200)
+    x = r / angular_size(𝕡, R_200, z)
+    if M_200 < 𝕡.M_break * M_sun
+        return par.P₀ * (M_200/(𝕡.M_break*M_sun))^𝕡.alpha_break * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+    else
+        return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+    end
 end
 
 """Line-of-sight integrated electron pressure"""
@@ -92,10 +155,7 @@ function compton_y(𝕡, M_200, z, r)
     return P_e_los(𝕡, M_200, z, r) * P_e_factor
 end
 
-
-# using StaticArrays
-
-function profile_grid(𝕡::BattagliaProfile{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
+function profile_grid(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
               logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
     logθs = LinRange(logθ_min, logθ_max, N_logθ)
@@ -105,7 +165,7 @@ function profile_grid(𝕡::BattagliaProfile{T}; N_z=256, N_logM=256, N_logθ=51
     return profile_grid(𝕡, logθs, redshifts, logMs)
 end
 
-function profile_grid(𝕡::BattagliaProfile{T}, logθs, redshifts, logMs) where T
+function profile_grid(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
@@ -124,6 +184,7 @@ function profile_grid(𝕡::BattagliaProfile{T}, logθs, redshifts, logMs) where
 
     return logθs, redshifts, logMs, A
 end
+
 
 # get angular size in radians of radius to stop at
 function θmax(𝕡::AbstractProfile{T}, M_Δ, z; mult=4) where T
@@ -179,11 +240,39 @@ function build_max_paint_logradius(logθs, redshifts, logMs,
 end
 
 
+"""Helper function to build a tSZ interpolator"""
+function build_interpolator(model::AbstractGNFW; cache_file::String="", 
+                            N_logθ=512, pad=256, overwrite=true, verbose=true)
+
+    if overwrite || (isfile(cache_file) == false)
+        verbose && print("Building new interpolator from model.\n")
+        rft = RadialFourierTransform(n=N_logθ, pad=pad)
+        logθ_min, logθ_max = log(minimum(rft.r)), log(maximum(rft.r))
+        prof_logθs, prof_redshift, prof_logMs, prof_y = profile_grid(model; 
+            N_logθ=N_logθ, logθ_min=logθ_min, logθ_max=logθ_max)
+        if length(cache_file) > 0
+            verbose && print("Saving new interpolator to $(cache_file).\n")
+            save(cache_file, Dict("prof_logθs"=>prof_logθs, 
+                "prof_redshift"=>prof_redshift, "prof_logMs"=>prof_logMs, "prof_y"=>prof_y))
+        end
+    else
+        print("Found cached Battaglia profile model. Loading from disk.\n")
+        model_grid = load(cache_file)
+        prof_logθs, prof_redshift, prof_logMs, prof_y = model_grid["prof_logθs"], 
+            model_grid["prof_redshift"], model_grid["prof_logMs"], model_grid["prof_y"]
+    end
+
+    itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
+    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs)
+    return sitp
+end
+
+
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        α₀, δ₀, psa, sitp, z, Ms, θmax) where T
+                        α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
+                        sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
-    # θ_rad = XGPaint.θmax(p, Ms * XGPaint.M_sun, z)
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
     i_start = floor(Int, max(min(i1, i2), 1))
@@ -197,9 +286,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[j] * psa.cos_α[i]
-            y₁ = psa.cos_δ[j] * psa.sin_α[i]
-            z₁ = psa.sin_δ[j]
+            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
+            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
+            z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
             m[i,j] += ifelse(θ < θmax, 
@@ -211,7 +300,7 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, psa, sitp, z, Ms, θmax) where T
+            α₀, δ₀, psa::GnomonicProfileWorkspace, sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -241,21 +330,59 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, w::HealpixPaintingWorkspace, z, Mh, θmax) where T
+            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
-    θ₀ = π/2 - δ₀
+    θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
-
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ = acos(1 - d² / 2)
         θ = max(w.θmin, θ)  # clamp to minimum θ
-
         m.pixels[ir] += ifelse(θ < θmax, 
                                     exp(sitp(log(θ), z, log10(Mh))),
                                     zero(T))
     end
 end
+
+
+# for rectangular pixelizations
+
+# multi-halo painting utilities
+function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, 
+                masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
+    for i in irange
+        α₀ = αs[i]
+        δ₀ = δs[i]
+        mh = masses[i]
+        z = redshifts[i]
+        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
+        profile_paint!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
+    end
+end
+
+function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV, 
+                        redshifts::AV, αs::AV, δs::AV)  where AV
+    fill!(m, 0)
+    
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+    
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+    end
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+    end
+end
+
+
+

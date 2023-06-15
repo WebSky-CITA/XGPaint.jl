@@ -61,7 +61,7 @@ function get_cosmology(::Type{T}; h=0.69,
     end
 end
 get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb=2.7255, 
-    w0=-1, wa=0) where T = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
+    w0=-1, wa=0) = get_cosmology(Float32; h=h, Neff=Neff, OmegaK=OmegaK, 
         OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
 
@@ -119,6 +119,42 @@ function build_r2z_interpolator(min_z::T, max_z::T,
     end
     r2z = LinearInterpolation(rrange, zrange; extrapolation_bc=Line());
     return r2z
+end
+
+"""
+Construct a z2r linear interpolator.
+"""
+function build_z2r_interpolator(min_z::T, max_z::T,
+    cosmo::Cosmology.AbstractCosmology; n_bins=2000) where T
+
+    zrange = LinRange(min_z, max_z, n_bins)
+    rrange = zero(zrange)
+    for i in 1:n_bins
+        rrange[i] = ustrip(T, u"Mpc",
+            Cosmology.comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
+    end
+    z2r = DataInterpolations.LinearInterpolation(rrange, zrange);
+    return z2r
+end
+
+
+"""
+Convert RA (rad), DEC (rad), and redshift to xyz comoving radial dist.
+"""
+function ra_dec_redshift_to_xyz(ra, dec, redshift, cosmo::XGPaint.Cosmology.FlatLCDM{T}) where T
+
+    N_halos = length(ra)
+    dist = Array{T}(undef, N_halos)
+    x, y, z = Array{T}(undef, N_halos), Array{T}(undef, N_halos), Array{T}(undef, N_halos)
+
+    z2r = XGPaint.build_z2r_interpolator(minimum(redshift), maximum(redshift), cosmo)
+    for i in 1:N_halos
+
+        dist[i] = z2r(redshift[i])
+        x[i], y[i], z[i] = dist[i] .* Healpix.ang2vec(T(π)/2 - dec[i], ra[i])
+    end
+
+    return x, y, z
 end
 
 """
@@ -180,80 +216,4 @@ Inverse square law with redshift dependence.
 """
 function l2f(luminosity::T, r_comoving::T, redshift::T) where T
     return luminosity / (T(4π) * r_comoving^2 * (one(T) + redshift) )
-end
-
-
-function flux2map!(result_map::HealpixMap{T_map,RingOrder}, fluxes, theta, phi) where {T_map, T}
-
-    pixel_array = result_map.pixels
-    fill!(pixel_array, zero(T))  # prepare the frequency map
-
-    flux_to_Jy = ustrip(u"Jy", 1u"W/Hz*Mpc^-2")
-
-    source_offset_I = generate_subhalo_offsets(sources.nsources_I)
-    source_offset_II = generate_subhalo_offsets(sources.nsources_II)
-    N_halo = size(sources.halo_mass, 1)
-    total_n_sat_I = size(sources.L_I_151, 1)
-    total_n_sat_II = size(sources.L_II_151, 1)
-
-    flux_I = Array{T, 1}(undef, total_n_sat_I)
-    flux_II = Array{T, 1}(undef, total_n_sat_II)
-    redshift_I = Array{T, 1}(undef, total_n_sat_I)
-    redshift_II = Array{T, 1}(undef, total_n_sat_II)
-    θ_I = Array{T, 1}(undef, total_n_sat_I)
-    θ_II = Array{T, 1}(undef, total_n_sat_II)
-    ϕ_I = Array{T, 1}(undef, total_n_sat_I)
-    ϕ_II = Array{T, 1}(undef, total_n_sat_II)
-
-
-    Threads.@threads for i_halo in 1:N_halo
-        nu = (1 + sources.redshift[i_halo]) * nu_obs
-        hp_ind = sources.halo_hp_ind[i_halo]
-
-        # Generate FR I fluxes
-        for source_index in 1:sources.nsources_I[i_halo]
-            # index of satellite in satellite arrays
-            i_sat = source_offset_I[i_halo] + source_index
-            L_c, L_l = get_core_lobe_lum(
-                sources.L_I_151[i_sat], nu, model.I_R_int, model.I_γ,
-                model.a_0,
-                sources.a_coeff_I[1,i_sat], sources.a_coeff_I[2,i_sat],
-                sources.a_coeff_I[3,i_sat], sources.cosθ_I[i_sat])
-
-            flux_I[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
-                sources.redshift[i_halo]) * flux_to_Jy
-            redshift_I[i_sat] = sources.redshift[i_halo]
-            θ_I[i_sat] = sources.θ[i_halo]
-            ϕ_I[i_sat] = sources.ϕ[i_halo]
-            pixel_array[hp_ind] += flux_I[i_sat]
-        end
-
-        # Generate FR II fluxes
-        for source_index in 1:sources.nsources_II[i_halo]
-            # index of satellite in satellite arrays
-            i_sat = source_offset_II[i_halo] + source_index
-            L_c, L_l = get_core_lobe_lum(
-                sources.L_II_151[i_sat], nu, model.II_R_int, model.II_γ,
-                model.a_0,
-                sources.a_coeff_II[1,i_sat], sources.a_coeff_II[2,i_sat],
-                sources.a_coeff_II[3,i_sat], sources.cosθ_II[i_sat])
-
-            flux_II[i_sat] = l2f(L_c+L_l, sources.dist[i_halo],
-                sources.redshift[i_halo]) * flux_to_Jy
-            redshift_II[i_sat] = sources.redshift[i_halo]
-            θ_II[i_sat] = sources.θ[i_halo]
-            ϕ_II[i_sat] = sources.ϕ[i_halo]
-            pixel_array[hp_ind] += flux_II[i_sat]
-        end
-    end
-
-    # divide by healpix pixel size
-    per_pixel_steradian = 1 / nside2pixarea(result_map.resolution.nside)
-    pixel_array .*= per_pixel_steradian
-
-    # maps are in Jansky per steradian, fluxes are in Jansky
-    if return_fluxes
-        return flux_I, redshift_I, θ_I, ϕ_I, flux_II, redshift_II, θ_II, ϕ_II
-    end
-
 end
