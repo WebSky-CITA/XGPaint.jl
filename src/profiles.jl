@@ -3,6 +3,7 @@ import PhysicalConstants.CODATA2018 as constants
 using Unitful
 const M_sun = 1.98847e30u"kg"
 const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
+const T_cmb =  2.725 * u"K"
 using Cosmology
 using QuadGK
 
@@ -153,6 +154,40 @@ P_th_los(𝕡, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(𝕡, z) *
 
 function compton_y(𝕡, M_200, z, r)
     return P_e_los(𝕡, M_200, z, r) * P_e_factor
+end
+
+function rSZ(𝕡, M_200, z, r, T_e, X)
+    """
+    Calculates the integrated Compton-y signal with perturbative corrections along the line of
+	sight according to NOZAWA ET AL. 2007.
+    """
+    θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
+    ω = (X*constants.k_B*T_cmb)/constants.ħ 
+    Xt = X*coth(X/2)
+    St = X/(sinh(X/2)) 
+    
+    Y_0 = -4 + Xt
+    Y_1 = -10 + (47/2)*Xt -(42/5)*Xt^2 + (7/10)*Xt^3 + St^2*((-21/5)+(7/5)*Xt)
+    Y_2 = (-15/2) + (1023/8)*Xt - (868/5)*Xt^2 + (329/5)*Xt^3 - (44/5)*Xt^4 + (11/30)*Xt^5 + 
+        St^2*((-434/5) + (658/5)*Xt - (242/5)*Xt^2 + (143/30)*Xt^3) + St^4*((-44/4) + (187/60)*Xt) 
+    Y_3 = (15/2) + (2505/8)*Xt - (7098/5)*Xt^2 + (14253/10)*Xt^3 - (18594/35)*Xt^4 + (12059/140)*Xt^5 - 
+        (128/21)*Xt^6 + (16/105)*Xt^7 + St^2*((-7098/10) + (14253/5)*Xt - (102267/35)*Xt^2 + 
+        (156767/140)*Xt^3 - (1216/7)*Xt^4 + (64/7)*Xt^5) + St^4*((-18594/35) + (205003/280)*Xt - 
+        (1920/7)*Xt^2 + (1024/35)*Xt^3) + St^6*((-544/21) + (992/105)*Xt)
+    Y_4 = (-135/32) + (30375/128)*Xt - (62391/10)*Xt^2 + (614727/40)*Xt^3 - (124389/10)*Xt^4 +
+        (355703/80)*Xt^5 - (16568/21)*Xt^6 + (7516/105)*Xt^7 - (22/7)*Xt^8 + (11/210)*Xt^9 +
+        St^2*((-62391/20) + (614727/20)*Xt - (1368279/20)*Xt^2 + (4624139/80)*Xt^3 - (157396/7)*Xt^4 + 
+        (30064/7)*Xt^5 - (2717/7)*Xt^6 + (2761/210)*Xt^7) + St^4*((-124389/10) + (6046951/160)*Xt -
+        (248520/7)*Xt^2 + (481024/35)*Xt^3 - (15972/7)*Xt^4 + (18689/140)*Xt^5) + St^6*((-70414/21) +
+        (465992/105)*Xt - (11792/7)*Xt^2 + (19778/105)*Xt^3) + St^8*((-628/7) + (7601/210)*Xt)
+    
+    prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
+    y = compton_y(𝕡, M_200, z, r)
+    n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
+    I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n
+    T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
+    
+    return T
 end
 
 function profile_grid(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
