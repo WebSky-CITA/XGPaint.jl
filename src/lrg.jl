@@ -167,7 +167,7 @@ function process_centrals!(
 
     N_halos = size(halo_mass, 1)
 
-    Threads.@threads for i = 1:N_halos
+    Threads.@threads :static for i = 1:N_halos
         # location information for centrals
         hp_ind_cen[i] = Healpix.vec2pixRing(Healpix_res,
             halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
@@ -197,7 +197,7 @@ function process_sats!(
         halo_mass, halo_pos, redshift_cen, n_sh_bar, n_sh_bar_result) where T
 
     N_halos = size(halo_mass, 1)
-    Threads.@threads for i_halo = 1:N_halos
+    Threads.@threads :static for i_halo = 1:N_halos
         r_cen = m2r(halo_mass[i_halo], cosmo)
         c_cen = mz2c(halo_mass[i_halo], redshift_cen[i_halo], cosmo)
         for j in 1:n_sh_bar_result[i_halo]
@@ -354,14 +354,14 @@ function paint!(result_map::HealpixMap{T_map, RingOrder},
     fill!(pixel_array, zero(T))  # prepare the frequency map
 
     # process centrals for this frequency
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         if (sources.lrg_cen[i]) && (sources.redshift_cen[i] < max_redshift) && (sources.redshift_cen[i] > min_redshift)
             pixel_array[sources.hp_ind_cen[i]] += 1
         end
     end
 
     # process satellites for this frequency
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         if (sources.lrg_sat[i]) && (sources.redshift_sat[i] < max_redshift) && (sources.redshift_sat[i] > min_redshift)
             pixel_array[sources.hp_ind_sat[i]] += 1
         end

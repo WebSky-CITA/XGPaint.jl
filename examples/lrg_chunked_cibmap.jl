@@ -5,6 +5,8 @@ using Healpix
 using JLD2, FileIO, CodecZlib
 using HDF5
 using DelimitedFiles
+using Random
+Random.seed!(3)
 
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
 model = LRG_Yuan22{Float32}(nside=4096)
@@ -31,7 +33,7 @@ function write_chunk(
             fill!(m.pixels, zero(Float32))
             h5open(joinpath(cib_dir, "sources/cen_chunk$(chunk_index)_flux_$(freq).h5"), "r") do file2
                 fluxes_lrgcen = read(file2["flux"])[lrg_cen]
-                Threads.@threads for i in 1:length(hp_ind_lrgcen)
+                Threads.@threads :static for i in 1:length(hp_ind_lrgcen)
                     m.pixels[hp_ind_lrgcen[i]] += fluxes_lrgcen[i]
                 end
             end

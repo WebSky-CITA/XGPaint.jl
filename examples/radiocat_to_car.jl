@@ -38,7 +38,7 @@ function catalog2map!(m::Enmap{T}, flux, theta, phi, pixsizes) where T
 
     # try to prevent thread issues by sorting by theta
     perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
-    Threads.@threads for i_perm in 1:N_halo
+    Threads.@threads :static for i_perm in 1:N_halo
         i_halo = perm[i_perm]
         i = round(Int, ipix[i_halo])
         i = mod(i - 1, size(m, 1)) + 1
@@ -98,7 +98,7 @@ wy, wx = enmap.calc_window(shape_py)
 
 #     # try to prevent thread issues by sorting by theta
 #     perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
-#     Threads.@threads for i_perm in 1:N_halo
+#     Threads.@threads :static for i_perm in 1:N_halo
 #         i_halo = perm[i_perm]
 #         hp_ind = Healpix.ang2pixRing(res, theta[i_halo], phi[i_halo])
 #         pixel_array[hp_ind] += flux[i_halo]

@@ -77,7 +77,7 @@ function get_basic_halo_properties(halo_pos::Array{T,2}, model::AbstractForegrou
 
     r2z = build_r2z_interpolator(
         model.min_redshift, model.max_redshift, cosmo)
-    Threads.@threads for i in 1:N_halos
+    Threads.@threads :static for i in 1:N_halos
         dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
         redshift[i] = r2z(dist[i])
         hp_ind[i] = Healpix.vec2pixRing(res, halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
@@ -94,7 +94,7 @@ function get_angles(halo_pos::Array{T,2}) where T
     θ = Array{T}(undef, N_halos)
     ϕ = Array{T}(undef, N_halos)
 
-    Threads.@threads for i in 1:N_halos
+    Threads.@threads :static for i in 1:N_halos
         θ[i], ϕ[i] = Healpix.vec2ang(halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
     end
 

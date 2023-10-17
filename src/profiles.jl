@@ -170,7 +170,7 @@ function profile_grid(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
 
-    Threads.@threads for im in 1:N_logM
+    Threads.@threads :static for im in 1:N_logM
         logM = logMs[im]
         M = 10^(logM) * M_sun
         for (iz, z) in enumerate(redshifts)
@@ -371,13 +371,13 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
     chunks = chunk(N_sources, chunksize);
     
-    Threads.@threads for i in 1:Threads.nthreads()
+    Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
         paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 
-    Threads.@threads for i in 1:Threads.nthreads()
+    Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
         paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)

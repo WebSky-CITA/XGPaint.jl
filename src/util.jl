@@ -73,7 +73,7 @@ function threaded_rand!(random_number_generators, arr::Array{T,1};
       chunksize=4096) where T
 
    num = size(arr,1)
-   Threads.@threads for (i1, i2) in chunk(num, chunksize)
+   Threads.@threads :static for (i1, i2) in chunk(num, chunksize)
       @views rand!(random_number_generators[Threads.threadid()], arr[i1:i2])
    end
 end
@@ -122,7 +122,7 @@ function catalog2map!(m::HealpixMap{T,RingOrder}, flux, theta, phi) where T
 
     # try to prevent thread issues by sorting by theta
     perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
-    Threads.@threads for i_perm in 1:N_halo
+    Threads.@threads :static for i_perm in 1:N_halo
         i_halo = perm[i_perm]
         hp_ind = Healpix.ang2pixRing(res, theta[i_halo], phi[i_halo])
         pixel_array[hp_ind] += flux[i_halo]
@@ -151,7 +151,7 @@ function catalog2map!(m::Enmap{T}, flux, theta, phi, pixsizes; erase_first=true)
 
     # try to prevent thread issues by sorting by theta
     perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
-    Threads.@threads for i_perm in 1:N_halo
+    Threads.@threads :static for i_perm in 1:N_halo
         i_halo = perm[i_perm]
         i = round(Int, ipix[i_halo])
         i = mod(i - 1, size(m, 1)) + 1
@@ -329,7 +329,7 @@ function vectorhealpixmap(::Type{T}, nside::Int) where T
     res = Resolution(nside)
     arr = Vector{Tuple{T, T, T}}(undef, npix)
     posmap = HealpixMap{Tuple{T, T, T}, RingOrder}(arr)
-    Threads.@threads for i in 1:npix
+    Threads.@threads :static for i in 1:npix
         posmap.pixels[i] = pix2vecRing(res, i)
     end
     return posmap
