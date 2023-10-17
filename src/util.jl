@@ -119,18 +119,15 @@ function catalog2map!(m::HealpixMap{T,RingOrder}, flux, theta, phi) where T
     res = m.resolution
     pixel_array = m.pixels
     N_halo = length(flux)
+    per_pixel_steradian = 1 / nside2pixarea(res.nside)  # divide by healpix pixel size
 
     # try to prevent thread issues by sorting by theta
     perm = sortperm(theta, rev=true, alg=ThreadsX.MergeSort)
     Threads.@threads :static for i_perm in 1:N_halo
         i_halo = perm[i_perm]
         hp_ind = Healpix.ang2pixRing(res, theta[i_halo], phi[i_halo])
-        pixel_array[hp_ind] += flux[i_halo]
+        pixel_array[hp_ind] += flux[i_halo] * per_pixel_steradian
     end
-
-    # divide by healpix pixel size
-    per_pixel_steradian = 1 / nside2pixarea(res.nside)
-    pixel_array .*= per_pixel_steradian
 end
 
 
@@ -142,8 +139,8 @@ function catalog2map!(m::Enmap{T}, flux, theta, phi, pixsizes; erase_first=true)
         fill!(pixel_array, zero(T))
     end
 
-    α = phi
-    δ = T(π)/2 .- theta
+    α = T.(phi)
+    δ = T(π/2) .- T.(theta) 
 
     ipix, jpix = sky2pix(size(m), m.wcs, α, δ)
 
@@ -157,11 +154,10 @@ function catalog2map!(m::Enmap{T}, flux, theta, phi, pixsizes; erase_first=true)
         i = mod(i - 1, size(m, 1)) + 1
         j = round(Int, jpix[i_halo])
         if (1 ≤ i ≤ len1) && (1 ≤ j ≤ len2)
-            pixel_array[i, j] += flux[i_halo]
+            pixel_array[i, j] += flux[i_halo] / pixsizes[i, j]
         end
     end
     
-    pixel_array ./= pixsizes
     return m
 end
 
