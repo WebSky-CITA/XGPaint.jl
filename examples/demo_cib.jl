@@ -50,7 +50,7 @@ function get_basic_halo_properties(halo_pos::Array{T,2},
 
     r2z = XGPaint.build_r2z_interpolator(
         0.0, 4.5, cosmo)
-    Threads.@threads for i in 1:N_halos
+    Threads.@threads :static for i in 1:N_halos
         dist[i] = sqrt(halo_pos[1,i]^2 + halo_pos[2,i]^2 + halo_pos[3,i]^2)
         redshift[i] = r2z(dist[i])
     end

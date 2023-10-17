@@ -91,7 +91,7 @@ function hod_sehgal(
     nsources_II = Array{Int32}(undef, N_halos)
 
     # compute poisson mean, then draw it
-    Threads.@threads for i = 1:N_halos
+    Threads.@threads :static for i = 1:N_halos
         I_HON = model.I_N_0 * (halo_mass[i] / model.I_M_0)^model.I_α
         I_HON *= FR_I_redshift_evolution(redshift[i], model)
         nsources_I[i] = rand(Distributions.Poisson(Float64.(I_HON)))
@@ -130,13 +130,13 @@ function sehgal_LF!(result::Array{T,1}, m, n, Lb::T, Lmin,
     rand_array::Array{T,1}) where T
 
     if n ≈ 0.0
-        Threads.@threads for i = 1:size(result,1)
+        Threads.@threads :static for i = 1:size(result,1)
             result[i] = sehgal_LFn0(
                 rand_array[i],
                 Float64(m), Float64(Lb), Float64(Lmin))
         end
     else
-        Threads.@threads for i = 1:size(result,1)
+        Threads.@threads :static for i = 1:size(result,1)
             result[i] = sehgal_LF(
                 rand_array[i],
                 Float64(m), Float64(n), Float64(Lb), Float64(Lmin))
@@ -276,7 +276,7 @@ function paint!(result_map::HealpixMap{T_map,RingOrder},
     ϕ_II = Array{T, 1}(undef, total_n_sat_II)
 
 
-    Threads.@threads for i_halo in 1:N_halo
+    Threads.@threads :static for i_halo in 1:N_halo
         nu = (1 + sources.redshift[i_halo]) * nu_obs
         hp_ind = sources.halo_hp_ind[i_halo]
 

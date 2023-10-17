@@ -3,6 +3,8 @@ using Healpix
 using HDF5
 using JLD2, FileIO, CodecZlib
 using DelimitedFiles
+using Random
+Random.seed!(3)
 
 halo_pos, halo_mass = read_halo_catalog_hdf5("/fs/lustre/cita/zack/projects/websky/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
@@ -86,7 +88,7 @@ function write_chunk(
     fill!(fluxCI_150_sat,zero(Float32))
     fluxCI_220_sat = Array{Float32,1}(undef,sources.N_sat)
     fill!(fluxCI_220_sat,zero(Float32))
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         # calculate dust temperatures and bolometric LIR for each source
         Td = model.shang_Td * (1.f0 .+sources.redshift_cen[i])^model.shang_alpha;
         LIR_cen[i] = Lnu_to_LIR(Td)*sources.lum_cen[i]*XGPaint.nu2theta(2.10833f12,sources.redshift_cen[i],model)
@@ -109,7 +111,7 @@ function write_chunk(
         xRJ = xRJ_GHz*nuCI_cen[i]
         quasiTCI_cen[i]/= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
     end
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         Td = model.shang_Td * (1.f0 .+sources.redshift_sat[i])^model.shang_alpha;
         LIR_sat[i] = Lnu_to_LIR(Td)*sources.lum_sat[i]*XGPaint.nu2theta(2.10833f12,sources.redshift_sat[i],model)
         rnd = Float32(randn())
@@ -159,7 +161,7 @@ function write_chunk(
     mCI150 = HealpixMap{Float64,RingOrder}(model.nside)
     mCI220 = HealpixMap{Float64,RingOrder}(model.nside)
     println("painting CO/CI from ",sources.N_cen," centrals")
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         for J in 1:7
             j = searchsortedlast(bandpass_PA6_090_edges,nuJ_cen[i,J])
             if (j>0) && (j<=bandpass_PA6_090_len)
@@ -194,7 +196,7 @@ function write_chunk(
         end
     end
     println("painting CO/CI from ",sources.N_sat," satellites")
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         for J in 1:7
             j = searchsortedlast(bandpass_PA6_090_edges,nuJ_sat[i,J])
             if (j>0) && (j<=bandpass_PA6_090_len)

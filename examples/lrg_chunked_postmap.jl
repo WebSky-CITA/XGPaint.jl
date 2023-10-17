@@ -4,6 +4,8 @@ using XGPaint
 using Healpix
 using JLD2, FileIO, CodecZlib
 using DelimitedFiles
+using Random
+Random.seed!(3)
 
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)
 model = LRG_Yuan22{Float32}(nside=4096)
@@ -20,7 +22,7 @@ function write_chunk(
         lrg_cen = file["LRG"]
         hp_ind_cen = file["hp_ind_cen"]
         # process centrals for this frequency
-        Threads.@threads for i in 1:length(redshift_cen)
+        Threads.@threads :static for i in 1:length(redshift_cen)
             if (lrg_cen[i]) && (redshift_cen[i] < zhi) && (redshift_cen[i] > zlo)
                 m.pixels[hp_ind_cen[i]] += 1
             end
@@ -31,7 +33,7 @@ function write_chunk(
         lrg_sat = file["LRG"]
         hp_ind_sat = file["hp_ind_sat"]
         # process satellites for this frequency
-        Threads.@threads for i in 1:length(redshift_sat)
+        Threads.@threads :static for i in 1:length(redshift_sat)
             if (lrg_sat[i]) && (redshift_sat[i] < zhi) && (redshift_sat[i] > zlo)
                 m.pixels[hp_ind_sat[i]] += 1
             end

@@ -245,7 +245,7 @@ function process_centrals!(
 
     N_halos = size(halo_mass, 1)
 
-    Threads.@threads for i = 1:N_halos
+    Threads.@threads :static for i = 1:N_halos
         # location information for centrals
         hp_ind_cen[i] = Healpix.vec2pixRing(Healpix_res,
             halo_pos[1,i], halo_pos[2,i], halo_pos[3,i])
@@ -275,7 +275,7 @@ function process_sats!(
         halo_mass, halo_pos, redshift_cen, n_sat_bar, n_sat_bar_result) where T
 
     N_halos = size(halo_mass, 1)
-    Threads.@threads for i_halo = 1:N_halos
+    Threads.@threads :static for i_halo = 1:N_halos
         r_cen = m2r(halo_mass[i_halo], cosmo)
         c_cen = mz2c(halo_mass[i_halo], redshift_cen[i_halo], cosmo)
         for j in 1:n_sat_bar_result[i_halo]
@@ -392,7 +392,7 @@ function fill_fluxes!(nu_obs, model::AbstractCIBModel{T}, sources,
         fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where T
         
     # process centrals for this frequency
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         nu = (one(T) + sources.redshift_cen[i]) * nu_obs
         fluxes_cen[i] = l2f(
             sources.lum_cen[i] * nu2theta(
@@ -401,7 +401,7 @@ function fill_fluxes!(nu_obs, model::AbstractCIBModel{T}, sources,
     end
 
     # process satellites for this frequency
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         nu = (one(T) + sources.redshift_sat[i]) * nu_obs
         fluxes_sat[i] = l2f(
             sources.lum_sat[i] * nu2theta(
@@ -435,12 +435,12 @@ function paint!(result_map::HealpixMap{T_map, RingOrder},
     fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)
 
     # process centrals for this frequency
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         pixel_array[sources.hp_ind_cen[i]] += fluxes_cen[i]
     end
 
     # process satellites for this frequency
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         pixel_array[sources.hp_ind_sat[i]] += fluxes_sat[i]
     end
 

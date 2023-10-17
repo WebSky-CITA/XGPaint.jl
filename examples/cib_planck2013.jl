@@ -1,5 +1,7 @@
 using XGPaint
 using Healpix
+using Random
+Random.seed!(3)
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 halo_pos, halo_mass = read_halo_catalog_hdf5(

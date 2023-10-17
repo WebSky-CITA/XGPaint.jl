@@ -3,6 +3,8 @@ using Healpix
 using JLD2, FileIO, CodecZlib
 using HDF5
 using DelimitedFiles
+using Random
+Random.seed!(3)
 
 hdata = h5open("/home/dongwooc/projectscratchspace/websky_halos_rewrite/websky_halos-lesslight_20230612.h5","r") do file
    (x = read(file,"x"), y = read(file,"y"), z = read(file,"z"), m = read(file,"M200m"), vrad = read(file,"vrad") )

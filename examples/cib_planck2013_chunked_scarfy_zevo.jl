@@ -1,6 +1,8 @@
 using XGPaint
 using Healpix
 using HDF5
+using Random
+Random.seed!(3)
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
 @time halo_pos, halo_mass = read_halo_catalog_hdf5("/fs/lustre/cita/zack/projects/websky/websky_halos-light.hdf5")

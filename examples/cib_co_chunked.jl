@@ -4,6 +4,8 @@ using Healpix
 using HDF5
 using JLD2, FileIO, CodecZlib
 using DelimitedFiles
+using Random
+Random.seed!(3)
 
 halo_pos, halo_mass = read_halo_catalog_hdf5("/fs/lustre/cita/zack/projects/websky/websky_halos-light.hdf5")
 cosmo = get_cosmology(h=0.677f0, OmegaM=0.310f0)

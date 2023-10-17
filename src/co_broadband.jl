@@ -52,7 +52,7 @@ function process_sources(model::AbstractCOModel{T}, sources,
     nuCI_sat = Array{Float32,1}(undef,sources.N_sat)
     LCI_sat = Array{Float32,1}(undef,sources.N_sat)
     quasiTCI_sat = Array{Float32,1}(undef,sources.N_sat)
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         # calculate dust temperatures and bolometric LIR for each source
         Td = cib_model.shang_Td * (1.f0 .+sources.redshift_cen[i])^cib_model.shang_alpha;
         LIR_cen[i] = Lnu_to_LIR(Td)*sources.lum_cen[i]*nu2theta(2.10833f12,sources.redshift_cen[i],cib_model)
@@ -75,7 +75,7 @@ function process_sources(model::AbstractCOModel{T}, sources,
         xRJ = model.xRJ_GHz*nuCI_cen[i]
         quasiTCI_cen[i]/= xRJ^2*exp(xRJ)/(exp(xRJ)-1)^2
     end
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         Td = cib_model.shang_Td * (1.f0 .+sources.redshift_sat[i])^cib_model.shang_alpha;
         LIR_sat[i] = Lnu_to_LIR(Td)*sources.lum_sat[i]*XGPaint.nu2theta(2.10833f12,sources.redshift_sat[i],cib_model)
         rnd = Float32(randn())
@@ -142,7 +142,7 @@ function paint!(result_map_CO::HealpixMap{T_map, RingOrder},
     mCI_pixsr = nside2pixarea(result_map_CI.resolution.nside)
     fill!(mCI, zero(T))
     println("painting CO/CI from ",sources.N_cen," centrals")
-    Threads.@threads for i in 1:sources.N_cen
+    Threads.@threads :static for i in 1:sources.N_cen
         for J in 1:model.Jupmax
             j = searchsortedlast(bandpass_edges,sources.nuJ_cen[i,J])
             if (j>0) && (j<=bandpass_len)
@@ -157,7 +157,7 @@ function paint!(result_map_CO::HealpixMap{T_map, RingOrder},
         end
     end
     println("painting CO/CI from ",sources.N_sat," satellites")
-    Threads.@threads for i in 1:sources.N_sat
+    Threads.@threads :static for i in 1:sources.N_sat
         for J in 1:model.Jupmax
             j = searchsortedlast(bandpass_edges,sources.nuJ_sat[i,J])
             if (j>0) && (j<=bandpass_len)
