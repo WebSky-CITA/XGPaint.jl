@@ -427,12 +427,13 @@ Paint a source catalog onto a map, recording the fluxes in
 """
 function paint!(result_map::HealpixMap{T_map, RingOrder},
         nu_obs, model::AbstractCIBModel{T}, sources,
-        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
+        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray; fill_fluxes=true) where {T_map, T}
 
     pixel_array = result_map.pixels
     fill!(pixel_array, zero(T))  # prepare the frequency map
-
-    fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)
+    if fill_fluxes
+        fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)
+    end
 
     # process centrals for this frequency
     Threads.@threads :static for i in 1:sources.N_cen
@@ -453,10 +454,12 @@ end
 # CAR version
 function paint!(result_map::Enmap{TM},
         nu_obs, model::AbstractCIBModel{T}, sources,
-        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {TM, T}
+        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray; fill_fluxes=true) where {TM, T}
 
     fill!(result_map, zero(TM))  # zero out the frequency map
-    fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)  # generate fluxes
+    if fill_fluxes
+        fill_fluxes!(nu_obs, model, sources, fluxes_cen, fluxes_sat)  # generate fluxes
+    end
 
     pixsizes = pixareamap(result_map)
     catalog2map!(result_map, fluxes_cen, sources.theta_cen, sources.phi_cen, pixsizes, erase_first=false)
