@@ -2,8 +2,8 @@
 import PhysicalConstants.CODATA2018 as constants
 using Unitful
 const M_sun = 1.98847e30u"kg"
-const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 const T_cmb =  2.725 * u"K"
+const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 using Cosmology
 using QuadGK
 
@@ -49,12 +49,6 @@ struct Battaglia16ThermalSZProfile{T,C} <: AbstractGNFW{T}
     cosmo::C
 end
 
-struct Battaglia16RelativisticSZProfile{T,C} <: AbstractGNFW{T}
-    f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
-    cosmo::C
-    X::T  # X = 0.4205 corresponding to frequency 150 GHz
-end
-
 struct BreakModel{T,C} <: AbstractGNFW{T}
     f_b::T
     cosmo::C
@@ -67,14 +61,6 @@ function Battaglia16ThermalSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     return Battaglia16ThermalSZProfile(f_b, cosmo)
-end
-
-function Battaglia16RelativisticSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=5.0) where {T <: Real}
-    OmegaM=Omega_b+Omega_c
-    f_b = Omega_b / OmegaM
-    cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
-    X = x
-    return Battaglia16RelativisticSZProfile(f_b, cosmo, X)
 end
 
 abstract type AbstractPaintingProblem{T} end
@@ -148,13 +134,6 @@ function dimensionless_P_profile_los(𝕡::Battaglia16ThermalSZProfile{T}, M_200
     return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
 end
 
-function dimensionless_P_profile_los(𝕡::Battaglia16RelativisticSZProfile{T}, M_200, z, r) where T
-    par = get_params(𝕡, M_200, z)
-    R_200 = R_Δ(𝕡, M_200, z, 200)
-    x = r / angular_size(𝕡, R_200, z)
-    return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
-end
-
 function dimensionless_P_profile_los(𝕡::BreakModel{T}, M_200, z, r) where T
     par = get_params(𝕡, M_200, z)
     R_200 = R_Δ(𝕡, M_200, z, 200)
@@ -175,57 +154,6 @@ P_th_los(𝕡, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(𝕡, z) *
 
 function compton_y(𝕡, M_200, z, r)
     return P_e_los(𝕡, M_200, z, r) * P_e_factor
-end
-
-function T_vir_calc(𝕡,M,z::T) where T
-   """
-   Calculates the virial temperature for a given halo using Wang et al. 2007.
-   """
-    µ = 0.6  #µ is the mean molecular weight -> used the primordial abundance
-    if z >= 1
-        d_c = T(178)
-    else
-        d_c = T(356/(1 + z))
-    end
-    T_vir = 4.8e-3 * (M/M_sun)^(2/3) * (1 + z) * (𝕡.cosmo.Ω_m/0.3)^(1/3) * (d_c/178)^(1/3) * (µ/0.59) * u"K"
-    return T_vir
-end
-
-function rSZ(𝕡, M_200, z, r)
-    """
-    Calculates the integrated relativistic compton-y signal along the line of sight.
-    """
-    #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
-    X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
-    θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
-
-    Xt = X*coth(X/2)
-    St = X/(sinh(X/2))
-
-    Y_0 = -4 + Xt
-    Y_1 = -10 + (47/2)*Xt -(42/5)*Xt^2 + (7/10)*Xt^3 + St^2*((-21/5)+(7/5)*Xt)
-    Y_2 = (-15/2) + (1023/8)*Xt - (868/5)*Xt^2 + (329/5)*Xt^3 - (44/5)*Xt^4 + (11/30)*Xt^5 +
-        St^2*((-434/5) + (658/5)*Xt - (242/5)*Xt^2 + (143/30)*Xt^3) + St^4*((-44/4) + (187/60)*Xt)
-    Y_3 = (15/2) + (2505/8)*Xt - (7098/5)*Xt^2 + (14253/10)*Xt^3 - (18594/35)*Xt^4 + (12059/140)*Xt^5 -
-        (128/21)*Xt^6 + (16/105)*Xt^7 + St^2*((-7098/10) + (14253/5)*Xt - (102267/35)*Xt^2 +
-        (156767/140)*Xt^3 - (1216/7)*Xt^4 + (64/7)*Xt^5) + St^4*((-18594/35) + (205003/280)*Xt -
-        (1920/7)*Xt^2 + (1024/35)*Xt^3) + St^6*((-544/21) + (992/105)*Xt)
-    Y_4 = (-135/32) + (30375/128)*Xt - (62391/10)*Xt^2 + (614727/40)*Xt^3 - (124389/10)*Xt^4 +
-        (355703/80)*Xt^5 - (16568/21)*Xt^6 + (7516/105)*Xt^7 - (22/7)*Xt^8 + (11/210)*Xt^9 +
-        St^2*((-62391/20) + (614727/20)*Xt - (1368279/20)*Xt^2 + (4624139/80)*Xt^3 - (157396/7)*Xt^4 +
-        (30064/7)*Xt^5 - (2717/7)*Xt^6 + (2761/210)*Xt^7) + St^4*((-124389/10) + (6046951/160)*Xt -
-        (248520/7)*Xt^2 + (481024/35)*Xt^3 - (15972/7)*Xt^4 + (18689/140)*Xt^5) + St^6*((-70414/21) +
-        (465992/105)*Xt - (11792/7)*Xt^2 + (19778/105)*Xt^3) + St^8*((-628/7) + (7601/210)*Xt)
-
-    prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
-    y = compton_y(𝕡, M_200, z, r)
-    n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
-    I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n
-    T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
-
-    return T
 end
 
 function profile_grid(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
@@ -251,26 +179,6 @@ function profile_grid(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
                 θ = exp(logθs[iθ])
                 y = compton_y(𝕡, M, z, θ)
                 A[iθ, iz, im] = max(zero(T), y)
-            end
-        end
-    end
-
-    return logθs, redshifts, logMs, A
-end
-
-function profile_grid(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
-
-    N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
-    A = zeros(T, (N_logθ, N_z, N_logM))
-
-    Threads.@threads for im in 1:N_logM
-        logM = logMs[im]
-        M = 10^(logM) * M_sun
-        for (iz, z) in enumerate(redshifts)
-            for iθ in 1:N_logθ
-                θ = exp(logθs[iθ])
-                rsz = rSZ(𝕡, M, z, θ)
-                A[iθ, iz, im] = max(zero(T), rsz)
             end
         end
     end
@@ -476,6 +384,3 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
         paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 end
-
-
-
