@@ -10,6 +10,22 @@ using DelimitedFiles
 using Interpolations
 
 
+# write a function that makes szpack_interp (i.e. set_up_szpack_table(file_name)) and pass it to SZpack
+#function setup_szpack_table(file_name)
+#   table = readdlm("/home/lkuhn/CITA-2023/Notes/szpack_interp.dat")
+#   nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
+#   temp_vector = LinRange(1.0e-3,30.0,100)
+#   szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
+#   
+#   return szpack_interp
+
+
+table = readdlm("/home/lkuhn/CITA-2023/Notes/szpack_interp.dat")
+nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
+temp_vector = LinRange(1.0e-3,30.0,100)
+szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
+    
+
 function SZpack(𝕡, M_200, z, r, τ=0.01)
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
@@ -19,15 +35,18 @@ function SZpack(𝕡, M_200, z, r, τ=0.01)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     ω = (X*constants.k_B*T_cmb)/constants.ħ
     
-    table = readdlm("/home/lkuhn/CITA-2023/Notes/szpack_interp.dat")
-    nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
-    temp_vector = LinRange(1.0e-3,30.0,100)
-    szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"Hz",ω)))
+    #if t > 30
+    ##    t = 30
+    #    println(t)
+    #    println(M_200)
+    #    println(z)
+    #    println(X)
+    #end
     dI = szpack_interp(t, nu)*u"MJy/sr"
    
-    y = XGPaint.compton_y(𝕡, M_200, z, r)
+    y = XGPaint.compton_y_rsz(𝕡, M_200, z, r)
     I = y * (dI/(τ * θ_e)) * (2π)^4
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
@@ -68,10 +87,9 @@ end
 
 
 
-function profile_paint_szp!(𝕡, m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
+function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         sitp, z, Ms, θmax) where T
-
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
@@ -80,13 +98,13 @@ function profile_paint_szp!(𝕡, m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
     
-    X_0 = calc_null(𝕡, M_200, z)
-    X = 𝕡.X
+    X_0 = calc_null(p, Ms*M_sun, z)
+    X = p.X
     if X > X_0
         sign = 1
     else
         sign = -1
-    end
+    end 
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -135,7 +153,7 @@ function build_interpolator_szp(model::AbstractGNFW; cache_file::String="",
 end
 
 
-function profile_paint_szp!(𝕡, m::HealpixMap{T, RingOrder}, 
+function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p,
             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
@@ -143,13 +161,13 @@ function profile_paint_szp!(𝕡, m::HealpixMap{T, RingOrder},
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
     
-    X_0 = calc_null(𝕡, Mh, z)
-    X = 𝕡.X
-    if X > X_0
-        sign = 1
-    else
-        sign = -1
-    end
+   X_0 = calc_null(p, Mh, z)
+   X = p.X
+   if X > X_0
+       sign = 1
+   else
+       sign = -1
+   end
     
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
@@ -174,7 +192,7 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, psa, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_szp!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
+        profile_paint_szp!(m, p, α₀, δ₀, psa, sitp, z, mh, θmax_)
     end
 end
 
@@ -198,4 +216,3 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
         paint_szp!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 end
-
