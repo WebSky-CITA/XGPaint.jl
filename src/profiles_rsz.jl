@@ -8,7 +8,11 @@ using Cosmology
 using QuadGK
 
 
-
+struct Battaglia16RelativisticSZProfile{T,C} <: AbstractGNFW{T}
+    f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
+    cosmo::C
+    X::T  # X = 2.6408 corresponding to frequency 150 GHz
+end
 
 function Battaglia16RelativisticSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
     OmegaM=Omega_b+Omega_c
@@ -17,6 +21,25 @@ function Battaglia16RelativisticSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486
     X = x
     return Battaglia16RelativisticSZProfile(f_b, cosmo, X)
 end
+
+function dimensionless_P_profile_los_rsz(𝕡::Battaglia16RelativisticSZProfile{T}, M_200, z, r) where T
+    par = get_params(𝕡, M_200, z)
+    R_200 = R_Δ(𝕡, M_200, z, 200)
+    x = r / angular_size(𝕡, R_200, z)
+    return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+end
+
+"""Line-of-sight integrated electron pressure"""
+P_e_los_rsz(𝕡, M_200, z, r) = 0.5176 * P_th_los_rsz(𝕡, M_200, z, r)
+
+"""Line-of-sight integrated thermal pressure"""
+P_th_los_rsz(𝕡, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(𝕡, z) * 
+    𝕡.f_b / 2 * dimensionless_P_profile_los_rsz(𝕡, M_200, z, r)
+
+function compton_y_rsz(𝕡, M_200, z, r)
+    return P_e_los_rsz(𝕡, M_200, z, r) * P_e_factor
+end
+
 
 function T_vir_calc(𝕡,M,z::T) where T
    """
@@ -61,7 +84,7 @@ function rSZ(𝕡, M_200, z, r)
         (465992/105)*Xt - (11792/7)*Xt^2 + (19778/105)*Xt^3) + St^8*((-628/7) + (7601/210)*Xt)
 
     prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
-    y = compton_y(𝕡, M_200, z, r)
+    y = compton_y_rsz(𝕡, M_200, z, r)
     n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
     I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
@@ -139,7 +162,7 @@ function build_interpolator_rsz(model::AbstractGNFW; cache_file::String="",
 end
 
 
-function profile_paint_rsz!(𝕡, m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
+function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         sitp, z, Ms, θmax) where T
 
@@ -151,8 +174,8 @@ function profile_paint_rsz!(𝕡, m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
     
-    X_0 = calc_null(𝕡, M_200, z)
-    X = 𝕡.X
+    X_0 = calc_null(p, Ms, z)
+    X = p.X
     if X > X_0
         sign = 1
     else
@@ -178,7 +201,7 @@ function profile_paint_rsz!(𝕡, m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}
 end
 
 
-function profile_paint_rsz!(𝕡, m::HealpixMap{T, RingOrder}, 
+function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, p,
             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
@@ -186,8 +209,8 @@ function profile_paint_rsz!(𝕡, m::HealpixMap{T, RingOrder},
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
     
-    X_0 = calc_null(𝕡, Mh, z)
-    X = 𝕡.X
+    X_0 = calc_null(p, Mh, z)
+    X = p.X
     if X > X_0
         sign = 1
     else
@@ -241,4 +264,3 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
         paint_rsz!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 end
-
