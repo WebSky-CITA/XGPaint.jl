@@ -1,4 +1,5 @@
 
+
 function read_szpack_table(filename)
     table = readdlm(filename)
     nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
