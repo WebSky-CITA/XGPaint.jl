@@ -10,21 +10,13 @@ using DelimitedFiles
 using Interpolations
 
 
-# write a function that makes szpack_interp (i.e. set_up_szpack_table(file_name)) and pass it to SZpack
-#function setup_szpack_table(file_name)
-#   table = readdlm("/home/lkuhn/CITA-2023/Notes/szpack_interp.dat")
-#   nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
-#   temp_vector = LinRange(1.0e-3,30.0,100)
-#   szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
-#   
-#   return szpack_interp
-
-
-table = readdlm("/home/lkuhn/CITA-2023/Notes/szpack_interp.dat")
-nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
-temp_vector = LinRange(1.0e-3,30.0,100)
-szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
-    
+function read_szpack_table(filename)
+    table = readdlm(filename)
+    nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
+    temp_vector = LinRange(1.0e-3,30.0,100)
+    szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
+    return szpack_interp
+end
 
 function SZpack(𝕡, M_200, z, r, τ=0.01)
     """
