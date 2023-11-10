@@ -1,13 +1,4 @@
 
-import PhysicalConstants.CODATA2018 as constants
-using Unitful
-const M_sun = 1.98847e30u"kg"
-const T_cmb =  2.725 * u"K"
-const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
-using Cosmology
-using QuadGK
-
-
 
 # RECTANGULAR WORKSPACES
 

@@ -18,8 +18,12 @@ using JLD2, FileIO
 import ThreadsX
 import Distributions
 import DataInterpolations  # used for uneven spaced interpolators
-
 using DelimitedFiles
+
+import PhysicalConstants.CODATA2018 as constants
+const M_sun = 1.98847e30u"kg"
+const T_cmb =  2.725 * u"K"
+const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 
 include("./util.jl")
 include("./model.jl")

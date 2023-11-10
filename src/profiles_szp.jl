@@ -1,15 +1,4 @@
 
-import PhysicalConstants.CODATA2018 as constants
-using Unitful
-const M_sun = 1.98847e30u"kg"
-const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
-const T_cmb =  2.725 * u"K"
-using Cosmology
-using QuadGK
-using DelimitedFiles
-using Interpolations
-
-
 function read_szpack_table(filename)
     table = readdlm(filename)
     nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
