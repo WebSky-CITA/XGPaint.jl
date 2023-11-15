@@ -7,6 +7,26 @@ function read_szpack_table(filename)
     return szpack_interp
 end
 
+struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
+    f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
+    cosmo::C
+    X::T  # X = 2.6408 corresponding to frequency 150 GHz
+    𝕡_tsz::TSZ
+    tsz_interp::ITP1
+    szpack_interp::ITP2
+    τ::T
+end
+
+function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, τ; 
+        Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
+    OmegaM=Omega_b+Omega_c
+    f_b = Omega_b / OmegaM
+    cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
+    X = x
+    szpack_interp = read_szpack_table(filename)
+    return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, tsz_interp, szpack_interp, τ)
+end
+
 function SZpack(𝕡, M_200, z, r, τ=0.01)
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
@@ -15,18 +35,11 @@ function SZpack(𝕡, M_200, z, r, τ=0.01)
     T_e = T_vir_calc(𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     ω = (X*constants.k_B*T_cmb)/constants.ħ
-    
+
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"Hz",ω)))
-    #if t > 30
-    ##    t = 30
-    #    println(t)
-    #    println(M_200)
-    #    println(z)
-    #    println(X)
-    #end
-    dI = szpack_interp(t, nu)*u"MJy/sr"
-   
+    dI = 𝕡.szpack_interp(t, nu)*u"MJy/sr"
+
     y = XGPaint.compton_y_rsz(𝕡, M_200, z, r)
     I = y * (dI/(τ * θ_e)) * (2π)^4
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
@@ -68,9 +81,10 @@ end
 
 
 
-function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
+function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
+                        p::Battaglia16SZPackProfile, 
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
-                        sitp, z, Ms, θmax) where T
+                        z, Ms, θmax) where T
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
@@ -78,14 +92,24 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
-    
-    X_0 = calc_null(p, Ms*M_sun, z)
+
+    # needs mass in M_200
     X = p.X
-    if X > X_0
-        sign = 1
-    else
-        sign = -1
-    end 
+    T_e = T_vir_calc(p, Ms * M_sun, z)
+    θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
+    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    t = ustrip(uconvert(u"keV",T_e * constants.k_B))
+    nu = log(ustrip(uconvert(u"Hz",ω)))
+
+    logMs = log10(Ms)
+    dI = p.szpack_interp(t, nu)*u"MJy/sr"
+    rsz_factor_I = (dI/(p.τ * θ_e)) * (2π)^4
+    rsz_factor_T = abs(rsz_factor_I / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
+        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    X_0 = calc_null(p, Ms*M_sun, z)
+    if X < X_0
+        rsz_factor_T *= -1
+    end
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -98,39 +122,10 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
-            m[i,j] += ifelse(θ < θmax, 
-                                 sign * exp(sitp(log(θ), z, log10(Ms))),
-                                   zero(T))
+            y = exp(p.tsz_interp(log(θ), z, logMs))
+            m[i,j] += (θ < θmax) * rsz_factor_T * y
         end
     end
-end
-
-
-"""Helper function to build a tSZ interpolator"""
-function build_interpolator_szp(model::AbstractGNFW; cache_file::String="", 
-                            N_logθ=512, pad=256, overwrite=true, verbose=true)
-
-    if overwrite || (isfile(cache_file) == false)
-        verbose && print("Building new interpolator from model.\n")
-        rft = RadialFourierTransform(n=N_logθ, pad=pad)
-        logθ_min, logθ_max = log(minimum(rft.r)), log(maximum(rft.r))
-        prof_logθs, prof_redshift, prof_logMs, prof_y = profile_grid_szp(model; 
-            N_logθ=N_logθ, logθ_min=logθ_min, logθ_max=logθ_max)
-        if length(cache_file) > 0
-            verbose && print("Saving new interpolator to $(cache_file).\n")
-            save(cache_file, Dict("prof_logθs"=>prof_logθs, 
-                "prof_redshift"=>prof_redshift, "prof_logMs"=>prof_logMs, "prof_y"=>prof_y))
-        end
-    else
-        print("Found cached Battaglia profile model. Loading from disk.\n")
-        model_grid = load(cache_file)
-        prof_logθs, prof_redshift, prof_logMs, prof_y = model_grid["prof_logθs"], 
-            model_grid["prof_redshift"], model_grid["prof_logMs"], model_grid["prof_y"]
-    end
-    
-    itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
-    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs)
-    return sitp
 end
 
 
