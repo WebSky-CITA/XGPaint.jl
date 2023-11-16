@@ -1,13 +1,4 @@
 
-import PhysicalConstants.CODATA2018 as constants
-using Unitful
-const M_sun = 1.98847e30u"kg"
-const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
-const T_cmb =  2.725 * u"K"
-using Cosmology
-using QuadGK
-
-
 struct Battaglia16RelativisticSZProfile{T,C} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
@@ -89,7 +80,6 @@ function rSZ(𝕡, M_200, z, r)
     I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
-    #return T
     return abs(T)
 end
 
