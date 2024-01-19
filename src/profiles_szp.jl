@@ -39,18 +39,18 @@ function SZpack(𝕡, M_200, z, r, τ=0.01)
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"Hz",ω)))
-    dI = 𝕡.szpack_interp(t, nu)*u"MJy/sr"
-
+    dI = uconvert(u"kg*s^-2",szpack_interp(t, nu)*u"MJy/sr")
+    
     y = XGPaint.compton_y_rsz(𝕡, M_200, z, r)
-    I = y * (dI/(τ * θ_e)) * (2π)^4
-    T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
+    I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)) * (2π)^4)
+    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
     return abs(T)
 end
 
 
 function profile_grid_szp(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
-              logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
+              logM_min=11, logM_max=15.1, logθ_min=-16.5, logθ_max=2.5) where T
 
     logθs = LinRange(logθ_min, logθ_max, N_logθ)
     redshifts = LinRange(z_min, z_max, N_z)
