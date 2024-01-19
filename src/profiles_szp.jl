@@ -3,7 +3,7 @@
 function read_szpack_table(filename)
     table = readdlm(filename)
     nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
-    temp_vector = LinRange(1.0e-3,30.0,100)
+    temp_vector = LinRange(1.0e-3,75.0,100)
     szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
     return szpack_interp
 end
@@ -39,11 +39,11 @@ function SZpack(𝕡, M_200, z, r, τ=0.01)
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"Hz",ω)))
-    dI = 𝕡.szpack_interp(t, nu)*u"MJy/sr"
-
+    dI = uconvert(u"kg*s^-2",szpack_interp(t, nu)*u"MJy/sr")
+    
     y = XGPaint.compton_y_rsz(𝕡, M_200, z, r)
-    I = y * (dI/(τ * θ_e)) * (2π)^4
-    T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
+    I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)) * (2π)^4)
+    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
     return abs(T)
 end
