@@ -18,8 +18,8 @@ struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
     τ::T
 end
 
-function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, τ; 
-        Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
+function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, x::T, τ=0.01; 
+        Omega_c=0.2589, Omega_b=0.0486, h=0.6774) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
@@ -81,6 +81,11 @@ function profile_grid_szp(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where
 end
 
 
+function T_over_dI(X)
+    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    return abs(1 / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
+        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+end
 
 function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         p::Battaglia16SZPackProfile, 
@@ -103,13 +108,14 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     nu = log(ustrip(uconvert(u"Hz",ω)))
 
     logMs = log10(Ms)
+    
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I = (dI/(p.τ * θ_e)) * (2π)^4
-    rsz_factor_T = abs(rsz_factor_I / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
+    rsz_factor_I_over_y = (dI/(p.τ * θ_e)) * (2π)^4
+    rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
     X_0 = calc_null(p, Ms*M_sun, z)
     if X < X_0
-        rsz_factor_T *= -1
+        rsz_factor_T_over_y *= -1
     end
     
     x₀ = cos(δ₀) * cos(α₀)
@@ -124,7 +130,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
             y = exp(p.tsz_interp(log(θ), z, logMs))
-            m[i,j] += (θ < θmax) * rsz_factor_T * y
+            m[i,j] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
         end
     end
 end
