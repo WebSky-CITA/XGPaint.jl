@@ -4,8 +4,6 @@ using Test
 using HDF5
 using Pixell
 
-println("")  # useful in Atom console
-
 # relative background evolutions differ by 1e-3 between Julia and Python 2
 rtol = 1e-3
 cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
@@ -54,7 +52,7 @@ cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
 
     # python: h2fm.fluxmodel.sigma_cen(1e13)
     @test isapprox(XGPaint.sigma_cen(1.0f13, model),
-        3218663770378.3066, rtol=rtoXGPaint.Pixelll)
+        3218663770378.3066, rtol=rtol)
 
     # python: h2fm.fluxmodel.nu2theta(150e9, 0.5)
     @test isapprox(XGPaint.nu2theta(150f9, 0.5f0, model),
@@ -81,10 +79,11 @@ cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
     @test muofn(500.0f0) ≈ 6.14975653e-05
     @test muofn(1.0f0) ≈ 0.11765558
 
-    @test XGPaint.z_evo(0.0f0, modelXGPaint.Pixell
+    @test XGPaint.z_evo(0.0f0, model) ≈ 1.0f0
+end
 
-radio_model = Radio_Sehgal2009{Float32}()
 @testset "radio" begin
+    radio_model = Radio_Sehgal2009{Float32}()
     @test XGPaint.FR_I_redshift_evolution(0.0f0, radio_model) ≈ 1.0f0
     @test XGPaint.FR_II_redshift_evolution(0.0f0, radio_model) ≈ 1.0f0
     @test (XGPaint.FR_I_redshift_evolution(radio_model.I_z_p, radio_model) ≈
@@ -113,9 +112,12 @@ end
     @test all(XGPaint.chunk(10, 3) == [(1,3), (4,6), (7,9), (10,10)])
     @test all(XGPaint.chunk(10, 4) == [(1,4), (5,8), (9,10)])
     @test all(XGPaint.chunk(10, 10) == [(1,10)])
+
 end
 
-##
+
+include("test_query.jl")
+
 @testset "tsz" begin
     ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
     ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass);
@@ -130,8 +132,3 @@ end
     ymap_ref = XGPaint.load_example_tsz_map()
     @test sum(abs, m.data .- ymap_ref) ≈ 0 atol=1e-7
 end
-
-
-
-##
-include("test_query.jl")
