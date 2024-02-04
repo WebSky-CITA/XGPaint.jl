@@ -2,6 +2,7 @@ using XGPaint
 using Cosmology
 using Test
 using HDF5
+using Pixell
 
 println("")  # useful in Atom console
 
@@ -53,7 +54,7 @@ cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
 
     # python: h2fm.fluxmodel.sigma_cen(1e13)
     @test isapprox(XGPaint.sigma_cen(1.0f13, model),
-        3218663770378.3066, rtol=rtol)
+        3218663770378.3066, rtol=rtoXGPaint.Pixelll)
 
     # python: h2fm.fluxmodel.nu2theta(150e9, 0.5)
     @test isapprox(XGPaint.nu2theta(150f9, 0.5f0, model),
@@ -80,9 +81,7 @@ cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
     @test muofn(500.0f0) ≈ 6.14975653e-05
     @test muofn(1.0f0) ≈ 0.11765558
 
-    @test XGPaint.z_evo(0.0f0, model) ≈ 1.0f0
-end
-
+    @test XGPaint.z_evo(0.0f0, modelXGPaint.Pixell
 
 radio_model = Radio_Sehgal2009{Float32}()
 @testset "radio" begin
@@ -114,8 +113,25 @@ end
     @test all(XGPaint.chunk(10, 3) == [(1,3), (4,6), (7,9), (10,10)])
     @test all(XGPaint.chunk(10, 4) == [(1,4), (5,8), (9,10)])
     @test all(XGPaint.chunk(10, 10) == [(1,10)])
-
 end
+
+##
+@testset "tsz" begin
+    ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
+    ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass);
+    model, interp = XGPaint.load_precomputed_battaglia()
+    box = [4.5   -4.5;           # RA
+       -3     3] * Pixell.degree  # DEC
+    shape, wcs = geometry(Pixell.CarClenshawCurtis{Float64}, box, 0.5 * Pixell.arcminute)
+    m = Enmap(zeros(shape), wcs)
+    workspace = profileworkspace(shape, wcs)
+    @time paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec)
+
+    ymap_ref = XGPaint.load_example_tsz_map()
+    @test sum(abs, m.data .- ymap_ref) ≈ 0 atol=1e-7
+end
+
+
 
 ##
 include("test_query.jl")
