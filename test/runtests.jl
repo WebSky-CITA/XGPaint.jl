@@ -127,8 +127,7 @@ include("test_query.jl")
     shape, wcs = geometry(Pixell.CarClenshawCurtis{Float64}, box, 0.5 * Pixell.arcminute)
     m = Enmap(zeros(shape), wcs)
     workspace = profileworkspace(shape, wcs)
-    @time paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec)
-
+    paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec, 1:length(ra))
     ymap_ref = XGPaint.load_example_tsz_map()
     @test sum(abs, m.data .- ymap_ref) ≈ 0 atol=1e-7
 end

@@ -9,10 +9,10 @@ lazy = true
 
 
 [tsz_test_map]
-git-tree-sha1 = "e3d3d9f9fa5ea25feb5d8dacdd8334867f5db287"
+git-tree-sha1 = "33c94a68b66fc36ede1d72d1d2a6d55b30a67a7c"
 lazy = true
 
     [[tsz_test_map.download]]
     url = "https://github.com/WebSky-CITA/XGPaint.jl/releases/download/tsz_example/test_tsz_map.tar.gz"
-    sha256 = "5142052ac15e9fe0c169ad568439a07e29e274a6b0ed33cf46304413a7117de7"
+    sha256 = "401d903b4d145c2eef9ff9666adfb4ef7b2b3a3a0cbcb990a630e3a78a426735"
 

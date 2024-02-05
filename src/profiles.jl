@@ -4,17 +4,24 @@
 
 abstract type AbstractProfileWorkspace end
 
-struct CarClenshawCurtisProfileWorkspace{A} <: AbstractProfileWorkspace
-    sin_α::A
-    cos_α::A
-    sin_δ::A
-    cos_δ::A
+struct CarClenshawCurtisProfileWorkspace{V} <: AbstractProfileWorkspace
+    sin_α::V
+    cos_α::V
+    sin_δ::V
+    cos_δ::V
 end
 
-function profileworkspace(shape, wcs::CarClenshawCurtis)
-    α_map, δ_map = posmap(shape, wcs)
+# FIXME should infer T from WCS, but I haven't made it easy to specify the type of a WCS
+function profileworkspace(shape, wcs::CarClenshawCurtis, T=Float64)
+    α_vec, δ_vec = zeros(T, shape[1]), zeros(T, shape[2])
+    for i in eachindex(α_vec)
+        α_vec[i], _ = pix2sky(shape, wcs, i, 1)
+    end
+    for j in eachindex(δ_vec)
+        _, δ_vec[j] = pix2sky(shape, wcs, 1, j)
+    end
     return CarClenshawCurtisProfileWorkspace(
-        sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
+        sin.(α_vec), cos.(α_vec), sin.(δ_vec), cos.(δ_vec))
 end
 
 struct GnomonicProfileWorkspace{A} <: AbstractProfileWorkspace
@@ -176,7 +183,7 @@ end
 
 
 # get angular size in radians of radius to stop at
-function θmax(𝕡::AbstractProfile{T}, M_Δ, z; mult=4) where T
+function sz_max_angle(𝕡::AbstractProfile{T}, M_Δ, z; mult=4) where T
     r = R_Δ(𝕡, M_Δ, z)
     return T(mult * angular_size(𝕡, r, z))
 end
@@ -275,9 +282,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
-            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
-            z₁ = psa.sin_δ[i,j]
+            x₁ = psa.cos_δ[j] * psa.cos_α[i]
+            y₁ = psa.cos_δ[j] * psa.sin_α[i]
+            z₁ = psa.sin_δ[j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
             m[i,j] += ifelse(θ < θmax, 
@@ -347,7 +354,7 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp,
         δ₀ = δs[i]
         mh = masses[i]
         z = redshifts[i]
-        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
+        θmax_ = sz_max_angle(p, mh * XGPaint.M_sun, z)
         profile_paint!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
     end
 end

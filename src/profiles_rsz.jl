@@ -229,7 +229,7 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp,
         δ₀ = δs[i]
         mh = masses[i]
         z = redshifts[i]
-        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
+        θmax_ = sz_max_angle(p, mh * XGPaint.M_sun, z)
         profile_paint_rsz!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
     end
 end
