@@ -28,7 +28,7 @@ function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, x::T, 
     return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, tsz_interp, szpack_interp, τ)
 end
 
-function SZpack(𝕡, M_200, z, r, τ=0.01)
+function SZpack(𝕡, M_200, z, r, τ=0.01, showT=true)
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
     """
@@ -45,7 +45,11 @@ function SZpack(𝕡, M_200, z, r, τ=0.01)
     I = y * (dI/(τ * θ_e)) * (2π)^4
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
-    return abs(T)
+    if showT==true
+        return abs(T)
+    else
+        return I
+    end
 end
 
 
