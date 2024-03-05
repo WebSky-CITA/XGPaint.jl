@@ -46,7 +46,7 @@ function T_vir_calc(𝕡,M,z::T) where T
     return T_vir
 end
 
-function rSZ(𝕡, M_200, z, r)
+function rSZ(𝕡, M_200, z, r, showT=true)
     """
     Calculates the integrated relativistic compton-y signal along the line of sight.
     """
@@ -80,7 +80,11 @@ function rSZ(𝕡, M_200, z, r)
     I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
-    return abs(T)
+    if showT==true
+        return abs(T)
+    else
+        return I
+    end
 end
 
 function calc_null(𝕡, M_200, z)
