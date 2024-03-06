@@ -39,9 +39,9 @@ function SZpack(𝕡, M_200, z, r, τ=0.01, showT=true)
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"Hz",ω)))
-    dI = uconvert(u"kg*s^-2",szpack_interp(t, nu)*u"MJy/sr")
+    dI = uconvert(u"kg*s^-2",𝕡.szpack_interp(t, nu)*u"MJy/sr")
     
-    y = XGPaint.compton_y_rsz(𝕡, M_200, z, r)
+    y = XGPaint.compton_y(𝕡.𝕡_tsz, M_200, z, r)
     I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)) * (2π)^4)
     T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
