@@ -81,10 +81,14 @@ function profile_grid_szp(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where
 end
 
 
-function T_over_dI(X)
+function T_over_dI(X::T) where T
     ω = (X*constants.k_B*T_cmb)/constants.ħ
-    return abs(1 / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
-        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    θ_e_units = (constants.k_B*T_cmb)/(constants.m_e*constants.c_0^2)
+    unit_dI = (1u"MJy/sr" /(θ_e_units)) * T(2π)^4
+    unit_dI /= ustrip(unit_dI)  # get 1 in units of dI
+    factor = abs(unit_dI / ( T(2 * constants.h^2 * ω^4 * ℯ^X) / 
+        (constants.k_B * constants.c_0^2 * T_cmb * expm1(X)^2)))
+    return uconvert(NoUnits, factor)
 end
 
 function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, W}, 
@@ -124,9 +128,9 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, W},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
-            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
-            z₁ = psa.sin_δ[i,j]
+            x₁ = psa.cos_δ[j] * psa.cos_α[i]
+            y₁ = psa.cos_δ[j] * psa.sin_α[i]
+            z₁ = psa.sin_δ[j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             y = exp(p.tsz_interp(log(θ), z, logMs))
@@ -170,5 +174,63 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, w, masses::AV, redshifts::AV,
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
         paint_szp!(m, p, w, masses, redshifts, αs, δs, i1:i2)
+    end
+end
+
+function profile_paint_szp!(m::HealpixMap{T, RingOrder}, 
+        p::Battaglia16SZPackProfile, 
+        α₀, δ₀, w::HealpixProfileWorkspace, 
+        z, Ms, θmax) where T
+    
+    ϕ₀ = α₀
+    θ₀ = T(π)/2 - δ₀
+    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
+
+    # needs mass in M_200
+    X = p.X
+    T_e = T_vir_calc(p, Ms * M_sun, z)
+    θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
+    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    t = ustrip(uconvert(u"keV",T_e * constants.k_B))
+    nu = log(ustrip(uconvert(u"Hz",ω)))
+    logMs = log10(Ms)
+    dI = p.szpack_interp(t, nu)*u"MJy/sr"
+    rsz_factor_I_over_y = (dI/(p.τ * θ_e)) * T(2π)^4
+    rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( T(2 * constants.h^2 * ω^4 * ℯ^X) / 
+        (constants.k_B * constants.c_0^2 * T_cmb * expm1(X)^2)))
+    X_0 = calc_null(p, Ms*M_sun, z)
+    if X < X_0
+        rsz_factor_T_over_y *= -1
+    end
+
+    for ir in w.disc_buffer
+        x₁, y₁, z₁ = w.posmap.pixels[ir]
+        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+        θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
+        θ = max(w.θmin, θ)  # clamp to minimum θ
+        y = exp(p.tsz_interp(log(θ), z, logMs))
+        m.pixels[ir] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
+    end
+end
+
+function paint_szp!(m, p::Battaglia16SZPackProfile, ws::Vector{W}, masses::AV, 
+                    redshifts::AV, αs::AV, δs::AV) where {W <: HealpixProfileWorkspace, AV}
+    m .= 0.0
+
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint_szp!(m, p, ws[i], masses, redshifts, αs, δs, i1:i2)
+    end
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint_szp!(m, p, ws[i], masses, redshifts, αs, δs, i1:i2)
     end
 end

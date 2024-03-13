@@ -286,7 +286,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             y₁ = psa.cos_δ[j] * psa.sin_α[i]
             z₁ = psa.sin_δ[j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-            θ =  acos(1 - d² / 2)
+            θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
                              exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
@@ -367,13 +367,13 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
     chunks = chunk(N_sources, chunksize);
     
-    Threads.@threads :static for i in 1:Threads.nthreads()
+    Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
         paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 
-    Threads.@threads :static for i in 1:Threads.nthreads()
+    Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
         paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
