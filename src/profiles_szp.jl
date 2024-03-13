@@ -140,32 +140,32 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 end
 
 
-function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p,
-            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
-    ϕ₀ = α₀
-    θ₀ = T(π)/2 - δ₀
-    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    sitp = w.profile_real_interp
+# function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p,
+#             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
+#     ϕ₀ = α₀
+#     θ₀ = T(π)/2 - δ₀
+#     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+#     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
+#     sitp = w.profile_real_interp
     
-   X_0 = calc_null(p, Mh, z)
-   X = p.X
-   if X > X_0
-       sign = 1
-   else
-       sign = -1
-   end
+#    X_0 = calc_null(p, Mh, z)
+#    X = p.X
+#    if X > X_0
+#        sign = 1
+#    else
+#        sign = -1
+#    end
     
-    for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap.pixels[ir]
-        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ = acos(1 - d² / 2)
-        θ = max(w.θmin, θ)  # clamp to minimum θ
-        m.pixels[ir] += ifelse(θ < θmax, 
-                                   sign * exp(sitp(log(θ), z, log10(Mh))),
-                                    zero(T))
-    end
-end
+#     for ir in w.disc_buffer
+#         x₁, y₁, z₁ = w.posmap.pixels[ir]
+#         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+#         θ = acos(1 - d² / 2)
+#         θ = max(w.θmin, θ)  # clamp to minimum θ
+#         m.pixels[ir] += ifelse(θ < θmax, 
+#                                    sign * exp(sitp(log(θ), z, log10(Mh))),
+#                                     zero(T))
+#     end
+# end
 
 
 # for rectangular pixelizations
