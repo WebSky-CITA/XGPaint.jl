@@ -279,7 +279,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-            θ =  acos(1 - d² / 2)
+            θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
                              exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
@@ -309,7 +309,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
             y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-            θ =  acos(1 - d² / 2)
+            θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
                              exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
@@ -328,7 +328,7 @@ function profile_paint!(m::HealpixMap{T, RingOrder},
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ = acos(1 - d² / 2)
+        θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(w.θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
                                     exp(sitp(log(θ), z, log10(Mh))),

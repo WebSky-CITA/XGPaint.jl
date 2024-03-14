@@ -110,9 +110,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     ω = (X*constants.k_B*T_cmb)/constants.ħ
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"Hz",ω)))
-
     logMs = log10(Ms)
-    
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e)) * (2π)^4
     rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
@@ -132,7 +130,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-            θ =  acos(1 - d² / 2)
+            θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             y = exp(p.tsz_interp(log(θ), z, logMs))
             m[i,j] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
         end
@@ -140,38 +138,65 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 end
 
 
-# function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p,
-#             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
-#     ϕ₀ = α₀
-#     θ₀ = T(π)/2 - δ₀
-#     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-#     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-#     sitp = w.profile_real_interp
+function profile_paint_szp!(m::HealpixMap{T, RingOrder}, 
+            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
+    ϕ₀ = α₀
+    θ₀ = T(π)/2 - δ₀
+    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
+
+    X = p.X
+    T_e = T_vir_calc(p, Mh * M_sun, z)
+    θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
+    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    t = ustrip(uconvert(u"keV",T_e * constants.k_B))
+    nu = log(ustrip(uconvert(u"Hz",ω)))
+    logMh = log10(Mh)
+    dI = p.szpack_interp(t, nu)*u"MJy/sr"
+    rsz_factor_I_over_y = (dI/(p.τ * θ_e)) * (2π)^4
+    rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
+        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    X_0 = calc_null(p, Mh*M_sun, z)
+    if X < X_0
+        rsz_factor_T_over_y *= -1
+    end
     
-#    X_0 = calc_null(p, Mh, z)
-#    X = p.X
-#    if X > X_0
-#        sign = 1
-#    else
-#        sign = -1
-#    end
-    
-#     for ir in w.disc_buffer
-#         x₁, y₁, z₁ = w.posmap.pixels[ir]
-#         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-#         θ = acos(1 - d² / 2)
-#         θ = max(w.θmin, θ)  # clamp to minimum θ
-#         m.pixels[ir] += ifelse(θ < θmax, 
-#                                    sign * exp(sitp(log(θ), z, log10(Mh))),
-#                                     zero(T))
-#     end
-# end
+    for ir in w.disc_buffer
+        x₁, y₁, z₁ = w.posmap.pixels[ir]
+        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+        θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
+        θ = max(w.θmin, θ)  # clamp to minimum θ
+        y = exp(p.tsz_interp(log(θ), z, logMh))
+        m.pixels[ir] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
+    end
+end
 
 
-# for rectangular pixelizations
+function paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackProfile, ws::Vector{W}, masses::AV, 
+                    redshifts::AV, αs::AV, δs::AV) where {T, W <: HealpixProfileWorkspace, AV}
+    m .= 0.0
+
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint_szp!(m, p, ws[i], masses, redshifts, αs, δs, i1:i2)
+    end
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint_szp!(m, p, ws[i], masses, redshifts, αs, δs, i1:i2)
+    end
+end
+
+
 
 # multi-halo painting utilities
-function paint_szp!(m, p::XGPaint.AbstractProfile, psa, sitp, 
+function paint_szp!(m, p::XGPaint.AbstractProfile, psa, 
                 masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
     for i in irange
         α₀ = αs[i]
@@ -179,11 +204,11 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, psa, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_szp!(m, p, α₀, δ₀, psa, sitp, z, mh, θmax_)
+        profile_paint_szp!(m, p, α₀, δ₀, psa, z, mh, θmax_)
     end
 end
 
-function paint_szp!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV, 
+function paint_szp!(m, p::XGPaint.AbstractProfile, psa, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
     fill!(m, 0)
     
@@ -194,12 +219,12 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint_szp!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint_szp!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint_szp!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint_szp!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
     end
 end
