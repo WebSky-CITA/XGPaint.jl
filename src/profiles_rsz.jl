@@ -31,7 +31,7 @@ function compton_y_rsz(𝕡, M_200, z, r)
     return P_e_los_rsz(𝕡, M_200, z, r) * P_e_factor
 end
 
-function rSZ(𝕡, M_200, z, r; showT=true, te_model::ClusterTemperatureModel=Wang07)
+function rSZ(𝕡, M_200, z, r; showT=true, te_model::AbstractTeModel=Wang07())
     """
     Calculates the integrated relativistic compton-y signal along the line of sight.
     """

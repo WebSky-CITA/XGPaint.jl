@@ -62,11 +62,11 @@ function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_b
     return BreakModel(f_b, cosmo, alpha_break, M_break)
 end
 
-abstract type ClusterTemperatureModel end
-struct Wang07 <: ClusterTemperatureModel end
-struct Lee22 <: ClusterTemperatureModel end
+abstract type AbstractTeModel end
+struct Wang07 <: AbstractTeModel end
+struct Lee22 <: AbstractTeModel end
 
-function get_Te(::Wang07, 𝕡::AbstractGNFW, M_200::T, z::T) where T
+function get_Te(::Wang07, 𝕡::AbstractGNFW, M_200, z::T) where T
     """
     Calculates the virial temperature for a given halo using Wang et al. 2007.
     """
@@ -80,7 +80,7 @@ function get_Te(::Wang07, 𝕡::AbstractGNFW, M_200::T, z::T) where T
      return T_vir
 end
 
-function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200::T, z::T) where T
+function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200, z::T) where T
     """
     T_e model from arxiv:2207.05834:
 
@@ -90,8 +90,8 @@ function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200::T, z::T) where T
 
        m = M / 10^14 M_sun
 
-       E(z)^2 = \Omega_m (1+z)^3 + \Omega_\Lambda 
-              = \rho_crit(z) * 8\pi G/3H_0^2
+       E(z)^2 = \\Omega_m (1+z)^3 + \\Omega_\\Lambda 
+              = \\rho_crit(z) * 8\\pi G/3H_0^2
 
        A = 1.426; B = 0.566; C = 0.003
     
@@ -101,7 +101,7 @@ function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200::T, z::T) where T
 
     # randomize
     dist = Normal(log10(T_e), 0.1011)
-    T_e = rand(dist, 1)[1]  #FIXME: needs to be reproducible
+    T_e = rand(dist, 1)[1]  #TODO: make reproducible
 
     # return in K
     return uconvert(u"K", T_e * u"keV" / constants.k_B)
