@@ -31,28 +31,13 @@ function compton_y_rsz(𝕡, M_200, z, r)
     return P_e_los_rsz(𝕡, M_200, z, r) * P_e_factor
 end
 
-
-function T_vir_calc(𝕡,M,z::T) where T
-   """
-   Calculates the virial temperature for a given halo using Wang et al. 2007.
-   """
-    µ = 0.6  #µ is the mean molecular weight -> used the primordial abundance
-    if z >= 1
-        d_c = T(178)
-    else
-        d_c = T(356/(1 + z))
-    end
-    T_vir = 4.8e-3 * (M/M_sun)^(2/3) * (1 + z) * (𝕡.cosmo.Ω_m/0.3)^(1/3) * (d_c/178)^(1/3) * (µ/0.59) * u"K"
-    return T_vir
-end
-
-function rSZ(𝕡, M_200, z, r, showT=true)
+function rSZ(𝕡, M_200, z, r; showT=true, te_model::ClusterTemperatureModel=Wang07)
     """
     Calculates the integrated relativistic compton-y signal along the line of sight.
     """
     #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
     X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
+    T_e = get_Te(te_model, 𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     ω = (X*constants.k_B*T_cmb)/constants.ħ
 
