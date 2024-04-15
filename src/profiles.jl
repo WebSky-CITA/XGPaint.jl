@@ -93,11 +93,11 @@ function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200, z::T) where T
        E(z)^2 = \\Omega_m (1+z)^3 + \\Omega_\\Lambda 
               = \\rho_crit(z) * 8\\pi G/3H_0^2
 
-       A = 1.426; B = 0.566; C = 0.003
+       A = 1.426; B = 0.566; C = 0.024
     
     """
     m = M_200 / 1e14M_sun
-    T_e = (𝕡.cosmo.Ω_m*(1+z)^3 + 𝕡.cosmo.Ω_Λ)^(1/3) * 1.426 * m^(0.566 + 0.003 * log10(m))
+    T_e = (𝕡.cosmo.Ω_m*(1+z)^3 + 𝕡.cosmo.Ω_Λ)^(1/3) * 1.426 * m^(0.566 + 0.024 * log10(m))
 
     # randomize
     dist = Normal(log10(T_e), 0.1011)
