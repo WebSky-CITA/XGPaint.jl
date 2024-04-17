@@ -2,10 +2,14 @@
 
 function read_szpack_table(filename)
     table = readdlm(filename)
-    nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
+    nu_vector = LinRange(log(5.680062373019096*1e9),log(852.0093559528645*1e9),3000)
     temp_vector = LinRange(1.0e-3,75.0,100)
     szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
     return szpack_interp
+end
+
+function X_to_nu(X)
+    return (X*constants.k_B*T_cmb)/constants.h
 end
 
 struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
@@ -35,15 +39,14 @@ function SZpack(𝕡, M_200, z, r, τ=0.01, showT=true)
     X = 𝕡.X
     T_e = T_vir_calc(𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    nu = log(ustrip(uconvert(u"Hz",ω)))
+    nu = log(ustrip(X_to_nu(X)))
     dI = uconvert(u"kg*s^-2",𝕡.szpack_interp(t, nu)*u"MJy/sr")
     
     y = XGPaint.compton_y(𝕡.𝕡_tsz, M_200, z, r)
-    I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)) * (2π)^4)
-    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)))
+    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
     if showT==true
         return abs(T)
