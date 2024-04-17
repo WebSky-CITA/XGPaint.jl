@@ -103,7 +103,7 @@ function profile_grid_rsz(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=51
     redshifts = LinRange(z_min, z_max, N_z)
     logMs = LinRange(logM_min, logM_max, N_logM)
 
-    return profile_grid(𝕡, logθs, redshifts, logMs)
+    return profile_grid_rsz(𝕡, logθs, redshifts, logMs)
 end
 
 
@@ -159,7 +159,6 @@ end
 function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         sitp, z, Ms, θmax) where T
-
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
@@ -168,13 +167,13 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
     
-    X_0 = calc_null(p, Ms, z)
+    X_0 = calc_null(p, Ms*M_sun, z)
     X = p.X
     if X > X_0
         sign = 1
     else
         sign = -1
-    end
+    end 
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -203,13 +202,13 @@ function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, p,
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
     
-    X_0 = calc_null(p, Mh, z)
-    X = p.X
-    if X > X_0
-        sign = 1
-    else
-        sign = -1
-    end
+   X_0 = calc_null(p, Mh, z)
+   X = p.X
+   if X > X_0
+       sign = 1
+   else
+       sign = -1
+   end
     
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
@@ -234,7 +233,7 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_rsz!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
+        profile_paint_rsz!(m, p, α₀, δ₀, psa, sitp, z, mh, θmax_)
     end
 end
 
