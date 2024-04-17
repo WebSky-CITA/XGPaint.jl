@@ -54,7 +54,7 @@ function rSZ(𝕡, M_200, z, r, showT=true)
     X = 𝕡.X
     T_e = T_vir_calc(𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    ω = (X*constants.k_B*T_cmb)/constants.h
 
     Xt = X*coth(X/2)
     St = X/(sinh(X/2))
@@ -77,7 +77,7 @@ function rSZ(𝕡, M_200, z, r, showT=true)
     prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
     y = compton_y_rsz(𝕡, M_200, z, r)
     n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
-    I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
+    I = (X^3/(ℯ^X-1)) * (2*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
     if showT==true
