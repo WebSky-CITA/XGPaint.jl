@@ -101,7 +101,7 @@ function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200, z::T) where T
 
     # randomize
     dist = Normal(log10(T_e), 0.1011)
-    T_e = rand(dist, 1)[1]  #TODO: make reproducible
+    T_e = 10^rand(dist, 1)[1]  #TODO: make reproducible
 
     # return in K
     return uconvert(u"K", T_e * u"keV" / constants.k_B)
