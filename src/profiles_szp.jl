@@ -117,7 +117,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     logMs = log10(Ms)
     
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I_over_y = (dI/(p.τ * θ_e)) * (2π)^4
+    rsz_factor_I_over_y = (dI/(p.τ * θ_e))
     rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
     X_0 = calc_null(p, Ms*M_sun, z)
