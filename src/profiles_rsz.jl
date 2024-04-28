@@ -46,13 +46,38 @@ function T_vir_calc(𝕡,M,z::T) where T
     return T_vir
 end
 
-function rSZ(𝕡, M_200, z, r, showT=true)
+function T_mass_calc(𝕡,M,z::T; scale_type="Ty", sim_type="combination") where T
+    """
+   Calculates the temperature for a given halo using https://arxiv.org/pdf/2207.05834.pdf.
+   """
+    E_z = 𝕡.cosmo.Ω_m*(1 + z)^3 + 𝕡.cosmo.Ω_Λ
+    par_dict_scale = Dict([("Ty",[1.426,0.566,0.024]),("Tm",[1.207,0.589,0.003]),("Tsl",[1.196,0.641,-0.048])])
+    par_dict_sim = Dict([("combination",[1.426,0.566,0.024]),("bahamas",[2.690,0.323,0.023]),("the300",[2.294,0.350,0.013]),("magneticum",[2.789,0.379,0.030]),("tng",[2.154,0.365,0.032])])
+    
+    if scale_type=="Ty"
+        params = par_dict_sim[sim_type]
+    else
+        params = par_dict_scale[scale_type]
+    end
+    
+    T_e = E_z^(2/3) * params[1] * (M/(10^14 *M_sun))^(params[2] + params[3] * log10(M/(10^14 * M_sun))) * u"keV"
+    
+    return T_e  
+end
+
+function rSZ(𝕡, M_200, z, r; T_scale="virial", sim_type="combination", showT=true)
     """
     Calculates the integrated relativistic compton-y signal along the line of sight.
     """
     #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
     X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
+    if T_scale=="virial"
+        T_e = T_vir_calc(𝕡, M_200, z)
+    elseif typeof(T_scale)==String
+        T_e = uconvert(u"K",(T_mass_calc(𝕡, M_200, z, scale_type=T_scale, sim_type=sim_type)/constants.k_B))
+    else
+        T_e = T_scale
+    end
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     ω = (X*constants.k_B*T_cmb)/constants.h
 
