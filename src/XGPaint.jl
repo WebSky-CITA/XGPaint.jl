@@ -8,6 +8,7 @@ using Cosmology
 using Unitful, UnitfulAstro
 using Parameters
 using Random
+using Distributions
 using Healpix
 using PhysicalConstants
 using Pixell
@@ -40,5 +41,6 @@ export Radio_Sehgal2009, CIB_Planck2013, CIB_Scarfy, CO_CROWNED, LRG_Yuan23
 export paint!, generate_sources, process_sources, profile_grid, profile_paint!, profileworkspace, paint_szp!, profile_grid_szp, profile_paint_szp!, paint_rsz!, profile_grid_rsz, profile_paint_rsz!
 export build_interpolator, Battaglia16ThermalSZProfile, Battaglia16RelativisticSZProfile, build_interpolator_szp, build_interpolator_rsz
 export Battaglia16SZPackProfile
+export Wang07, Lee22
 
 end # module

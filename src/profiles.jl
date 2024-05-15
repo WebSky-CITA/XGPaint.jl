@@ -62,6 +62,51 @@ function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_b
     return BreakModel(f_b, cosmo, alpha_break, M_break)
 end
 
+abstract type AbstractTeModel end
+struct Wang07 <: AbstractTeModel end
+struct Lee22 <: AbstractTeModel end
+
+function get_Te(::Wang07, 𝕡::AbstractGNFW, M_200, z::T) where T
+    """
+    Calculates the virial temperature for a given halo using Wang et al. 2007.
+    """
+     µ = T(0.6)  #µ is the mean molecular weight -> used the primordial abundance
+     if z >= 1
+         d_c = T(178)
+     else
+         d_c = T(356/(1 + z))
+     end
+     T_vir = 4.8e-3 * (M_200/M_sun)^(2/3) * (1 + z) * (𝕡.cosmo.Ω_m/0.3)^(1/3) * (d_c/178)^(1/3) * (µ/0.59) * u"K"
+     return T_vir
+end
+
+function get_Te(::Lee22, 𝕡::AbstractGNFW, M_200, z::T) where T
+    """
+    T_e model from arxiv:2207.05834:
+
+       T = E(z)^(2/3) A m^{B + C*log10(m)} keV
+
+    where
+
+       m = M / 10^14 M_sun
+
+       E(z)^2 = \\Omega_m (1+z)^3 + \\Omega_\\Lambda 
+              = \\rho_crit(z) * 8\\pi G/3H_0^2
+
+       A = 1.426; B = 0.566; C = 0.024
+    
+    """
+    m = M_200 / 1e14M_sun
+    T_e = (𝕡.cosmo.Ω_m*(1+z)^3 + 𝕡.cosmo.Ω_Λ)^(1/3) * 1.426 * m^(0.566 + 0.024 * log10(m))
+
+    # randomize
+    dist = Normal(log10(T_e), 0.1011)
+    T_e = 10^rand(dist, 1)[1]  #TODO: make reproducible
+
+    # return in K
+    return uconvert(u"K", T_e * u"keV" / constants.k_B)
+end
+
 const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
 
 

@@ -32,12 +32,12 @@ function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, x::T, 
     return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, tsz_interp, szpack_interp, τ)
 end
 
-function SZpack(𝕡, M_200, z, r, τ=0.01, showT=true)
+function SZpack(𝕡, M_200, z, r; τ=0.01, showT=true, te_model::AbstractTeModel=Wang07())
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
     """
     X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
+    T_e = get_Te(te_model, 𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
