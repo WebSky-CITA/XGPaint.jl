@@ -46,15 +46,40 @@ function T_vir_calc(𝕡,M,z::T) where T
     return T_vir
 end
 
-function rSZ(𝕡, M_200, z, r, showT=true)
+function T_mass_calc(𝕡,M,z::T; scale_type="Ty", sim_type="combination") where T
+    """
+   Calculates the temperature for a given halo using https://arxiv.org/pdf/2207.05834.pdf.
+   """
+    E_z = 𝕡.cosmo.Ω_m*(1 + z)^3 + 𝕡.cosmo.Ω_Λ
+    par_dict_scale = Dict([("Ty",[1.426,0.566,0.024]),("Tm",[1.207,0.589,0.003]),("Tsl",[1.196,0.641,-0.048])])
+    par_dict_sim = Dict([("combination",[1.426,0.566,0.024]),("bahamas",[2.690,0.323,0.023]),("the300",[2.294,0.350,0.013]),("magneticum",[2.789,0.379,0.030]),("tng",[2.154,0.365,0.032])])
+    
+    if scale_type=="Ty"
+        params = par_dict_sim[sim_type]
+    else
+        params = par_dict_scale[scale_type]
+    end
+    
+    T_e = E_z^(2/3) * params[1] * (M/(10^14 *M_sun))^(params[2] + params[3] * log10(M/(10^14 * M_sun))) * u"keV"
+    
+    return T_e  
+end
+
+function rSZ(𝕡, M_200, z, r; T_scale="virial", sim_type="combination", showT=true)
     """
     Calculates the integrated relativistic compton-y signal along the line of sight.
     """
     #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
     X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
+    if T_scale=="virial"
+        T_e = T_vir_calc(𝕡, M_200, z)
+    elseif typeof(T_scale)==String
+        T_e = uconvert(u"K",(T_mass_calc(𝕡, M_200, z, scale_type=T_scale, sim_type=sim_type)/constants.k_B))
+    else
+        T_e = T_scale
+    end
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    ω = (X*constants.k_B*T_cmb)/constants.h
 
     Xt = X*coth(X/2)
     St = X/(sinh(X/2))
@@ -77,7 +102,7 @@ function rSZ(𝕡, M_200, z, r, showT=true)
     prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
     y = compton_y_rsz(𝕡, M_200, z, r)
     n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
-    I = (X^3/(ℯ^X-1)) * (2*(2π)^4*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
+    I = (X^3/(ℯ^X-1)) * (2*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
     if showT==true
@@ -103,7 +128,7 @@ function profile_grid_rsz(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=51
     redshifts = LinRange(z_min, z_max, N_z)
     logMs = LinRange(logM_min, logM_max, N_logM)
 
-    return profile_grid(𝕡, logθs, redshifts, logMs)
+    return profile_grid_rsz(𝕡, logθs, redshifts, logMs)
 end
 
 
@@ -159,7 +184,6 @@ end
 function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         sitp, z, Ms, θmax) where T
-
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
@@ -168,13 +192,13 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
     
-    X_0 = calc_null(p, Ms, z)
+    X_0 = calc_null(p, Ms*M_sun, z)
     X = p.X
     if X > X_0
         sign = 1
     else
         sign = -1
-    end
+    end 
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -203,13 +227,13 @@ function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, p,
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     sitp = w.profile_real_interp
     
-    X_0 = calc_null(p, Mh, z)
-    X = p.X
-    if X > X_0
-        sign = 1
-    else
-        sign = -1
-    end
+   X_0 = calc_null(p, Mh, z)
+   X = p.X
+   if X > X_0
+       sign = 1
+   else
+       sign = -1
+   end
     
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
@@ -234,7 +258,7 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_rsz!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
+        profile_paint_rsz!(m, p, α₀, δ₀, psa, sitp, z, mh, θmax_)
     end
 end
 

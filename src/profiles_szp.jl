@@ -2,10 +2,14 @@
 
 function read_szpack_table(filename)
     table = readdlm(filename)
-    nu_vector = LinRange(log(35.6888844460172*1e9),log(5353.33266690298*1e9),3000)
+    nu_vector = LinRange(log(5.680062373019096*1e9),log(852.0093559528645*1e9),3000)
     temp_vector = LinRange(1.0e-3,75.0,100)
     szpack_interp = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (nu_vector))
     return szpack_interp
+end
+
+function X_to_nu(X)
+    return (X*constants.k_B*T_cmb)/constants.h
 end
 
 struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
@@ -28,22 +32,21 @@ function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, x::T, 
     return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, tsz_interp, szpack_interp, τ)
 end
 
-function SZpack(𝕡, M_200, z, r, τ=0.01, showT=true)
+function SZpack(𝕡, M_200, z, r; τ=0.01, showT=true)
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
     """
     X = 𝕡.X
     T_e = T_vir_calc(𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    nu = log(ustrip(uconvert(u"Hz",ω)))
+    nu = log(ustrip(X_to_nu(X)))
     dI = uconvert(u"kg*s^-2",𝕡.szpack_interp(t, nu)*u"MJy/sr")
     
     y = XGPaint.compton_y(𝕡.𝕡_tsz, M_200, z, r)
-    I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)) * (2π)^4)
-    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)))
+    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
     if showT==true
         return abs(T)
@@ -85,9 +88,8 @@ function profile_grid_szp(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where
 end
 
 
-function T_over_dI(X)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
-    return abs(1 / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
+function I_to_T_mult_factor(X)
+    return 1/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 end
 
@@ -107,14 +109,13 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     X = p.X
     T_e = T_vir_calc(p, Ms * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    nu = log(ustrip(uconvert(u"Hz",ω)))
     logMs = log10(Ms)
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I_over_y = (dI/(p.τ * θ_e)) * (2π)^4
-    rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
-        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    rsz_factor_I_over_y = (dI/(p.τ * θ_e))
+    # rsz_factor_T_over_y = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+
     X_0 = calc_null(p, Ms*M_sun, z)
     if X < X_0
         rsz_factor_T_over_y *= -1
