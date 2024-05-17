@@ -88,9 +88,8 @@ function profile_grid_szp(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where
 end
 
 
-function T_over_dI(X)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
-    return abs(1 / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
+function I_to_T_mult_factor(X)
+    return 1/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 end
 
@@ -110,16 +109,14 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     X = p.X
     T_e = T_vir_calc(p, Ms * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    ω = (X*constants.k_B*T_cmb)/constants.ħ
+    nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    nu = log(ustrip(uconvert(u"Hz",ω)))
-
     logMs = log10(Ms)
     
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e))
-    rsz_factor_T_over_y = abs(rsz_factor_I_over_y / ( (2 * constants.h^2 * ω^4 * ℯ^X) / 
-        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    # rsz_factor_T_over_y = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+
     X_0 = calc_null(p, Ms*M_sun, z)
     if X < X_0
         rsz_factor_T_over_y *= -1
