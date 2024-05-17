@@ -114,11 +114,9 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     logMh = log10(Mh)
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e))
-    # rsz_factor_T_over_y = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
-
     X_0 = calc_null(p, Mh*M_sun, z)
     if X < X_0
-        rsz_factor_T_over_y *= -1
+        rsz_factor_I_over_y *= -1
     end
     
     x₀ = cos(δ₀) * cos(α₀)
@@ -154,12 +152,11 @@ function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackPro
     logMh = log10(Mh)
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e))
-    # rsz_factor_T_over_y = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
     X_0 = calc_null(p, Mh*M_sun, z)
     if X < X_0
-        rsz_factor_T_over_y *= -1
+        rsz_factor_I_over_y *= -1
     end
-    
+        
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
