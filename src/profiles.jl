@@ -359,6 +359,10 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
     N_sources = length(masses)
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
     chunks = chunk(N_sources, chunksize);
+
+    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
+        return paint!(m, p, psa, sitp, masses, redshifts, αs, δs, 1:N_sources)
+    end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
