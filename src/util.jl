@@ -39,6 +39,13 @@ end
 
 
 """
+Returns a stored artifact: a precomputed SZpack table
+"""
+function rsz_szpack_table_filename()
+    return joinpath(artifact"rsz_table", "szpack_interp_T75_upd.dat")
+end
+
+"""
 Reads in a standard Battaglia 2016 model from disk for tSZ.
 """
 function load_precomputed_battaglia()
