@@ -34,6 +34,7 @@ makedocs(;
         "API" => "api.md",
         "Developer Notes" => "developer_notes.md"
     ],
+    checkdocs = :exports
 )
 
 deploydocs(;
