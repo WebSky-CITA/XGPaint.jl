@@ -71,9 +71,9 @@ plot(log10.(snap))
 freqs = LinRange(30.0, 800.0, 100) .* u"GHz"
 snaps = [cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace) for nu in freqs]
 I_rsz = [snap[i_ctr, j_ctr] * u"MJy/sr" for snap in snaps]
+I_tsz = similar(I_rsz)
 
 y0 = tsz_snap[i_ctr, j_ctr]
-I_tsz = similar(center_fluxes)
 for (i, nu) in enumerate(freqs)
     X = nu_to_X(nu)
     I_tsz[i]  = uconvert(u"MJy/sr",(X*(ℯ^X + 1)/(ℯ^X - 1) - 4) * y0 * 
