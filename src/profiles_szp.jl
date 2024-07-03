@@ -22,13 +22,13 @@ struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
     τ::T
 end
 
-function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, filename::String, x::T, τ=0.01; 
-        Omega_c=0.2589, Omega_b=0.0486, h=0.6774) where T
+function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, x::T, τ=0.01; Omega_c=0.2589, 
+        Omega_b=0.0486, h=0.6774, table_filename=rsz_szpack_table_filename()) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
-    szpack_interp = read_szpack_table(filename)
+    szpack_interp = read_szpack_table(table_filename)
     return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, tsz_interp, szpack_interp, τ)
 end
 

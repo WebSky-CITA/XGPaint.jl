@@ -15,3 +15,11 @@ lazy = true
     [[tsz_test_map.download]]
     url = "https://github.com/WebSky-CITA/XGPaint.jl/releases/download/tsz_example/test_tsz_map.tar.gz"
     sha256 = "401d903b4d145c2eef9ff9666adfb4ef7b2b3a3a0cbcb990a630e3a78a426735"
+
+[rsz_table]
+git-tree-sha1 = "415c5fdc65de4d296a1bdd844e338beb43d85843"
+lazy = true
+
+    [[rsz_table.download]]
+    url = "https://github.com/WebSky-CITA/XGPaint.jl/releases/download/rsz_example/szpack_interp_T75_upd.dat.tar.gz"
+    sha256 = "2e9cb9d04d1014292597f10a9507cdd4d9071522932854979ab5bb6e1290004d"
