@@ -12,6 +12,8 @@ function X_to_nu(X)
     return (X*constants.k_B*T_cmb)/constants.h
 end
 
+nu_to_X(nu) = (constants.h*nu)/(constants.k_B*T_cmb)
+
 struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
@@ -197,23 +199,26 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, psa,
     end
 end
 
-function paint_szp!(m, p::XGPaint.AbstractProfile, psa, masses::AV, 
+function paint!(m, p::Battaglia16SZPackProfile, workspace, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
     fill!(m, 0)
     
     N_sources = length(masses)
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
     chunks = chunk(N_sources, chunksize);
+    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
+        return paint_szp!(m, p, workspace, masses, redshifts, αs, δs, 1:N_sources)
+    end
     
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint_szp!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
+        paint_szp!(m, p, workspace, masses, redshifts, αs, δs, i1:i2)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint_szp!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
+        paint_szp!(m, p, workspace, masses, redshifts, αs, δs, i1:i2)
     end
 end
