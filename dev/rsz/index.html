@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link rel="canonical" href="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">XGPaint.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../sz/">Sunyaev–Zeldovich Effect</a></li><li class="is-active"><a class="tocitem" href>Relativistic Sunyaev–Zeldovich Effect</a></li><li><a class="tocitem" href="../cib/">Cosmic Infrared Background</a></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../developer_notes/">Developer Notes</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Relativistic Sunyaev–Zeldovich Effect</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Relativistic Sunyaev–Zeldovich Effect</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/WebSky-CITA/XGPaint.jl/blob/main/docs/src/rsz.md#L" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="The-Relativistic-Sunyaev–Zeldovich-Effect"><a class="docs-heading-anchor" href="#The-Relativistic-Sunyaev–Zeldovich-Effect">The Relativistic Sunyaev–Zeldovich Effect</a><a id="The-Relativistic-Sunyaev–Zeldovich-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Relativistic-Sunyaev–Zeldovich-Effect" title="Permalink"></a></h1><p>An example from Kuhn et al. (in prep). Begin with the tSZ example but on a smaller tile,</p><pre><code class="language- hljs">using Unitful, UnitfulAstro, XGPaint, Plots, Pixell
+import PhysicalConstants.CODATA2018 as constants
+
+M_200 = 1e15 * XGPaint.M_sun
+z = 0.4
+θ = 60*4.84814e-6
+
+box = [-30   30;           # RA
+       -30   30] * Pixell.arcminute  # DEC
+shape, wcs = geometry(Pixell.CarClenshawCurtis, box, 1 * Pixell.arcminute)
+workspace = profileworkspace(shape, wcs)
+model_tsz, tsz_interp = XGPaint.load_precomputed_battaglia();</code></pre><pre><code class="language- hljs">tsz_snap = Enmap(zeros(shape), wcs)
+mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
+paint!(tsz_snap, model_tsz, workspace, tsz_interp, [mass_in_Msun], [z], [0.0], [0.0])
+plot(log10.(tsz_snap))</code></pre><pre><code class="language- hljs">tsz_snap = Enmap(zeros(shape), wcs)
+mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
+paint!(tsz_snap, model_tsz, workspace, tsz_interp, [mass_in_Msun], [z], [0.0], [0.0])
+plot(log10.(tsz_snap))</code></pre><pre><code class="language- hljs">i_ctr, j_ctr = round.(Int, sky2pix(tsz_snap, 0.0, 0.0))
+ras = [pix2sky(tsz_snap, i, j_ctr)[1] for i in 1:size(tsz_snap,1)]
+plot(ras, log10.(tsz_snap[:,j_ctr]), label=&quot;tSZ&quot;, xlabel=&quot;RA [rad]&quot;, ylabel=&quot;log10 y&quot;)</code></pre><pre><code class="language- hljs"># generate a snapshot of a cluster at a specific frequency
+function cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace)
+    X = nu_to_X(uconvert(u&quot;s^-1&quot;,nu))
+    m = Enmap(zeros(shape), wcs);
+
+    # construct a new SZpack object for each frequency; this loads a table from disk.
+    # keep these around if you&#39;re looping over multiple maps at fixed frequency
+    model_szp = Battaglia16SZPackProfile(model_tsz, tsz_interp, X)
+
+    paint!(m, model_szp, workspace, [mass_in_Msun], [z], [0.0], [0.0])
+    return m
+end
+
+snap = cluster_snapshot(500u&quot;GHz&quot;, shape, wcs, model_tsz, tsz_interp, workspace)
+plot(log10.(snap))</code></pre><pre><code class="language- hljs">freqs = LinRange(30.0, 800.0, 100) .* u&quot;GHz&quot;
+snaps = [cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace) for nu in freqs]
+I_rsz = [snap[i_ctr, j_ctr] * u&quot;MJy/sr&quot; for snap in snaps]
+
+y0 = tsz_snap[i_ctr, j_ctr]
+I_tsz = similar(center_fluxes)
+for (i, nu) in enumerate(freqs)
+    X = nu_to_X(nu)
+    I_tsz[i]  = uconvert(u&quot;MJy/sr&quot;,(X*(ℯ^X + 1)/(ℯ^X - 1) - 4) * y0 * 
+        abs((2 * constants.h^2 * nu^4 * ℯ^X) / (
+            constants.k_B * constants.c_0^2 * XGPaint.T_cmb * (ℯ^X - 1)^2)))
+end
+
+plot(freqs, I_tsz, label=&quot;tSZ&quot;)
+plot!(freqs, I_rsz, label=&quot;rSZ&quot;)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sz/">« Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../cib/">Cosmic Infrared Background »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Wednesday 3 July 2024 21:34">Wednesday 3 July 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
