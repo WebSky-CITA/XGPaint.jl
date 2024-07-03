@@ -29,6 +29,7 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Sunyaev–Zeldovich Effect" => "sz.md",
+        "Relativistic Sunyaev–Zeldovich Effect" => "rsz.md",
         "Cosmic Infrared Background" => "cib.md",
         "API" => "api.md",
         "Developer Notes" => "developer_notes.md"
