@@ -89,7 +89,7 @@ end
 
 
 function I_to_T_mult_factor(X)
-    return 1/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
+    return 1/(abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 end
 
@@ -114,10 +114,6 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     logMh = log10(Mh)
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e))
-    X_0 = calc_null(p, Mh*M_sun, z)
-    if X < X_0
-        rsz_factor_I_over_y *= -1
-    end
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -152,10 +148,6 @@ function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackPro
     logMh = log10(Mh)
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e))
-    X_0 = calc_null(p, Mh*M_sun, z)
-    if X < X_0
-        rsz_factor_I_over_y *= -1
-    end
         
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
