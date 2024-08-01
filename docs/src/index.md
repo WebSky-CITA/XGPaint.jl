@@ -13,11 +13,3 @@ The general workflow is:
 3. Use the model to put sources in halos
 4. Put the sources on maps
 
-
-## General Methods
-There are a few functions that are generally applicable for all foreground models.
-
-```@docs
-read_halo_catalog_hdf5
-get_cosmology
-```
