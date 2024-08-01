@@ -164,15 +164,3 @@ print(sources.lum_cen)
 ```
 
 This particular change zeros out the luminosities, and indeed you should see the result is an array of zeroes.
-
-## API
-```@docs
-CIB_Planck2013
-generate_sources(
-        model::XGPaint.AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
-        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1};
-        verbose=true) where {T, TH}
-paint!(result_map::Healpix.HealpixMap{T_map, RingOrder},
-        nu_obs, model::XGPaint.AbstractCIBModel{T}, sources,
-        fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where {T_map, T}
-```
