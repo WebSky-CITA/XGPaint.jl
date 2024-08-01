@@ -4,6 +4,10 @@ using Test
 using HDF5
 using Pixell
 
+using XGPaint: M_sun, get_params, generalized_nfw, rho_2d, ne2d
+using Unitful, UnitfulAstro
+using PhysicalConstants.CODATA2018
+
 # relative background evolutions differ by 1e-3 between Julia and Python 2
 rtol = 1e-3
 cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
@@ -131,4 +135,45 @@ include("test_query.jl")
 
     ymap_ref = XGPaint.load_example_tsz_map()
     @test sum(abs, m.data .- ymap_ref) ≈ 0 atol=1e-7
+end
+
+@testset "tau_profile" begin
+    # test the 3D tau profile
+
+    p = BattagliaTauProfile(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
+
+    # fits are in Msun/h, will change later
+    par = get_params(p, (1e14M_sun / 0.6712), 0.5)
+    @test par.P₀ * generalized_nfw(0.5, par.xc, par.α, par.β, par.γ) ≈ 231.94578059850758
+
+    par = get_params(p, (1e14M_sun / 0.6712), 0.8)
+    @test par.P₀ * generalized_nfw(0.5, par.xc, par.α, par.β, par.γ) ≈ 228.24947739841136
+
+    par = get_params(p, (1e15M_sun / 0.6712), 0.8)
+    @test par.P₀ * generalized_nfw(0.2, par.xc, par.α, par.β, par.γ) ≈ 1447.2222096644925
+
+    par = get_params(p, (1e15M_sun / p.cosmo.h), 0.8)
+    @test par.P₀ * XGPaint._tsz_profile_los_quadrature(0.5,  par.xc, par.α, par.β, par.γ) ≈ 320.36848661635133
+
+
+    zz = 0.5
+
+    Mnew = 86349927525539.45 * (M_sun / p.cosmo.h)
+    ta = rho_2d(p, 1u"Mpc" / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
+    @test abs(1 - ta / 10.149657232478662e12) < 1e-4
+
+    tb = rho_2d(p, 2u"Mpc" / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
+    @test abs(1 - tb / 2.446742995577804e12) < 1e-4
+
+    zz = 2.5
+    Mnew = 93218298413772.23 * (M_sun / p.cosmo.h)  # Mcrit
+    tc = rho_2d(p, 3u"Mpc" / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
+    @test abs(1 - tc / 0.9123565449059163e12) < 1e-4
+
+    zz = 2.5
+    Mnew = 93218298413772.23 * (M_sun / p.cosmo.h)  # Mcrit
+    tc = ne2d(p, 3u"Mpc" / p.cosmo.h, Mnew, zz) / (p.cosmo.h / 1u"Mpc")^2 + 0
+    @test abs(1 - tc / 1.4217533501414173e+69) < 1e-3
+
+
 end
