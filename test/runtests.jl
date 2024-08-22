@@ -153,7 +153,7 @@ end
     @test par.P₀ * generalized_nfw(0.2, par.xc, par.α, par.β, par.γ) ≈ 1447.2222096644925
 
     par = get_params(p, (1e15M_sun / p.cosmo.h), 0.8)
-    @test par.P₀ * XGPaint._tsz_profile_los_quadrature(0.5,  par.xc, par.α, par.β, par.γ) ≈ 320.36848661635133
+    @test par.P₀ * XGPaint._nfw_profile_los_quadrature(0.5,  par.xc, par.α, par.β, par.γ) ≈ 320.36848661635133
 
 
     zz = 0.5

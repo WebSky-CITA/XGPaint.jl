@@ -20,6 +20,7 @@ box = [-30   30;           # RA
 shape, wcs = geometry(Pixell.CarClenshawCurtis, box, 1 * Pixell.arcminute)
 workspace = profileworkspace(shape, wcs)
 model_tsz, tsz_interp = XGPaint.load_precomputed_battaglia();
+nothing # hide
 ```
 
 

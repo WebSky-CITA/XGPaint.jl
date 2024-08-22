@@ -107,7 +107,7 @@ end
 
 # _tsz_y₁(x, _a) = (x*(_a+1))^(1/(_a+1))
 # _tsz_x₁(y, _a) = y^(_a+1)/(_a+1)
-function _tsz_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), order=9)
+function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), order=9)
     x² = x^2
     scale = 1e9
     integral, err = quadgk(y -> scale * generalized_nfw(√(y^2 + x²), xc, α, β, γ),
@@ -119,7 +119,7 @@ function dimensionless_P_profile_los(𝕡::Battaglia16ThermalSZProfile{T}, M_200
     par = get_params(𝕡, M_200, z)
     R_200 = R_Δ(𝕡, M_200, z, 200)
     x = r / angular_size(𝕡, R_200, z)
-    return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+    return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
 end
 
 function dimensionless_P_profile_los(𝕡::BreakModel{T}, M_200, z, r) where T
@@ -127,9 +127,9 @@ function dimensionless_P_profile_los(𝕡::BreakModel{T}, M_200, z, r) where T
     R_200 = R_Δ(𝕡, M_200, z, 200)
     x = r / angular_size(𝕡, R_200, z)
     if M_200 < 𝕡.M_break * M_sun
-        return par.P₀ * (M_200/(𝕡.M_break*M_sun))^𝕡.alpha_break * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+        return par.P₀ * (M_200/(𝕡.M_break*M_sun))^𝕡.alpha_break * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
     else
-        return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+        return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
     end
 end
 
