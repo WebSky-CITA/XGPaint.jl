@@ -40,11 +40,7 @@ function rho_2d(p::BattagliaTauProfile, R_comoving_projected, m200c, z)
     r200c = r200c_comoving(p, m200c, z)
     X = R_comoving_projected / r200c
     rho_crit = ρ_crit_comoving_h⁻²(p, z)
-<<<<<<< HEAD
     result = par.P₀ * XGPaint._nfw_profile_los_quadrature(X, par.xc, par.α, par.β, par.γ)
-=======
-    result = par.P₀ * XGPaint._tsz_profile_los_quadrature(X, par.xc, par.α, par.β, par.γ)
->>>>>>> main
 
     return result * rho_crit * r200c
 end
