@@ -17,7 +17,7 @@ function dimensionless_P_profile_los_rsz(𝕡::Battaglia16RelativisticSZProfile{
     par = get_params(𝕡, M_200, z)
     R_200 = R_Δ(𝕡, M_200, z, 200)
     x = r / angular_size(𝕡, R_200, z)
-    return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+    return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
 end
 
 """Line-of-sight integrated electron pressure"""
