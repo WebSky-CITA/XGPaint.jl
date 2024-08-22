@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl</title><meta name="title" content="Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl"/><meta property="og:title" content="Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl"/><meta property="twitter:title" content="Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl"/><meta name="description" content="Documentation for XGPaint.jl."/><meta property="og:description" content="Documentation for XGPaint.jl."/><meta property="twitter:description" content="Documentation for XGPaint.jl."/><meta property="og:url" content="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><meta property="twitter:url" content="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><link rel="canonical" href="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">XGPaint.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../sz/">Sunyaev–Zeldovich Effect</a></li><li class="is-active"><a class="tocitem" href>Relativistic Sunyaev–Zeldovich Effect</a></li><li><a class="tocitem" href="../cib/">Cosmic Infrared Background</a></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../developer_notes/">Developer Notes</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Relativistic Sunyaev–Zeldovich Effect</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Relativistic Sunyaev–Zeldovich Effect</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/WebSky-CITA/XGPaint.jl/blob/main/docs/src/rsz.md#L" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="The-Relativistic-Sunyaev–Zeldovich-Effect"><a class="docs-heading-anchor" href="#The-Relativistic-Sunyaev–Zeldovich-Effect">The Relativistic Sunyaev–Zeldovich Effect</a><a id="The-Relativistic-Sunyaev–Zeldovich-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Relativistic-Sunyaev–Zeldovich-Effect" title="Permalink"></a></h1><p>An example from Kuhn et al. (in prep). Begin with the tSZ example but on a smaller tile,</p><pre><code class="language-julia hljs">using Unitful, UnitfulAstro, XGPaint, Plots, Pixell
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl</title><meta name="title" content="Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl"/><meta property="og:title" content="Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl"/><meta property="twitter:title" content="Relativistic Sunyaev–Zeldovich Effect · XGPaint.jl"/><meta name="description" content="Documentation for XGPaint.jl."/><meta property="og:description" content="Documentation for XGPaint.jl."/><meta property="twitter:description" content="Documentation for XGPaint.jl."/><meta property="og:url" content="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><meta property="twitter:url" content="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><link rel="canonical" href="https://github.com/WebSky-CITA/XGPaint.jl/rsz/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">XGPaint.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../sz/">Sunyaev–Zeldovich Effect</a></li><li><a class="tocitem" href="../ksz/">Kinetic Sunyaev–Zeldovich Effect</a></li><li class="is-active"><a class="tocitem" href>Relativistic Sunyaev–Zeldovich Effect</a></li><li><a class="tocitem" href="../cib/">Cosmic Infrared Background</a></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../developer_notes/">Developer Notes</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Relativistic Sunyaev–Zeldovich Effect</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Relativistic Sunyaev–Zeldovich Effect</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/WebSky-CITA/XGPaint.jl/blob/main/docs/src/rsz.md#L" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="The-Relativistic-Sunyaev–Zeldovich-Effect"><a class="docs-heading-anchor" href="#The-Relativistic-Sunyaev–Zeldovich-Effect">The Relativistic Sunyaev–Zeldovich Effect</a><a id="The-Relativistic-Sunyaev–Zeldovich-Effect-1"></a><a class="docs-heading-anchor-permalink" href="#The-Relativistic-Sunyaev–Zeldovich-Effect" title="Permalink"></a></h1><p>An example from Kuhn et al. (in prep). Begin with the tSZ example but on a smaller tile,</p><pre><code class="language-julia hljs">using Unitful, UnitfulAstro, XGPaint, Plots, Pixell
 import PhysicalConstants.CODATA2018 as constants
 
 M_200 = 1e15 * XGPaint.M_sun
@@ -10,148 +10,15 @@ box = [-30   30;           # RA
        -30   30] * Pixell.arcminute  # DEC
 shape, wcs = geometry(Pixell.CarClenshawCurtis, box, 1 * Pixell.arcminute)
 workspace = profileworkspace(shape, wcs)
-model_tsz, tsz_interp = XGPaint.load_precomputed_battaglia();</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(Battaglia16ThermalSZProfile{Float64, Cosmology.FlatLCDM{Float64}}(0.15804878048780488, Cosmology.FlatLCDM{Float64}(0.6774, 0.6924089058605902, 0.3075, 9.109413940981078e-5)), 512×256×256 scale(interpolate(OffsetArray(::Array{Float64, 3}, 0:513, 0:257, 0:257), BSpline(Cubic(Line(Interpolations.OnGrid())))), (LinRange{Float64}(-25.31044707689549, 11.494936518931212, 512), LinRange{Float64}(0.001, 5.0, 256), LinRange{Float64}(11.0, 15.7, 256))) with element type Float64:
-[:, :, 1] =
- -19.4841  -19.4739  -19.4631  -19.4518  …   -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518  …   -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.9769   -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.977    -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.977    -15.9684   -15.9598
- -19.4841  -19.4739  -19.4631  -19.4518      -15.977    -15.9684   -15.9598
-   ⋮                                     ⋱                           ⋮
- -62.5495  -73.8645  -76.686   -78.5341     -157.717   -157.903   -158.088
- -62.8099  -74.1269  -76.9504  -78.8003     -158.24    -158.426   -158.612
- -63.0703  -74.3894  -77.2147  -79.0666  …  -158.763   -158.949   -159.136
- -63.3308  -74.6519  -77.4791  -79.3329     -159.285   -159.473   -159.66
- -63.5912  -74.9143  -77.7435  -79.5991     -159.808   -159.996   -160.184
- -63.8517  -75.1768  -78.0079  -79.8654     -160.33    -160.519   -160.708
- -64.1121  -75.4392  -78.2722  -80.1316     -160.853   -161.043   -161.232
- -64.3726  -75.7017  -78.5366  -80.3979  …  -161.376   -161.566   -161.756
- -64.6331  -75.9642  -78.801   -80.6642     -161.898   -162.089   -162.28
-
-[:, :, 2] =
- -19.4371  -19.4268  -19.416   -19.4047  …   -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047  …   -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
- -19.4371  -19.4268  -19.416   -19.4047      -15.9297   -15.9211   -15.9125
-   ⋮                                     ⋱                           ⋮
- -62.5358  -73.8677  -76.6933  -78.5439     -157.814   -158.0     -158.185
- -62.7966  -74.1306  -76.958   -78.8106     -158.337   -158.524   -158.71
- -63.0574  -74.3934  -77.2228  -79.0772  …  -158.861   -159.048   -159.235
- -63.3182  -74.6563  -77.4876  -79.3439     -159.384   -159.572   -159.76
- -63.5791  -74.9192  -77.7524  -79.6106     -159.908   -160.096   -160.284
- -63.8399  -75.182   -78.0172  -79.8772     -160.431   -160.62    -160.809
- -64.1008  -75.4449  -78.2819  -80.1439     -160.955   -161.144   -161.334
- -64.3616  -75.7077  -78.5467  -80.4106  …  -161.478   -161.669   -161.859
- -64.6225  -75.9706  -78.8115  -80.6772     -162.001   -162.193   -162.384
-
-[:, :, 3] =
- -19.39    -19.3798  -19.369   -19.3576  …   -15.8824   -15.8738   -15.8652
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8652
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8652
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8652
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8653
- -19.39    -19.3798  -19.369   -19.3576  …   -15.8824   -15.8738   -15.8653
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8653
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8653
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8653
- -19.39    -19.3798  -19.369   -19.3576      -15.8824   -15.8738   -15.8653
-   ⋮                                     ⋱                           ⋮
- -62.522   -73.8709  -76.7006  -78.5537     -157.911   -158.097   -158.282
- -62.7832  -74.1342  -76.9657  -78.8208     -158.435   -158.622   -158.808
- -63.0444  -74.3975  -77.2309  -79.0879  …  -158.959   -159.147   -159.334
- -63.3056  -74.6607  -77.4961  -79.355      -159.484   -159.672   -159.859
- -63.5669  -74.924   -77.7613  -79.622      -160.008   -160.197   -160.385
- -63.8281  -75.1873  -78.0265  -79.8891     -160.532   -160.722   -160.911
- -64.0894  -75.4505  -78.2917  -80.1562     -161.056   -161.246   -161.436
- -64.3507  -75.7138  -78.5568  -80.4233  …  -161.581   -161.771   -161.962
- -64.6119  -75.9771  -78.822   -80.6903     -162.105   -162.296   -162.487
-
-;;; … 
-
-[:, :, 254] =
-  -7.55849   -7.54746   -7.53592  …    -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592  …    -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-  -7.55849   -7.54746   -7.53592       -4.00688    -3.99825    -3.98965
-   ⋮                              ⋱                             ⋮
- -59.8474   -74.8907   -78.9492      -184.6      -184.836    -185.072
- -60.1753   -75.279    -79.3408      -185.385    -185.623    -185.86
- -60.5057   -75.6674   -79.7325   …  -186.171    -186.41     -186.648
- -60.8388   -76.0559   -80.1242      -186.957    -187.196    -187.436
- -61.1746   -76.4444   -80.5159      -187.742    -187.983    -188.223
- -61.5134   -76.8329   -80.9076      -188.528    -188.77     -189.011
- -61.8552   -77.2215   -81.2993      -189.313    -189.556    -189.799
- -62.2002   -77.6102   -81.6911   …  -190.099    -190.343    -190.586
- -62.5482   -77.9989   -82.0828      -190.885    -191.13     -191.374
-
-[:, :, 255] =
-  -7.51128   -7.50025   -7.48871  …    -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871  …    -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-  -7.51128   -7.50025   -7.48871       -3.95954    -3.95091    -3.94231
-   ⋮                              ⋱                             ⋮
- -59.8564   -74.8941   -78.9583      -184.713    -184.95     -185.186
- -60.1846   -75.283    -79.3505      -185.5      -185.738    -185.975
- -60.5152   -75.672    -79.7428   …  -186.287    -186.526    -186.764
- -60.8484   -76.061    -80.1351      -187.074    -187.314    -187.553
- -61.1844   -76.4501   -80.5274      -187.861    -188.102    -188.342
- -61.5233   -76.8393   -80.9198      -188.648    -188.89     -189.131
- -61.8653   -77.2285   -81.3121      -189.435    -189.678    -189.92
- -62.2104   -77.6177   -81.7045   …  -190.222    -190.466    -190.709
- -62.5585   -78.007    -82.0969      -191.008    -191.254    -191.498
-
-[:, :, 256] =
-  -7.46407   -7.45304   -7.4415  …    -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415  …    -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-  -7.46407   -7.45304   -7.4415       -3.9122    -3.90357    -3.89497
-   ⋮                             ⋱                            ⋮
- -59.8658   -74.8974   -78.9674     -184.827   -185.064    -185.3
- -60.1943   -75.2869   -79.3602     -185.615   -185.853    -186.091
- -60.5251   -75.6765   -79.7531  …  -186.403   -186.642    -186.881
- -60.8585   -76.0661   -80.146      -187.192   -187.432    -187.671
- -61.1947   -76.4558   -80.539      -187.98    -188.221    -188.461
- -61.5337   -76.8456   -80.9319     -188.768   -189.01     -189.252
- -61.8758   -77.2354   -81.3249     -189.556   -189.799    -190.042
- -62.221    -77.6253   -81.7179  …  -190.344   -190.588    -190.832
- -62.5693   -78.0152   -82.1109     -191.132   -191.378    -191.622)</code></pre><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
+model_tsz, tsz_interp = XGPaint.load_precomputed_battaglia();</code></pre><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
 mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
 paint!(tsz_snap, model_tsz, workspace, tsz_interp, [mass_in_Msun], [z], [0.0], [0.0])
-plot(log10.(tsz_snap))</code></pre><img src="dad9fa5b.svg" alt="Example block output"/><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
+plot(log10.(tsz_snap))</code></pre><img src="686a62c3.svg" alt="Example block output"/><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
 mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
 paint!(tsz_snap, model_tsz, workspace, tsz_interp, [mass_in_Msun], [z], [0.0], [0.0])
-plot(log10.(tsz_snap))</code></pre><img src="7e94cdc2.svg" alt="Example block output"/><pre><code class="language-julia hljs">i_ctr, j_ctr = round.(Int, sky2pix(tsz_snap, 0.0, 0.0))
+plot(log10.(tsz_snap))</code></pre><img src="6403a186.svg" alt="Example block output"/><pre><code class="language-julia hljs">i_ctr, j_ctr = round.(Int, sky2pix(tsz_snap, 0.0, 0.0))
 ras = [pix2sky(tsz_snap, i, j_ctr)[1] for i in 1:size(tsz_snap,1)]
-plot(ras, log10.(tsz_snap[:,j_ctr]), label=&quot;tSZ&quot;, xlabel=&quot;RA [rad]&quot;, ylabel=&quot;log10 y&quot;)</code></pre><img src="27e1af8c.svg" alt="Example block output"/><pre><code class="language-julia hljs"># generate a snapshot of a cluster at a specific frequency
+plot(ras, log10.(tsz_snap[:,j_ctr]), label=&quot;tSZ&quot;, xlabel=&quot;RA [rad]&quot;, ylabel=&quot;log10 y&quot;)</code></pre><img src="c7351350.svg" alt="Example block output"/><pre><code class="language-julia hljs"># generate a snapshot of a cluster at a specific frequency
 function cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace)
     X = nu_to_X(uconvert(u&quot;s^-1&quot;,nu))
     m = Enmap(zeros(shape), wcs);
@@ -165,7 +32,7 @@ function cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace)
 end
 
 snap = cluster_snapshot(500u&quot;GHz&quot;, shape, wcs, model_tsz, tsz_interp, workspace)
-plot(log10.(snap))</code></pre><img src="f0a682a7.svg" alt="Example block output"/><pre><code class="language-julia hljs">freqs = LinRange(30.0, 800.0, 100) .* u&quot;GHz&quot;
+plot(log10.(snap))</code></pre><img src="cc2fb73e.svg" alt="Example block output"/><pre><code class="language-julia hljs">freqs = LinRange(30.0, 800.0, 100) .* u&quot;GHz&quot;
 snaps = [cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace) for nu in freqs]
 I_rsz = [snap[i_ctr, j_ctr] * u&quot;MJy/sr&quot; for snap in snaps]
 I_tsz = similar(I_rsz)
@@ -179,4 +46,4 @@ for (i, nu) in enumerate(freqs)
 end
 
 plot(freqs, I_tsz, label=&quot;tSZ&quot;)
-plot!(freqs, I_rsz, label=&quot;rSZ&quot;)</code></pre><img src="b458a932.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sz/">« Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../cib/">Cosmic Infrared Background »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 1 August 2024 20:13">Thursday 1 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(freqs, I_rsz, label=&quot;rSZ&quot;)</code></pre><img src="acc9b51c.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../ksz/">« Kinetic Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../cib/">Cosmic Infrared Background »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.6.0 on <span class="colophon-date" title="Thursday 22 August 2024 23:23">Thursday 22 August 2024</span>. Using Julia version 1.10.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
