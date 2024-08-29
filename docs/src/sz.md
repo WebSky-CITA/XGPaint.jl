@@ -89,5 +89,7 @@ ws = [XGPaint.HealpixProfileWorkspace(nside, w0.θmin, w0.θmax,
 
 
 @time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec)
-Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
+# Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
+
+plot(m_hp)
 ```
