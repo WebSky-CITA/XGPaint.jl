@@ -71,3 +71,23 @@ Now it's time to apply the model to the map.
 @time paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec)
 plot(log10.(m), c = :thermal)
 ```
+
+
+## Healpix 
+
+To generate Healpix maps, you'll need the [Healpix.jl](https://github.com/ziotom78/Healpix.jl) package.
+
+```@example tsz
+using Healpix
+
+nside = 4096
+m_hp = HealpixMap{Float64,RingOrder}(nside)
+w0 = XGPaint.HealpixProfileWorkspace(nside, 
+    exp(minimum(interp.ranges[1])), π/180, interp)
+ws = [XGPaint.HealpixProfileWorkspace(nside, w0.θmin, w0.θmax,
+    interp, w0.posmap) for _ in 1:Threads.nthreads()];
+
+
+@time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec)
+Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
+```
