@@ -258,7 +258,7 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
+                        α₀, δ₀, workspace::CarClenshawCurtisProfileWorkspace, 
                         sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
@@ -275,9 +275,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
-            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
-            z₁ = psa.sin_δ[i,j]
+            x₁ = workspace.cos_δ[i,j] * workspace.cos_α[i,j]
+            y₁ = workspace.cos_δ[i,j] * workspace.sin_α[i,j]
+            z₁ = workspace.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
@@ -289,7 +289,7 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, psa::GnomonicProfileWorkspace, sitp, z, Ms, θmax) where T
+            α₀, δ₀, workspace::GnomonicProfileWorkspace, sitp, z, Ms, θmax) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -305,9 +305,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
-            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
-            z₁ = psa.sin_δ[i,j]
+            x₁ = workspace.cos_δ[i,j] * workspace.cos_α[i,j]
+            y₁ = workspace.cos_δ[i,j] * workspace.sin_α[i,j]
+            z₁ = workspace.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
@@ -319,12 +319,11 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
+            α₀, δ₀, w::HealpixProfileWorkspace, sitp, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    sitp = w.profile_real_interp
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
@@ -340,7 +339,7 @@ end
 # for rectangular pixelizations
 
 # multi-halo painting utilities
-function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, 
+function paint!(m, p, workspace, sitp, 
                 masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
     for i in irange
         α₀ = αs[i]
@@ -348,11 +347,33 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint!(m, α₀, δ₀, psa, sitp, z, mh, θmax_)
+        profile_paint!(m, α₀, δ₀, workspace, sitp, z, mh, θmax_)
     end
 end
 
-function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV, 
+
+function paint!(m::HealpixMap{T, RingOrder}, p::XGPaint.AbstractProfile, ws::Vector{W}, interp, masses::AV, 
+                    redshifts::AV, αs::AV, δs::AV) where {T, W <: HealpixProfileWorkspace, AV}
+    m .= 0.0
+
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, i1:i2)
+    end
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, i1:i2)
+    end
+end
+
+function paint!(m, p::XGPaint.AbstractProfile, workspace, sitp, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
     fill!(m, 0)
     
@@ -361,18 +382,18 @@ function paint!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, p, psa, sitp, masses, redshifts, αs, δs, 1:N_sources)
+        return paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, 1:N_sources)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, i1:i2)
     end
 end
