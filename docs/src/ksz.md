@@ -45,7 +45,7 @@ m = Enmap(zeros(shape), wcs)
 
 Now let's set up an electron profile.
 ```@example ksz
-p = BattagliaTauProfile(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
+model = BattagliaTauProfile(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
 ```
 
 We can now compute the integrated electron density, 
