@@ -1,5 +1,5 @@
 
-struct BattagliaTauProfile{T,C} <: AbstractProfile{T}
+struct BattagliaTauProfile{T,C} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
 end
@@ -22,7 +22,25 @@ function get_params(::BattagliaTauProfile{T}, M_200, z) where T
     return (xc=T(xc), α=T(α), β=T(β), γ=T(γ), P₀=T(P₀))
 end
 
+function profile_grid(𝕡::BattagliaTauProfile{T}, logθs, redshifts, logMs) where T
 
+    N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
+    A = zeros(T, (N_logθ, N_z, N_logM))
+
+    Threads.@threads :static for im in 1:N_logM
+        logM = logMs[im]
+        M = 10^(logM) * M_sun
+        for (iz, z) in enumerate(redshifts)
+            for iθ in 1:N_logθ
+                θ = exp(logθs[iθ])
+                y = compton_y(𝕡, M, z, θ)
+                A[iθ, iz, im] = max(zero(T), y)
+            end
+        end
+    end
+
+    return logθs, redshifts, logMs, A
+end
 
 function ρ_crit_comoving_h⁻²(p, z)
     return  (ρ_crit(p, z) ) / (1+z)^3 / p.cosmo.h^2
@@ -56,4 +74,28 @@ function ne2d(p::BattagliaTauProfile, R_comoving_projected, m200c, z)
 
     result = rho_2d(p, R_comoving_projected, m200c, z)  # (Msun/h) / (Mpc/h)^2
     return result / factor
+end
+
+function tau(p, R_comoving_projected, m200c, z)
+    return constants.ThomsonCrossSection * ne2d(p, R_comoving_projected, m200c, z) 
+end
+
+function profile_grid(𝕡::BattagliaTauProfile{T}, logθs, redshifts, logMs) where T
+
+    N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
+    A = zeros(T, (N_logθ, N_z, N_logM))
+
+    Threads.@threads :static for im in 1:N_logM
+        logM = logMs[im]
+        M = 10^(logM) * M_sun
+        for (iz, z) in enumerate(redshifts)
+            for iθ in 1:N_logθ
+                θ = exp(logθs[iθ])
+                τ = tau(𝕡, θ, M, z)
+                A[iθ, iz, im] = max(zero(T), y)
+            end
+        end
+    end
+
+    return logθs, redshifts, logMs, A
 end
