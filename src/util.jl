@@ -45,18 +45,24 @@ function rsz_szpack_table_filename()
     return joinpath(artifact"rsz_table", "szpack_interp_T75_upd.dat")
 end
 
-"""
-Reads in a standard Battaglia 2016 model from disk for tSZ.
-"""
-function load_precomputed_battaglia()
+
+function load_precomputed_battaglia_data()
     rootpath = artifact"tsz_example"
     model_file = joinpath(rootpath, "tsz_example", "battaglia_interpolation.jld2")
     model = load(model_file)
     prof_logθs, prof_redshift, prof_logMs, prof_y = model["prof_logθs"], 
         model["prof_redshift"], model["prof_logMs"], model["prof_y"]
+    return prof_y, prof_logθs, prof_redshift, prof_logMs
+end
 
-    itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
-    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs);
+
+"""
+Reads in a standard Battaglia 2016 model from disk for tSZ.
+"""
+function load_precomputed_battaglia()
+    prof_y, prof_logθs, prof_redshift, prof_logMs = load_precomputed_battaglia_data()
+    sitp = scale(Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid())))), 
+        prof_logθs, prof_redshift, prof_logMs);
     p = Battaglia16ThermalSZProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
     return p, sitp
 end
