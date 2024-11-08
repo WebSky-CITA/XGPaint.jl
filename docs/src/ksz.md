@@ -13,6 +13,9 @@ using XGPaint, Plots
 # example , ra and dec in radians, halo mass in M200c (Msun)
 ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
 print("Number of halos: ", length(halo_mass))
+
+# the current test halos do not include velocities, so we randomly generate some for this
+proj_v_over_c = randn(eltype(ra), length(halo_mass)) / 1000
 ```
 
 This small catalog is limited to a relatively small patch of the sky. Before we generate some SZ maps, let's take a look at the halo mass distribution.
@@ -48,10 +51,13 @@ p = BattagliaTauProfile(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
 We can now compute the integrated electron density, 
 
 ```@example ksz
-using Unitful, UnitfulAstro
-zz = 2.5
-Mnew = 93218298413772.23 * (XGPaint.M_sun / p.cosmo.h)  # Mcrit
-tc = ne2d(p, 3u"Mpc" / p.cosmo.h, Mnew, zz) / (p.cosmo.h / 1u"Mpc")^2 + 0
-@test abs(1 - tc / 1.4217533501414173e+69) < 1e-3
-```
+workspace = profileworkspace(shape, wcs)
 
+# this only needs to be done once 
+interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=false)
+
+m = Enmap(zeros(shape), wcs)
+mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
+paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec, proj_v_over_c)
+plot(log10.(abs.(m)), c = :thermal)
+```

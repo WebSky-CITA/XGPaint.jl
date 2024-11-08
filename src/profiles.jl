@@ -259,7 +259,7 @@ end
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         α₀, δ₀, workspace::CarClenshawCurtisProfileWorkspace, 
-                        sitp, z, Ms, θmax) where T
+                        sitp, z, Ms, θmax, mult_factor=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -281,7 +281,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
-                             exp(sitp(log(θ), z, log10(Ms))),
+                             mult_factor * exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
         end
     end
@@ -289,7 +289,7 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, workspace::GnomonicProfileWorkspace, sitp, z, Ms, θmax) where T
+            α₀, δ₀, workspace::GnomonicProfileWorkspace, sitp, z, Ms, θmax, mult_factor=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -311,7 +311,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             m[i,j] += ifelse(θ < θmax, 
-                             exp(sitp(log(θ), z, log10(Ms))),
+                             mult_factor * exp(sitp(log(θ), z, log10(Ms))),
                              zero(T))
         end
     end
@@ -319,7 +319,7 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, w::HealpixProfileWorkspace, sitp, z, Mh, θmax) where T
+            α₀, δ₀, w::HealpixProfileWorkspace, sitp, z, Mh, θmax, mult_factor=1) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
@@ -330,7 +330,7 @@ function profile_paint!(m::HealpixMap{T, RingOrder},
         θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(w.θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
-                                    exp(sitp(log(θ), z, log10(Mh))),
+                                    mult_factor * exp(sitp(log(θ), z, log10(Mh))),
                                     zero(T))
     end
 end
