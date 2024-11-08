@@ -159,21 +159,25 @@ end
     zz = 0.5
 
     Mnew = 86349927525539.45 * (M_sun / p.cosmo.h)
-    ta = rho_2d(p, 1u"Mpc" / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
+    ta = rho_2d(p, 1u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
     @test abs(1 - ta / 10.149657232478662e12) < 1e-4
 
-    tb = rho_2d(p, 2u"Mpc" / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
+    tb = rho_2d(p, 2u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
     @test abs(1 - tb / 2.446742995577804e12) < 1e-4
 
     zz = 2.5
     Mnew = 93218298413772.23 * (M_sun / p.cosmo.h)  # Mcrit
-    tc = rho_2d(p, 3u"Mpc" / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
+    tc = rho_2d(p, 3u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) / (M_sun / 1u"Mpc^2") * p.cosmo.h + 0
     @test abs(1 - tc / 0.9123565449059163e12) < 1e-4
 
     zz = 2.5
     Mnew = 93218298413772.23 * (M_sun / p.cosmo.h)  # Mcrit
-    tc = ne2d(p, 3u"Mpc" / p.cosmo.h, Mnew, zz) / (p.cosmo.h / 1u"Mpc")^2 + 0
+    tc = ne2d(p, 3u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) / (p.cosmo.h / 1u"Mpc")^2 + 0
     @test abs(1 - tc / 1.4217533501414173e+69) < 1e-3
 
+    zz = 2.5
+    Mnew = 93218298413772.23 * (XGPaint.M_sun / p.cosmo.h)  # Mcrit
+    tc = XGPaint.tau(p, 3u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) + 0
+    @test abs(1 - tc / 4.475127577749756e-05) < 1e-3
 
 end

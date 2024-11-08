@@ -48,8 +48,9 @@ p = BattagliaTauProfile(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
 We can now compute the integrated electron density, 
 
 ```@example ksz
+using Unitful, UnitfulAstro
 zz = 2.5
-Mnew = 93218298413772.23 * (M_sun / p.cosmo.h)  # Mcrit
+Mnew = 93218298413772.23 * (XGPaint.M_sun / p.cosmo.h)  # Mcrit
 tc = ne2d(p, 3u"Mpc" / p.cosmo.h, Mnew, zz) / (p.cosmo.h / 1u"Mpc")^2 + 0
 @test abs(1 - tc / 1.4217533501414173e+69) < 1e-3
 ```
