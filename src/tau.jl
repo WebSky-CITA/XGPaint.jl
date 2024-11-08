@@ -80,7 +80,7 @@ function tau(p, r, m200c, z)
     return constants.ThomsonCrossSection * ne2d(p, r, m200c, z) 
 end
 
-function profile_grid(𝕡::BattagliaTauProfile{T}, logθs, redshifts, logMs) where T
+function profile_grid(𝕡::BattagliaTauProfile{T,C,true}, logθs, redshifts, logMs) where {T,C}
 
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
@@ -92,10 +92,74 @@ function profile_grid(𝕡::BattagliaTauProfile{T}, logθs, redshifts, logMs) wh
             for iθ in 1:N_logθ
                 θ = exp(logθs[iθ])
                 τ = tau(𝕡, θ, M, z)
-                A[iθ, iz, im] = max(zero(T), y)
+                A[iθ, iz, im] = max(zero(T), τ)
             end
         end
     end
 
     return logθs, redshifts, logMs, A
+end
+
+# multi-halo painting utilities
+function paint!(m, p::BattagliaTauProfile, workspace, sitp, 
+                masses::AV, redshifts::AV, αs::AV, δs::AV, velocities::AV,
+                irange::AbstractUnitRange) where AV
+    for i in irange
+        α₀ = αs[i]
+        δ₀ = δs[i]
+        mh = masses[i]
+        z = redshifts[i]
+        v = velocities[i]
+
+        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
+        profile_paint!(m, α₀, δ₀, workspace, sitp, z, mh, θmax_, v)
+    end
+end
+
+
+
+function paint!(m::HealpixMap{T, RingOrder}, p::BattagliaTauProfile, ws::Vector{W}, interp, masses::AV, 
+                    redshifts::AV, αs::AV, δs::AV, vs::AV) where {T, W <: HealpixProfileWorkspace, AV}
+    m .= 0.0
+
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, vs, i1:i2)
+    end
+
+    Threads.@threads for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, vs, i1:i2)
+    end
+end
+
+function paint!(m, p::BattagliaTauProfile, workspace, sitp, masses::AV, 
+                        redshifts::AV, αs::AV, δs::AV, vs::AV)  where AV
+    fill!(m, 0)
+    
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize);
+
+    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
+        return paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, 1:N_sources)
+    end
+    
+    Threads.@threads :static for i in 1:Threads.nthreads()
+        chunk_i = 2i
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, vs, i1:i2)
+    end
+
+    Threads.@threads :static for i in 1:Threads.nthreads()
+        chunk_i = 2i - 1
+        i1, i2 = chunks[chunk_i]
+        paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, vs, i1:i2)
+    end
 end
