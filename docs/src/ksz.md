@@ -57,7 +57,7 @@ workspace = profileworkspace(shape, wcs)
 interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=false)
 
 m = Enmap(zeros(shape), wcs)
-mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
+mass_in_Msun = 1f15
 paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 plot(log10.(abs.(m)), c = :thermal)
 ```
