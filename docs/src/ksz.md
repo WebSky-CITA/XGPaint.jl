@@ -53,8 +53,9 @@ We can now compute the integrated electron density,
 ```@example ksz
 workspace = profileworkspace(shape, wcs)
 
-# this only needs to be done once 
-interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=false)
+# this only needs to be done once
+# to cache: interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=false)
+interp = build_interpolator(model)
 
 m = Enmap(zeros(shape), wcs)
 mass_in_Msun = 1f15
