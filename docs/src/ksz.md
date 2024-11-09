@@ -8,7 +8,7 @@ CurrentModule = XGPaint
 Let's make some maps of the kinetic Sunyaev-Zeldovich (SZ) effect. First, let's load up the example halo catalog included in this package. These will be automatically downloaded the first time you load them.
 
 ```@example ksz
-using XGPaint, Plots
+using XGPaint, Plots, Unitful, UnitfulAstro
 
 # example , ra and dec in radians, halo mass in M200c (Msun)
 ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
