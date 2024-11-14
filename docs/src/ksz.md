@@ -62,3 +62,25 @@ mass_in_Msun = 1f15
 paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 plot(log10.(abs.(m)), c = :thermal)
 ```
+
+
+## Healpix 
+
+To generate Healpix maps, you'll need the [Healpix.jl](https://github.com/ziotom78/Healpix.jl) package.
+
+```@example ksz
+using Healpix
+
+nside = 2048
+m_hp = HealpixMap{Float64,RingOrder}(nside)
+w0 = XGPaint.HealpixProfileWorkspace(nside, 
+    exp(minimum(interp.ranges[1])), π/180, interp)
+ws = [XGPaint.HealpixProfileWorkspace(nside, w0.θmin, w0.θmax,
+    interp, w0.posmap) for _ in 1:Threads.nthreads()];
+
+
+@time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec)
+# Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
+
+plot(m_hp)
+```
