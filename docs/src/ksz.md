@@ -79,7 +79,7 @@ ws = [XGPaint.HealpixProfileWorkspace(nside, w0.θmin, w0.θmax,
     interp, w0.posmap) for _ in 1:Threads.nthreads()];
 
 
-@time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec)
+@time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 # Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
 
 plot(m_hp)
