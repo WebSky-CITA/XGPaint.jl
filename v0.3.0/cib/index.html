@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Cosmic Infrared Background · XGPaint.jl</title><meta name="title" content="Cosmic Infrared Background · XGPaint.jl"/><meta property="og:title" content="Cosmic Infrared Background · XGPaint.jl"/><meta property="twitter:title" content="Cosmic Infrared Background · XGPaint.jl"/><meta name="description" content="Documentation for XGPaint.jl."/><meta property="og:description" content="Documentation for XGPaint.jl."/><meta property="twitter:description" content="Documentation for XGPaint.jl."/><meta property="og:url" content="https://github.com/WebSky-CITA/XGPaint.jl/cib/"/><meta property="twitter:url" content="https://github.com/WebSky-CITA/XGPaint.jl/cib/"/><link rel="canonical" href="https://github.com/WebSky-CITA/XGPaint.jl/cib/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">XGPaint.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../sz/">Sunyaev–Zeldovich Effect</a></li><li><a class="tocitem" href="../ksz/">Kinetic Sunyaev–Zeldovich Effect</a></li><li><a class="tocitem" href="../rsz/">Relativistic Sunyaev–Zeldovich Effect</a></li><li class="is-active"><a class="tocitem" href>Cosmic Infrared Background</a><ul class="internal"><li><a class="tocitem" href="#Tutorial"><span>Tutorial</span></a></li><li><a class="tocitem" href="#Sources-from-HDF5"><span>Sources from HDF5</span></a></li><li><a class="tocitem" href="#HealpixMap-making"><span>HealpixMap-making</span></a></li><li><a class="tocitem" href="#Custom-Models"><span>Custom Models</span></a></li></ul></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../developer_notes/">Developer Notes</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Cosmic Infrared Background</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Cosmic Infrared Background</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/WebSky-CITA/XGPaint.jl/blob/main/docs/src/cib.md#L" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Cosmic-Infrared-Background-(CIB)"><a class="docs-heading-anchor" href="#Cosmic-Infrared-Background-(CIB)">Cosmic Infrared Background (CIB)</a><a id="Cosmic-Infrared-Background-(CIB)-1"></a><a class="docs-heading-anchor-permalink" href="#Cosmic-Infrared-Background-(CIB)" title="Permalink"></a></h1><p>We provide the Planck 2013 CIB model. The following code is a little more verbose than typical Julia code, as one has to repeatedly specify the type <code>Float32</code> when creating objects. This allows one to more easily fit the entire source catalog into memory.</p><h2 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h2><pre><code class="language-julia hljs">using XGPaint, Plots, Pixell
+
+# example , ra and dec in radians, halo mass in M200c (Msun)
+ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
+
+# sort
+ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass)
+
+print(&quot;Number of halos: &quot;, length(halo_mass))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> Downloading artifact: tsz_example
+Number of halos: 2455621</code></pre><p>Next, we&#39;ll generate a cosmology. Note how we use Float32 throughout.</p><pre><code class="language-julia hljs">cosmo = get_cosmology(h=0.6774f0, OmegaM=0.3075f0)
+x, y, z = XGPaint.ra_dec_redshift_to_xyz(ra, dec, redshift, cosmo)
+halo_pos = [x&#39;; y&#39;; z&#39;;]
+
+model = CIB_Planck2013{Float32}()</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">CIB_Planck2013{Float32}
+  nside: Int64 4096
+  min_redshift: Float32 0.0f0
+  max_redshift: Float32 5.0f0
+  min_mass: Float32 1.0f12
+  box_size: Float32 40000.0f0
+  shang_zplat: Float32 2.0f0
+  shang_Td: Float32 20.7f0
+  shang_beta: Float32 1.6f0
+  shang_eta: Float32 2.4f0
+  shang_alpha: Float32 0.2f0
+  shang_Mpeak: Float32 1.9952623f12
+  shang_sigmaM: Float32 0.3f0
+  shang_Msmin: Float32 1.0f11
+  shang_Mmin: Float32 1.0f10
+  shang_I0: Float32 92.0f0
+  jiang_gamma_1: Float32 0.13f0
+  jiang_alpha_1: Float32 -0.83f0
+  jiang_gamma_2: Float32 1.33f0
+  jiang_alpha_2: Float32 -0.02f0
+  jiang_beta_2: Float32 5.67f0
+  jiang_zeta: Float32 1.19f0
+</code></pre><pre><code class="language-julia hljs">@time sources = generate_sources(model, cosmo, halo_pos, halo_mass);
+fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
+fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
+
+using Pixell
+box = [4.5   -4.5;           # RA
+       -3     3] * Pixell.degree  # DEC
+shape, wcs = geometry(CarClenshawCurtis{Float64}, box, 0.5 * Pixell.arcminute)
+m = Enmap(zeros(Float32, shape), wcs)
+XGPaint.paint!(m, 143.0f0 * 1.0f9, model, sources, fluxes_cen, fluxes_sat)
+plot(log10.(m), c=:coolwarm)</code></pre><img src="5777acfe.svg" alt="Example block output"/><h2 id="Sources-from-HDF5"><a class="docs-heading-anchor" href="#Sources-from-HDF5">Sources from HDF5</a><a id="Sources-from-HDF5-1"></a><a class="docs-heading-anchor-permalink" href="#Sources-from-HDF5" title="Permalink"></a></h2><p>To work with the Websky halo catalogs, you can&#39;t just use the example catalogs! One first loads the halo positions and masses into memory with <a href="../api/#XGPaint.read_halo_catalog_hdf5-Tuple{Any}"><code>read_halo_catalog_hdf5</code></a>. This package uses halo positions in the shape <span>$(3, N_{\mathrm{halos}})$</span>, where the first dimension is the Cartesian coordinates <span>$x, y, z$</span>.</p><pre><code class="language-julia hljs">using XGPaint
+using Healpix
+
+## Load halos from HDF5 files, establish a CIB model and cosmology
+websky_directory = &quot;/global/cfs/cdirs/sobs/www/users/Radio_WebSky&quot;
+halo_pos, halo_mass = read_halo_catalog_hdf5(
+    &quot;$(websky_directory)/websky_halos-light.hdf5&quot;)</code></pre><p>Now one specifes the background cosmology with <a href="../api/#XGPaint.get_cosmology-Union{Tuple{Type{T}}, Tuple{T}} where T"><code>get_cosmology</code></a> and the source model <a href="../api/#XGPaint.CIB_Planck2013"><code>CIB_Planck2013</code></a>.</p><pre><code class="language-julia hljs"># configuration objects
+cosmo = get_cosmology(Float32; h=0.7, OmegaM=0.25)
+model = CIB_Planck2013{Float32}()
+
+# generate sources (healpix pixel, luminosities, etc. 
+@time sources = generate_sources(model, cosmo, halo_pos, halo_mass);</code></pre><p>This <code>sources</code> is a <a href="https://docs.julialang.org/en/v1/manual/types/#Named-Tuple-Types">NamedTuple</a> with arrays for centrals,</p><ul><li><code>hp_ind_cen</code>: healpix index of the central</li><li><code>lum_cen</code>: luminosity of the central</li><li><code>redshift_cen</code>: redshift of the central</li><li><code>dist_cen</code>: distance to the central</li></ul><p>There are additionally arrays for the satellites,</p><ul><li><code>hp_ind_sat</code>: healpix index of the satellite</li><li><code>lum_sat</code>: luminosity of the satellite</li><li><code>redshift_sat</code>: redshift of the satellite</li><li><code>dist_sat</code>: distance to the satellite</li></ul><p>There are also two integers in <code>sources</code>  for the total number of centrals <code>N_cen</code> and total number of satellites <code>N_sat</code>.</p><h2 id="HealpixMap-making"><a class="docs-heading-anchor" href="#HealpixMap-making">HealpixMap-making</a><a id="HealpixMap-making-1"></a><a class="docs-heading-anchor-permalink" href="#HealpixMap-making" title="Permalink"></a></h2><p>Once these sources are generated, one needs to create some buffer arrays for map-making. The fluxes of the centrals and satellites are deposited into these arrays, before the map is generated.</p><pre><code class="language-julia hljs"># Create some empty arrays for the fluxes to be deposited
+fluxes_cen = Array{Float32, 1}(undef, sources.N_cen)
+fluxes_sat = Array{Float32, 1}(undef, sources.N_sat)
+m = HealpixMap{Float64,RingOrder}(model.nside)  # create a Healpix map</code></pre><p>These arrays are used by <code>paint!</code> to create maps. We then save those to disk. We add a time macro to get some info on how long it takes. Note that with NERSC&#39;s notoriously slow filesystem, writing to disk can take as long as generating the maps!</p><pre><code class="language-julia hljs">for freq in [&quot;100&quot;, &quot;143&quot;, &quot;217&quot; &quot;353&quot;, &quot;545&quot;]
+    @time paint!(m, parse(Float32, freq) * 1.0f9, model, 
+        sources, fluxes_cen, fluxes_sat)
+    saveToFITS(m, &quot;!/global/cscratch1/sd/xzackli/cib/cib$(freq).fits&quot;)
+end</code></pre><h2 id="Custom-Models"><a class="docs-heading-anchor" href="#Custom-Models">Custom Models</a><a id="Custom-Models-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Models" title="Permalink"></a></h2><p>You can make changes while reusing the XGPaint infrastructure by using Julia&#39;s multiple dispatch. Create a custom type that inherits from <code>AbstractCIBModel</code>. You must <code>import</code> the function you want to replace, and then write your own version of the function which dispatches on your custom type.</p><pre><code class="language-julia hljs"> # import AbstractCIBModel and the functions you want to replace
+import XGPaint: AbstractCIBModel, shang_z_evo 
+using Parameters, Cosmology
+
+# write your own type that is a subtype of AbstractCIBModel
+@with_kw struct CustomCIB{T&lt;:Real} &lt;: AbstractCIBModel{T} @deftype T
+    nside::Int64    = 4096
+    hod::String     = &quot;shang&quot;
+    Inu_norm     = 0.3180384
+    min_redshift = 0.0
+    max_redshift = 5.0
+    min_mass     = 1e12
+    box_size     = 40000
+
+    # shang HOD
+    shang_zplat  = 2.0
+    shang_Td     = 20.7
+    shang_beta   = 1.6
+    shang_eta    = 2.4
+    shang_alpha  = 0.2
+    shang_Mpeak  = 10^12.3
+    shang_sigmaM = 0.3
+    shang_Msmin  = 1e11
+    shang_Mmin   = 1e10
+    shang_I0     = 46
+
+    # jiang
+    jiang_gamma_1    = 0.13
+    jiang_alpha_1    = -0.83
+    jiang_gamma_2    = 1.33
+    jiang_alpha_2    = -0.02
+    jiang_beta_2     = 5.67
+    jiang_zeta       = 1.19
+end
+
+# dispatch on custom type CustomCIB. this particular change sets L=0
+function shang_z_evo(z::T, model::CustomCIB) where T
+    return zero(T)
+end
+
+# make a cosmology and our custom source model
+cosmo = get_cosmology(Float32; h=0.7, OmegaM=0.3)
+custom_model = CustomCIB{Float32}()
+
+# for this test, do it only on a subset of the halos
+sources = generate_sources(custom_model, cosmo, halo_pos[:,1:10], halo_mass[1:10])
+
+print(sources.lum_cen)</code></pre><p>This particular change zeros out the luminosities, and indeed you should see the result is an array of zeroes.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../rsz/">« Relativistic Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../api/">API »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Friday 6 December 2024 03:26">Friday 6 December 2024</span>. Using Julia version 1.11.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
