@@ -13,12 +13,12 @@ workspace = profileworkspace(shape, wcs)
 model_tsz, tsz_interp = XGPaint.load_precomputed_battaglia();</code></pre><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
 mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
 paint!(tsz_snap, model_tsz, workspace, tsz_interp, [mass_in_Msun], [z], [0.0], [0.0])
-plot(log10.(tsz_snap))</code></pre><img src="e9b883e6.svg" alt="Example block output"/><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
+plot(log10.(tsz_snap))</code></pre><img src="dfa62fcc.svg" alt="Example block output"/><pre><code class="language-julia hljs">tsz_snap = Enmap(zeros(shape), wcs)
 mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
 paint!(tsz_snap, model_tsz, workspace, tsz_interp, [mass_in_Msun], [z], [0.0], [0.0])
-plot(log10.(tsz_snap))</code></pre><img src="dfa62fcc.svg" alt="Example block output"/><pre><code class="language-julia hljs">i_ctr, j_ctr = round.(Int, sky2pix(tsz_snap, 0.0, 0.0))
+plot(log10.(tsz_snap))</code></pre><img src="3a200fe3.svg" alt="Example block output"/><pre><code class="language-julia hljs">i_ctr, j_ctr = round.(Int, sky2pix(tsz_snap, 0.0, 0.0))
 ras = [pix2sky(tsz_snap, i, j_ctr)[1] for i in 1:size(tsz_snap,1)]
-plot(ras, log10.(tsz_snap[:,j_ctr]), label=&quot;tSZ&quot;, xlabel=&quot;RA [rad]&quot;, ylabel=&quot;log10 y&quot;)</code></pre><img src="1d8b2638.svg" alt="Example block output"/><pre><code class="language-julia hljs"># generate a snapshot of a cluster at a specific frequency
+plot(ras, log10.(tsz_snap[:,j_ctr]), label=&quot;tSZ&quot;, xlabel=&quot;RA [rad]&quot;, ylabel=&quot;log10 y&quot;)</code></pre><img src="2bf797ef.svg" alt="Example block output"/><pre><code class="language-julia hljs"># generate a snapshot of a cluster at a specific frequency
 function cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace)
     X = nu_to_X(uconvert(u&quot;s^-1&quot;,nu))
     m = Enmap(zeros(shape), wcs);
@@ -32,7 +32,7 @@ function cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace)
 end
 
 snap = cluster_snapshot(500u&quot;GHz&quot;, shape, wcs, model_tsz, tsz_interp, workspace)
-plot(log10.(snap))</code></pre><img src="e6991eb9.svg" alt="Example block output"/><pre><code class="language-julia hljs">freqs = LinRange(30.0, 800.0, 100) .* u&quot;GHz&quot;
+plot(log10.(snap))</code></pre><img src="47cf0ef6.svg" alt="Example block output"/><pre><code class="language-julia hljs">freqs = LinRange(30.0, 800.0, 100) .* u&quot;GHz&quot;
 snaps = [cluster_snapshot(nu, shape, wcs, model_tsz, tsz_interp, workspace) for nu in freqs]
 I_rsz = [snap[i_ctr, j_ctr] * u&quot;MJy/sr&quot; for snap in snaps]
 I_tsz = similar(I_rsz)
@@ -46,4 +46,4 @@ for (i, nu) in enumerate(freqs)
 end
 
 plot(freqs, I_tsz, label=&quot;tSZ&quot;)
-plot!(freqs, I_rsz, label=&quot;rSZ&quot;)</code></pre><img src="1b9cf11c.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../ksz/">« Kinetic Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../cib/">Cosmic Infrared Background »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Thursday 14 November 2024 20:25">Thursday 14 November 2024</span>. Using Julia version 1.11.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot!(freqs, I_rsz, label=&quot;rSZ&quot;)</code></pre><img src="aceab1c4.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../ksz/">« Kinetic Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../cib/">Cosmic Infrared Background »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Friday 6 December 2024 03:12">Friday 6 December 2024</span>. Using Julia version 1.11.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
