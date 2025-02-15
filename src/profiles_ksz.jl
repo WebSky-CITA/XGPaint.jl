@@ -1,25 +1,25 @@
 
-import PhysicalConstants.CODATA2018 as constants
-using Unitful
-const M_sun = 1.98847e30u"kg"
-const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
-const T_cmb =  2.725 * u"K"
-using Cosmology
-using QuadGK
-using DelimitedFiles
-using Interpolations
-using NPZ
+# import PhysicalConstants.CODATA2018 as constants
+# using Unitful
+# const M_sun = 1.98847e30u"kg"
+# const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
+# const T_cmb =  2.725 * u"K"
+# using Cosmology
+# using QuadGK
+# using DelimitedFiles
+# using Interpolations
+# using NPZ
 
 
-table = npzread("/fs/lustre/cita/zack/projects/SZpack.v1.1.1/szpack_interp_4d.npz")
-nu_vector = LinRange(log(5.680062373019096*1e9),log(852.0093559528645*1e9),500)
-temp_vector = LinRange(1.0e-3,75.0,100)
-vel_vector = LinRange(1.0e-9, 1.0e-1,100)
-mu_vector = LinRange(-1,1,50)
-szpack_interp_ksz = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (vel_vector), (mu_vector), (nu_vector))
+# table = npzread("/fs/lustre/cita/zack/projects/SZpack.v1.1.1/szpack_interp_4d.npz")
+# nu_vector = LinRange(log(5.680062373019096*1e9),log(852.0093559528645*1e9),500)
+# temp_vector = LinRange(1.0e-3,75.0,100)
+# vel_vector = LinRange(1.0e-9, 1.0e-1,100)
+# mu_vector = LinRange(-1,1,50)
+# szpack_interp_ksz = scale(Interpolations.interpolate(table, BSpline(Cubic(Line(OnGrid())))), (temp_vector), (vel_vector), (mu_vector), (nu_vector))
 
-table_T0 = npzread("/fs/lustre/cita/zack/projects/SZpack.v1.1.1/szpack_interp_4d_0.npz")
-szpack_interp_T0 = scale(Interpolations.interpolate(table_T0[1,:,:,:], BSpline(Cubic(Line(OnGrid())))), (vel_vector), (mu_vector), (nu_vector))
+# table_T0 = npzread("/fs/lustre/cita/zack/projects/SZpack.v1.1.1/szpack_interp_4d_0.npz")
+# szpack_interp_T0 = scale(Interpolations.interpolate(table_T0[1,:,:,:], BSpline(Cubic(Line(OnGrid())))), (vel_vector), (mu_vector), (nu_vector))
 
 
 struct Battaglia16KinematicSZProfile{T,C} <: AbstractGNFW{T}
@@ -37,42 +37,26 @@ function Battaglia16KinematicSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h
 end
 
 
-struct RKSZpackProfile{T,C,ANG,P} <: AbstractGNFW{T}
+struct RKSZpackProfile{T,C,ANG,P1,P2,ITP1,ITP2,ITP3} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T
-    p_tsz::P
+    p_y::P1
+    p_tau::P2
+    tsz_interp::ITP1
+    szpack_interp_ksz::ITP2
+    szpack_interp_T0::ITP3
 end
 
-function RKSZpackProfile(model_tsz; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, angle=true, x::T=2.6408) where {T <: Real}
+function RKSZpackProfile(model_y::P1, model_tau::P2, tsz_interp::ITP1, szpack_interp_ksz::ITP2, szpack_interp_T0::ITP3; 
+        Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, angle=true, x::T=2.6408) where {T <: Real, P1, P2, ITP1, ITP2, ITP3}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
-    X = x
-    return RKSZpackProfile{T, typeof(cosmo), angle, typeof(model_tsz)}(f_b, cosmo, X, model_tsz)
+    return RKSZpackProfile{T, typeof(cosmo), angle, P1, P2, ITP1, ITP2, ITP3}(
+        f_b, cosmo, x, model_y, model_tau, tsz_interp, szpack_interp_ksz, szpack_interp_T0)
 end
 
-
-#function dimensionless_P_profile_los_ksz(𝕡::Battaglia16KinematicSZProfile{T}, M_200, z, r) where T
-function dimensionless_P_profile_los_ksz(𝕡::RKSZpackProfile{T}, M_200, z, r) where T
-    par = get_params(𝕡.p_tsz, M_200, z)
-    R_200 = R_Δ(𝕡, M_200, z, 200)
-    x = r / angular_size(𝕡, R_200, z)
-    return par.P₀ * _tsz_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
-end
-
-
-"""Line-of-sight integrated electron pressure"""
-P_e_los_ksz(𝕡, M_200, z, r) = 0.5176 * P_th_los_ksz(𝕡, M_200, z, r)
-
-"""Line-of-sight integrated thermal pressure"""
-P_th_los_ksz(𝕡, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(𝕡, z) * 
-    𝕡.f_b / 2 * dimensionless_P_profile_los_ksz(𝕡, M_200, z, r)
-
-
-function compton_y_ksz(𝕡, M_200, z, r)
-    return P_e_los_ksz(𝕡, M_200, z, r) * P_e_factor
-end
 
 
 #function SZpack_ksz(𝕡, M_200, z, r; vel=3e3, τ=0.01, mu = 1.0, showT=true)
@@ -94,17 +78,19 @@ function SZpack_ksz(𝕡, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
     vel = abs(ustrip(vel/uconvert(u"km/s",constants.c_0))) # need to take absolute value of v to make sure v is within bounds of interpolator
         
     # Term 1
-    dI_1 = uconvert(u"kg*s^-2",(szpack_interp_ksz(t, vel, mu, nu)*u"MJy/sr" - szpack_interp_T0(vel, mu, nu)*u"MJy/sr")/τ)
-    y = XGPaint.compton_y_ksz(𝕡, M_200, z, r) #0
+    dI_1 = uconvert(u"kg*s^-2",(𝕡.szpack_interp_ksz(t, vel, mu, nu) * u"MJy/sr" - 
+        𝕡.szpack_interp_T0(vel, mu, nu) * u"MJy/sr")/τ)
+    y = XGPaint.compton_y(𝕡.p_y, M_200, z, r) #0
     I_1 = uconvert(u"kg*s^-2",y * (dI_1/(θ_e)))
     
     # Term 2
-    dI_2 = uconvert(u"kg*s^-2",(szpack_interp_T0(vel, mu, nu)*u"MJy/sr")/τ)
-    tau = XGPaint.tau(𝕡, r, M_200, z) #0.01 #XGPaint.tau_ksz(𝕡, M_200, z, r)
-    I_2 = uconvert(u"kg*s^-2",dI_2 * tau)
+    dI_2 = uconvert(u"kg*s^-2", (𝕡.szpack_interp_T0(vel, mu, nu) * u"MJy/sr")/τ)
+    tau = XGPaint.tau(𝕡.p_tau, r, M_200, z) #0.01 #XGPaint.tau_ksz(𝕡, M_200, z, r)
+    I_2 = uconvert(u"kg*s^-2", dI_2 * tau)
     
     I = I_1 + I_2
-    T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
+    T = I/uconvert(u"kg*s^-2", abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
+        (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
     if showT==true
         return abs(T)
