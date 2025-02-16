@@ -104,7 +104,7 @@ function profile_grid(𝕡::BattagliaTauProfile{T,C,true}, logθs, redshifts, lo
 end
 
 # multi-halo painting utilities
-function paint!(m, p::BattagliaTauProfile, workspace, interp_model, 
+function paint!(m, model::BattagliaTauProfile, workspace, 
                 masses::AV, redshifts::AV, αs::AV, δs::AV, velocities::AV,
                 irange::AbstractUnitRange) where AV
     for i in irange
@@ -114,8 +114,8 @@ function paint!(m, p::BattagliaTauProfile, workspace, interp_model,
         z = redshifts[i]
         v = velocities[i]
 
-        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint!(m, α₀, δ₀, workspace, interp_model, z, mh, θmax_, v)
+        θmax_ = compute_θmax(p, mh * XGPaint.M_sun, z)
+        profile_paint!(m, α₀, δ₀, workspace, model, z, mh, θmax_, v)
     end
 end
 
@@ -141,7 +141,7 @@ function paint!(m::HealpixMap{T, RingOrder}, p::BattagliaTauProfile, ws::Vector{
     end
 end
 
-function paint!(m, p::BattagliaTauProfile, workspace, interp_model, masses::AV, 
+function paint!(m, model::BattagliaTauProfile, workspace, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV, vs::AV)  where AV
     fill!(m, 0)
     
@@ -150,18 +150,18 @@ function paint!(m, p::BattagliaTauProfile, workspace, interp_model, masses::AV,
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, p, workspace, interp_model, masses, redshifts, αs, δs, vs, 1:N_sources)
+        return paint!(m, model, workspace, masses, redshifts, αs, δs, vs, 1:N_sources)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, workspace, interp_model, masses, redshifts, αs, δs, vs, i1:i2)
+        paint!(m, model, workspace, masses, redshifts, αs, δs, vs, i1:i2)
     end
 
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, workspace, interp_model, masses, redshifts, αs, δs, vs, i1:i2)
+        paint!(m, model, workspace, masses, redshifts, αs, δs, vs, i1:i2)
     end
 end

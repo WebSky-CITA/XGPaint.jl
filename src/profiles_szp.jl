@@ -96,7 +96,7 @@ function I_to_T_mult_factor(X)
 end
 
 function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        p::Battaglia16SZPackProfile, 
+                        model::Battaglia16SZPackProfile, 
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         z, Mh, θmax) where T
     # get indices of the region to work on
@@ -106,7 +106,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
-    θmin = exp(first(first(interp_model.itp.ranges)))
+    θmin = compute_θmin(model)
 
     # needs mass in M_200
     X = p.X
@@ -114,7 +114,6 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    logMh = log10(Mh)
     dI = p.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = (dI/(p.τ * θ_e))
     
@@ -130,36 +129,36 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
-            y = exp(p.y_interp(log(θ), z, logMh))
+            y = model(θ, z, Mh)
             m[i,j] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
         end
     end
 end
 
 
-function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackProfile, 
+function profile_paint_szp!(m::HealpixMap{T, RingOrder}, model::Battaglia16SZPackProfile, 
             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    θmin = max(exp(first(first(interp_model.itp.ranges))), w.θmin)
+    θmin = max(compute_θmin(model), w.θmin)
 
-    X = p.X
+    X = model.X
     T_e = T_vir_calc(p, Mh * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     logMh = log10(Mh)
-    dI = p.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I_over_y = (dI/(p.τ * θ_e))
+    dI = model.szpack_interp(t, nu)*u"MJy/sr"
+    rsz_factor_I_over_y = (dI/(model.τ * θ_e))
         
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
-        y = exp(p.y_interp(log(θ), z, logMh))
+        y = exp(model.y_interp(log(θ), z, logMh))
         m.pixels[ir] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
     end
 end
@@ -196,7 +195,7 @@ function paint_szp!(m, p::XGPaint.AbstractProfile, psa,
         δ₀ = δs[i]
         mh = masses[i]
         z = redshifts[i]
-        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
+        θmax_ = compute_θmax(p, mh * XGPaint.M_sun, z)
         profile_paint_szp!(m, p, α₀, δ₀, psa, z, mh, θmax_)
         
     end

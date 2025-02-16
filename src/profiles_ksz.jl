@@ -95,7 +95,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p::RKSZ
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
-    θmin = exp(first(first(interp_model.itp.ranges)))
+
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -118,27 +118,3 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p::RKSZ
         end
     end
 end
-
-function profile_paint!(m::HealpixMap{T, RingOrder}, p::RKSZpackProfile,
-            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, vel, θmax) where T
-    ϕ₀ = α₀
-    θ₀ = T(π)/2 - δ₀
-    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    interp_model = w.profile_real_interp
-    θmin = max(exp(first(first(interp_model.itp.ranges))), w.θmin)
-
-    X_0 = calc_null(p, Ms*M_sun, z)
-    X = p.X
-    
-    for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap.pixels[ir]
-        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ = acos(1 - d² / 2)
-        θ = max(θmin, θ)  # clamp to minimum θ
-        m.pixels[ir] += ifelse(θ < θmax, 
-                                   exp(interp_model(log(θ), z, log10(Mh), vel)),
-                                    zero(T))
-    end
-end
-
