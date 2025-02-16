@@ -1,23 +1,25 @@
 
-struct Battaglia16RSZPerturbativeProfile{T,C} <: AbstractGNFW{T}
+struct RSZPerturbativeProfile{T,C} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
 end
 
-function Battaglia16RSZPerturbativeProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
+function RSZPerturbativeProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
-    return Battaglia16RSZPerturbativeProfile(f_b, cosmo, X)
+    return RSZPerturbativeProfile(f_b, cosmo, X)
 end
 
+"""
+    T_vir_calc(model, M, z::T) where T
 
-function T_vir_calc(model,M,z::T) where T
-   """
-   Calculates the virial temperature for a given halo using Wang et al. 2007.
-   """
+Calculates the virial temperature for a given halo using Wang et al. 2007.
+"""
+function T_vir_calc(model, M, z::T) where T
+
     µ = 0.6  #µ is the mean molecular weight -> used the primordial abundance
     if z >= 1
         d_c = T(178)
@@ -28,10 +30,13 @@ function T_vir_calc(model,M,z::T) where T
     return T_vir
 end
 
+"""
+    T_mass_calc(model,M,z::T; scale_type="Ty", sim_type="combination") where T
+
+Calculates the temperature for a given halo using https://arxiv.org/pdf/2207.05834.pdf.
+"""
 function T_mass_calc(model,M,z::T; scale_type="Ty", sim_type="combination") where T
-    """
-   Calculates the temperature for a given halo using https://arxiv.org/pdf/2207.05834.pdf.
-   """
+
     E_z = model.cosmo.Ω_m*(1 + z)^3 + model.cosmo.Ω_Λ
     par_dict_scale = Dict([("Ty",[1.426,0.566,0.024]),("Tm",[1.207,0.589,0.003]),("Tsl",[1.196,0.641,-0.048])])
     par_dict_sim = Dict([("combination",[1.426,0.566,0.024]),("bahamas",[2.690,0.323,0.023]),("the300",[2.294,0.350,0.013]),("magneticum",[2.789,0.379,0.030]),("tng",[2.154,0.365,0.032])])
@@ -47,10 +52,13 @@ function T_mass_calc(model,M,z::T; scale_type="Ty", sim_type="combination") wher
     return T_e  
 end
 
-function rSZ(model, M_200, z, r; T_scale="virial", sim_type="combination", showT=true)
-    """
-    Calculates the integrated relativistic compton-y signal along the line of sight.
-    """
+"""
+    rSZ_perturbative(model, M_200, z, r; T_scale="virial", sim_type="combination", showT=true)
+
+Calculates the integrated relativistic compton-y signal along the line of sight.
+"""
+function rSZ_perturbative(model, r, z, M_200; T_scale="virial", sim_type="combination", showT=true)
+
     #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
     X = model.X
     if T_scale=="virial"
@@ -94,6 +102,11 @@ function rSZ(model, M_200, z, r; T_scale="virial", sim_type="combination", showT
     end
 end
 
+function (model::RSZPerturbativeProfile)(r, z, M; 
+        T_scale="virial", sim_type="combination", showT=true)
+    return rSZ_perturbative(model, r, z, M, T_scale=T_scale, sim_type=sim_type, showT=showT)
+end
+
 function calc_null(model, M_200, z)
     T_e = T_vir_calc(model, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
@@ -103,41 +116,9 @@ function calc_null(model, M_200, z)
 end
 
 
-function profile_grid_rsz(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
-              logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
-
-    logθs = LinRange(logθ_min, logθ_max, N_logθ)
-    redshifts = LinRange(z_min, z_max, N_z)
-    logMs = LinRange(logM_min, logM_max, N_logM)
-
-    return profile_grid_rsz(model, logθs, redshifts, logMs)
-end
-
-
-function profile_grid_rsz(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
-
-    N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
-    A = zeros(T, (N_logθ, N_z, N_logM))
-
-    Threads.@threads for im in 1:N_logM
-        logM = logMs[im]
-        M = 10^(logM) * M_sun
-        for (iz, z) in enumerate(redshifts)
-            for iθ in 1:N_logθ
-                θ = exp(logθs[iθ])
-                rsz = rSZ(model, M, z, θ)
-                A[iθ, iz, im] = max(zero(T), rsz)
-            end
-        end
-    end
-
-    return logθs, redshifts, logMs, A
-end
-
-
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        model::Battaglia16RSZPerturbativeProfile,
-                        α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
+                        model::RSZPerturbativeProfile,
+                        workspace::CarClenshawCurtisProfileWorkspace, α₀, δ₀, 
                         z, Mh, θmax) where T
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -162,9 +143,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
-            x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
-            y₁ = psa.cos_δ[i,j] * psa.sin_α[i,j]
-            z₁ = psa.sin_δ[i,j]
+            x₁ = workspace.cos_δ[i,j] * workspace.cos_α[i,j]
+            y₁ = workspace.cos_δ[i,j] * workspace.sin_α[i,j]
+            z₁ = workspace.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
@@ -175,7 +156,7 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, model,
-            α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
+            w::HealpixProfileWorkspace, α₀, δ₀, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)

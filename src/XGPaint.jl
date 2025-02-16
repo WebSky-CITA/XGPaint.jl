@@ -28,10 +28,10 @@ const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 include("./util.jl")
 include("./model.jl")
 include("./profiles.jl")
+include("./profiles_tau.jl")
 include("./profiles_rsz.jl")
-include("./profiles_ksz.jl")
 include("./profiles_szp.jl")
-include("./tau.jl")
+include("./profiles_rksz.jl")
 include("./cib.jl")
 include("./co_broadband.jl")
 include("./lrg.jl")
@@ -40,7 +40,7 @@ include("./radio.jl")
 export get_cosmology, read_halo_catalog_hdf5, sort_halo_catalog
 export Radio_Sehgal2009, CIB_Planck2013, CIB_Scarfy, CO_CROWNED, LRG_Yuan23
 export paint!, generate_sources, process_sources, profile_grid, profile_paint!, profileworkspace, paint_szp!, profile_grid_szp, profile_paint_szp!, paint_rsz!, profile_grid_rsz, profile_paint_rsz!
-export build_interpolator, Battaglia16ThermalSZProfile, Battaglia16RSZPerturbativeProfile, build_interpolator_szp, build_interpolator_rsz
-export Battaglia16SZPackProfile, nu_to_X, X_to_nu, BattagliaTauProfile
+export build_interpolator, Battaglia16ThermalSZProfile, RSZPerturbativeProfile, build_interpolator_szp, build_interpolator_rsz
+export SZPackRSZProfile, nu_to_X, X_to_nu, BattagliaTauProfile
 
 end # module
