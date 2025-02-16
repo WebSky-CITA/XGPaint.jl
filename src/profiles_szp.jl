@@ -19,19 +19,19 @@ struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
     cosmo::C
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
     𝕡_tsz::TSZ
-    tsz_interp::ITP1
+    y_interp::ITP1
     szpack_interp::ITP2
     τ::T
 end
 
-function Battaglia16SZPackProfile(𝕡_tsz, tsz_interp, x::T, τ=0.01; Omega_c=0.2589, 
+function Battaglia16SZPackProfile(𝕡_tsz, y_interp, x::T, τ=0.01; Omega_c=0.2589, 
         Omega_b=0.0486, h=0.6774, table_filename=rsz_szpack_table_filename()) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
     szpack_interp = read_szpack_table(table_filename)
-    return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, tsz_interp, szpack_interp, τ)
+    return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, y_interp, szpack_interp, τ)
 end
 
 function SZpack(𝕡, M_200, z, r; τ=0.01, showT=true)
@@ -128,7 +128,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
-            y = exp(p.tsz_interp(log(θ), z, logMh))
+            y = exp(p.y_interp(log(θ), z, logMh))
             m[i,j] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
         end
     end
@@ -156,7 +156,7 @@ function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackPro
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(w.θmin, θ)  # clamp to minimum θ
-        y = exp(p.tsz_interp(log(θ), z, logMh))
+        y = exp(p.y_interp(log(θ), z, logMh))
         m.pixels[ir] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
     end
 end
