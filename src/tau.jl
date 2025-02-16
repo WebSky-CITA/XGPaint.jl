@@ -8,6 +8,9 @@ struct BattagliaTauProfile{T,C,ANG} <: AbstractGNFW{T}
     cosmo::C
 end
 
+# check if the tau profile is in terms of angle or distance; usually should be in angle
+isangletypeparameter(::BattagliaTauProfile{T,C,true}) where {T,C} = true
+isangletypeparameter(::BattagliaTauProfile{T,C,false}) where {T,C} = false
 
 function BattagliaTauProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, angle=true) where {T <: Real}
     OmegaM=Omega_b+Omega_c
