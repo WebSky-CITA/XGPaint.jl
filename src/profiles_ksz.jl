@@ -26,10 +26,10 @@ end
 """
 Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
 """
-function SZpack_ksz(𝕡, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
+function SZpack_ksz(model, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
 
-    X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
+    X = model.X
+    T_e = T_vir_calc(model, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
 
     # use velocity magnitude to determine direction along line-of-sight
@@ -43,14 +43,14 @@ function SZpack_ksz(𝕡, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
     # need to take absolute value of v to make sure v is within bounds of interpolator
     
     # Term 1
-    dI_1 = uconvert(u"kg*s^-2",(𝕡.szpack_interp_ksz(t, vel, mu, nu) * u"MJy/sr" - 
-        𝕡.szpack_interp_T0(vel, mu, nu) * u"MJy/sr") / τ)
-    y = compton_y(𝕡.y_interp.model, M_200, z, r)
+    dI_1 = uconvert(u"kg*s^-2",(model.szpack_interp_ksz(t, vel, mu, nu) * u"MJy/sr" - 
+        model.szpack_interp_T0(vel, mu, nu) * u"MJy/sr") / τ)
+    y = compton_y(model.y_interp.model, M_200, z, r)
     I_1 = uconvert(u"kg*s^-2",y * (dI_1/(θ_e)))
     
     # Term 2
-    dI_2 = uconvert(u"kg*s^-2", (𝕡.szpack_interp_T0(vel, mu, nu) * u"MJy/sr")/τ)
-    tau = XGPaint.tau(𝕡.tau_interp.model, r, M_200, z)
+    dI_2 = uconvert(u"kg*s^-2", (model.szpack_interp_T0(vel, mu, nu) * u"MJy/sr")/τ)
+    tau = XGPaint.tau(model.tau_interp.model, r, M_200, z)
     I_2 = uconvert(u"kg*s^-2", dI_2 * tau)
     
     I = I_1 + I_2
@@ -65,7 +65,7 @@ function SZpack_ksz(𝕡, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
 end
 
 
-function non_rel_ksz(𝕡, M_200, z, r, vel; mu = 1.0)
+function non_rel_ksz(model, M_200, z, r, vel; mu = 1.0)
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
     """
@@ -76,7 +76,7 @@ function non_rel_ksz(𝕡, M_200, z, r, vel; mu = 1.0)
     end
     
     vel = abs(ustrip(vel/uconvert(u"km/s",constants.c_0)))
-    tau = XGPaint.tau(𝕡, r, M_200, z) #0.01 #XGPaint.tau_ksz(𝕡, M_200, z, r)
+    tau = XGPaint.tau(model, r, M_200, z) #0.01 #XGPaint.tau_ksz(model, M_200, z, r)
 
     # NON REL kSZ = tau * v/c (i.e. vel)
     T = tau*vel*mu
