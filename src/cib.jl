@@ -129,7 +129,7 @@ function build_shang_interpolator(
         return dns_dm
     end
 
-    for i in 1:size(x_m,1)
+    for i in eachindex(x_m)
         N_sat_i[i], err = quadgk( t->integrand_m(t, x_m[i]),
                 log(model.shang_Msmin), x_m[i], rtol=1e-8)
         N_sat_i[i] = convert(T, max(0.0, N_sat_i[i]))

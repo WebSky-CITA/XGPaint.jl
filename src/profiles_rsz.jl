@@ -1,34 +1,16 @@
 
-struct Battaglia16RelativisticSZProfile{T,C} <: AbstractGNFW{T}
+struct Battaglia16RSZPerturbativeProfile{T,C} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
 end
 
-function Battaglia16RelativisticSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
+function Battaglia16RSZPerturbativeProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
-    return Battaglia16RelativisticSZProfile(f_b, cosmo, X)
-end
-
-function dimensionless_P_profile_los_rsz(model::Battaglia16RelativisticSZProfile{T}, M_200, z, r) where T
-    par = get_params(model, M_200, z)
-    R_200 = R_Δ(model, M_200, z, 200)
-    x = r / angular_size(model, R_200, z)
-    return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
-end
-
-"""Line-of-sight integrated electron pressure"""
-P_e_los_rsz(model, M_200, z, r) = 0.5176 * P_th_los_rsz(model, M_200, z, r)
-
-"""Line-of-sight integrated thermal pressure"""
-P_th_los_rsz(model, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(model, z) * 
-    model.f_b / 2 * dimensionless_P_profile_los_rsz(model, M_200, z, r)
-
-function compton_y_rsz(model, M_200, z, r)
-    return P_e_los_rsz(model, M_200, z, r) * P_e_factor
+    return Battaglia16RSZPerturbativeProfile(f_b, cosmo, X)
 end
 
 
@@ -100,7 +82,7 @@ function rSZ(model, M_200, z, r; T_scale="virial", sim_type="combination", showT
         (465992/105)*Xt - (11792/7)*Xt^2 + (19778/105)*Xt^3) + St^8*((-628/7) + (7601/210)*Xt)
 
     prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
-    y = compton_y_rsz(model, M_200, z, r)
+    y = compton_y(model, r, z, M_200)
     n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
     I = (X^3/(ℯ^X-1)) * (2*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
@@ -153,8 +135,8 @@ function profile_grid_rsz(model::AbstractGNFW{T}, logθs, redshifts, logMs) wher
 end
 
 
-
-function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, model,
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
+                        model::Battaglia16RSZPerturbativeProfile,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
                         z, Mh, θmax) where T
     # get indices of the region to work on
@@ -192,7 +174,7 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, mod
 end
 
 
-function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, model,
+function profile_paint!(m::HealpixMap{T, RingOrder}, model,
             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
@@ -214,42 +196,5 @@ function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, model,
         θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, sign * model(θ, z, Mh), zero(T))
-    end
-end
-
-
-# for rectangular pixelizations
-
-# multi-halo painting utilities
-function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, 
-                masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
-    for i in irange
-        α₀ = αs[i]
-        δ₀ = δs[i]
-        mh = masses[i]
-        z = redshifts[i]
-        θmax_ = compute_θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_rsz!(m, p, α₀, δ₀, psa, z, mh, θmax_)
-    end
-end
-
-function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, masses::AV, 
-                        redshifts::AV, αs::AV, δs::AV)  where AV
-    fill!(m, 0)
-    
-    N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize);
-    
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i
-        i1, i2 = chunks[chunk_i]
-        paint_rsz!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
-    end
-
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
-        i1, i2 = chunks[chunk_i]
-        paint_rsz!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
     end
 end
