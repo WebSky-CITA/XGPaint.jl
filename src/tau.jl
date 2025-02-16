@@ -120,7 +120,6 @@ function paint!(m, p::BattagliaTauProfile, workspace, sitp,
 end
 
 
-
 function paint!(m::HealpixMap{T, RingOrder}, p::BattagliaTauProfile, ws::Vector{W}, interp, masses::AV, 
                     redshifts::AV, αs::AV, δs::AV, vs::AV) where {T, W <: HealpixProfileWorkspace, AV}
     m .= 0.0
@@ -151,7 +150,7 @@ function paint!(m, p::BattagliaTauProfile, workspace, sitp, masses::AV,
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, 1:N_sources)
+        return paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, vs, 1:N_sources)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()

@@ -14,34 +14,37 @@ function Battaglia16KinematicSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h
 end
 
 
-struct RKSZpackProfile{T,C,P1,P2,ITP1,ITP2,ITP3} <: AbstractGNFW{T}
+struct RKSZpackProfile{T,C,P1,P2,I1,I2,I3,I4} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T
     p_y::P1
     p_tau::P2
-    tsz_interp::ITP1
-    szpack_interp_ksz::ITP2
-    szpack_interp_T0::ITP3
+    y_interp::I1
+    tau_interp::I2
+    szpack_interp_ksz::I3
+    szpack_interp_T0::I4
 end
 
 
-function RKSZpackProfile(model_y::P1, model_tau::P2, tsz_interp::ITP1, szpack_interp_ksz::ITP2, szpack_interp_T0::ITP3; 
-        Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, angle=true, x::T=2.6408) where {T <: Real, P1, P2, ITP1, ITP2, ITP3}
+function RKSZpackProfile(model_y::P1, model_tau::P2, y_interp, tau_interp, 
+        szpack_interp_ksz, szpack_interp_T0; Omega_c::T=0.2589, Omega_b::T=0.0486, 
+        h::T=0.6774, x::T=2.6408) where {T<:Real, P1, P2}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
     @assert isangletypeparameter(model_tau)
-    return RKSZpackProfile(f_b, cosmo, x, model_y, model_tau, tsz_interp, szpack_interp_ksz, szpack_interp_T0)
+    return RKSZpackProfile(f_b, cosmo, x, model_y, model_tau, y_interp, tau_interp, 
+        szpack_interp_ksz, szpack_interp_T0)
 end
 
 
 
-#function SZpack_ksz(𝕡, M_200, z, r; vel=3e3, τ=0.01, mu = 1.0, showT=true)
+"""
+Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
+"""
 function SZpack_ksz(𝕡, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
-    """
-    Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
-    """
+
     X = 𝕡.X
     T_e = T_vir_calc(𝕡, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
@@ -114,6 +117,8 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p::RKSZ
     y₀ = cos(δ₀) * sin(α₀) 
     z₀ = sin(δ₀)
 
+    
+
     @inbounds for j in j_start:j_stop
         for i in i_start:i_stop
             x₁ = psa.cos_δ[i,j] * psa.cos_α[i,j]
@@ -121,10 +126,15 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p::RKSZ
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(1 - d² / 2)
+
+
+            d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+            θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
+            y = exp(p.y_interp(log(θ), z, log10(Ms)))
+
             m[i,j] += ifelse(θ < θmax, 
-                                 #sign * exp(sitp(log(θ), z, log10(Ms))),
-                                 exp(sitp(log(θ), z, log10(Ms), vel)),
-                                   zero(T))
+                             ,
+                             zero(T))
         end
     end
 end
