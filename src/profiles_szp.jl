@@ -61,7 +61,8 @@ function SZpack(model_szp, θ, z, M_200; τ=0.01, showT=true)
     end
 end
 
-(model_szp::SZPackRSZProfile)(θ, z, M) = SZpack(model_szp, θ, z, M)
+(model_szp::SZPackRSZProfile)(θ, z, M; τ=0.01, showT=true) = SZpack(
+    model_szp, θ, z, M, τ=τ, showT=showT)
 
 
 function I_to_T_mult_factor(X)
@@ -70,68 +71,28 @@ function I_to_T_mult_factor(X)
 end
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        model::SZPackRSZProfile, 
-                        workspace::CarClenshawCurtisProfileWorkspace, α₀, δ₀, 
-                        z, Mh, θmax) where T
-    # get indices of the region to work on
-    i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
-    i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
-    i_start = floor(Int, max(min(i1, i2), 1))
-    i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
-    j_start = floor(Int, max(min(j1, j2), 1))
-    j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
-    θmin = compute_θmin(model)
-
-    # needs mass in M_200
+                        workspace::CarClenshawCurtisProfileWorkspace, 
+                        model::SZPackRSZProfile, α₀, δ₀, z, Mh, θmax) where T
     X = model.X
+    nu = log(ustrip(X_to_nu(X)))
     T_e = T_vir_calc(p, Mh * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
-    nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    dI = model.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I_over_y = (dI/(model.τ * θ_e))
-    
-    x₀ = cos(δ₀) * cos(α₀)
-    y₀ = cos(δ₀) * sin(α₀) 
-    z₀ = sin(δ₀)
-
-    @inbounds for j in j_start:j_stop
-        for i in i_start:i_stop
-            x₁ = workspace.cos_δ[i,j] * workspace.cos_α[i,j]
-            y₁ = workspace.cos_δ[i,j] * workspace.sin_α[i,j]
-            z₁ = workspace.sin_δ[i,j]
-            d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-            θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
-            θ = max(θmin, θ)  # clamp to minimum θ
-            y = model_szp.model_y_interp(θ, z, Mh)
-            m[i,j] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
-        end
-    end
+    dI = model.szpack_interp(t, nu) * u"MJy/sr"
+    rsz_factor_I_over_y = dI / (model.τ * θ_e)
+    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, rsz_factor_I_over_y)
 end
 
-
-function profile_paint!(m::HealpixMap{T, RingOrder}, model_szp::SZPackRSZProfile, 
-            w::HealpixProfileWorkspace, α₀, δ₀, z, Mh, θmax) where T
-    ϕ₀ = α₀
-    θ₀ = T(π)/2 - δ₀
-    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    θmin = max(compute_θmin(model), w.θmin)
-
+# like the usual paint, but use the sign of the null as the sign of the perturbation
+function profile_paint!(m::HealpixMap{T, RingOrder}, 
+        workspace::HealpixProfileWorkspace, model, α₀, δ₀, z, Mh, θmax) where T
     X = model.X
+    nu = log(ustrip(X_to_nu(X)))
     T_e = T_vir_calc(p, Mh * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     dI = model.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I_over_y = (dI/(model.τ * θ_e))
-        
-    for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap.pixels[ir]
-        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
-        θ = max(θmin, θ)  # clamp to minimum θ
-        y = model_szp.model_y_interp(θ, z, Mh)
-        m.pixels[ir] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
-    end
+    rsz_factor_I_over_y = dI / (model.τ * θ_e)
+    profile_paint_generic!(m, workspace, model, α₀, δ₀, z, Mh, θmax, rsz_factor_I_over_y)
 end
