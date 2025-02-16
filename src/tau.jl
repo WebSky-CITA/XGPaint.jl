@@ -54,7 +54,7 @@ end
 
 
 # returns a density, which we can check against Msun/Mpc² 
-function rho_2d(p::BattagliaTauProfile, r, m200c, z)
+function rho_2d(p::BattagliaTauProfile, r, z, m200c)
     par = get_params(p, m200c, z)
     r200c = R_Δ(p, m200c, z, 200)
     X = r / object_size(p, r200c, z)  # either ang/ang or phys/phys
@@ -64,7 +64,7 @@ function rho_2d(p::BattagliaTauProfile, r, m200c, z)
     return result * rho_crit * (r200c * (1+z))
 end
 
-function ne2d(model::BattagliaTauProfile, r, m200c, z)
+function ne2d(model::BattagliaTauProfile, r, z, m200c)
     me = constants.ElectronMass
     mH = constants.ProtonMass
     mHe = 4mH
@@ -72,100 +72,16 @@ function ne2d(model::BattagliaTauProfile, r, m200c, z)
     nH_ne = 2xH / (xH + 1)
     nHe_ne = (1 - xH)/(2 * (1 + xH))
     factor = (me + nH_ne*mH + nHe_ne*mHe) / model.cosmo.h^2
-
-    result = rho_2d(p, r, m200c, z)  # (Msun/h) / (Mpc/h)^2
+    result = rho_2d(model, r, z, m200c)  # (Msun/h) / (Mpc/h)^2
     return result / factor
 end
 
 # r is either a physical or angular radius. unitful does not do little h, so physical radius 
 # is always in Mpc, and angular radius is always in radians.
-function tau(p, r, m200c, z)
-    return constants.ThomsonCrossSection * ne2d(p, r, m200c, z) 
+function tau(model, r, z, m200c)
+    return constants.ThomsonCrossSection * ne2d(model, r, z, m200c) 
 end
 
-function (::BattagliaTauProfile)(model::BattagliaTauProfile, r, m200c, z)
-    return tau(model, r, m200c, z)
-end
-
-function profile_grid(model::BattagliaTauProfile{T,C,true}, logθs, redshifts, logMs) where {T,C}
-
-    N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
-    A = zeros(T, (N_logθ, N_z, N_logM))
-
-    Threads.@threads :static for im in 1:N_logM
-        logM = logMs[im]
-        M = 10^(logM) * M_sun
-        for (iz, z) in enumerate(redshifts)
-            for iθ in 1:N_logθ
-                θ = exp(logθs[iθ])
-                τ = tau(model, θ, M, z)
-                A[iθ, iz, im] = max(zero(T), τ)
-            end
-        end
-    end
-
-    return logθs, redshifts, logMs, A
-end
-
-# multi-halo painting utilities
-function paint!(m, model::BattagliaTauProfile, workspace, 
-                masses::AV, redshifts::AV, αs::AV, δs::AV, velocities::AV,
-                irange::AbstractUnitRange) where AV
-    for i in irange
-        α₀ = αs[i]
-        δ₀ = δs[i]
-        mh = masses[i]
-        z = redshifts[i]
-        v = velocities[i]
-
-        θmax_ = compute_θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint!(m, α₀, δ₀, workspace, model, z, mh, θmax_, v)
-    end
-end
-
-
-function paint!(m::HealpixMap{T, RingOrder}, p::BattagliaTauProfile, ws::Vector{W}, interp, masses::AV, 
-                    redshifts::AV, αs::AV, δs::AV, vs::AV) where {T, W <: HealpixProfileWorkspace, AV}
-    m .= 0.0
-
-    N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize);
-
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i
-        i1, i2 = chunks[chunk_i]
-        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, vs, i1:i2)
-    end
-
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
-        i1, i2 = chunks[chunk_i]
-        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, vs, i1:i2)
-    end
-end
-
-function paint!(m, model::BattagliaTauProfile, workspace, masses::AV, 
-                        redshifts::AV, αs::AV, δs::AV, vs::AV)  where AV
-    fill!(m, 0)
-    
-    N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize);
-
-    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, model, workspace, masses, redshifts, αs, δs, vs, 1:N_sources)
-    end
-    
-    Threads.@threads :static for i in 1:Threads.nthreads()
-        chunk_i = 2i
-        i1, i2 = chunks[chunk_i]
-        paint!(m, model, workspace, masses, redshifts, αs, δs, vs, i1:i2)
-    end
-
-    Threads.@threads :static for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
-        i1, i2 = chunks[chunk_i]
-        paint!(m, model, workspace, masses, redshifts, αs, δs, vs, i1:i2)
-    end
+function (::BattagliaTauProfile)(model::BattagliaTauProfile, r, z, m200c)
+    return tau(model, r, z, m200c)
 end

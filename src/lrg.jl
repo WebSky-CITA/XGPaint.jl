@@ -79,14 +79,14 @@ function build_zhengcen_interpolator(
     N_cen_i = zeros(T,n_bin,length(model.yuan_ic))
     l10Mcut = log10.(model.zheng_Mcut)
 
-    for i in 1:size(N_cen_i,1)
-        for ii in 1:size(N_cen_i,2)
+    for i in axes(N_cen_i,1)
+        for ii in axes(N_cen_i,2)
             N_cen_i[i,ii] = model.yuan_ic[ii]/T(2)*SpecialFunctions.erfc((l10Mcut[ii]-x_m[i]/2.30258509)/(T(1.41421356)*model.zheng_sigma[ii]))
             N_cen_i[i,ii] = convert(T, max(0.0, N_cen_i[i,ii]))
         end
     end
 
-    return [LinearInterpolation(x_m, N_cen_i[:,ii]) for ii in 1:size(N_cen_i,2)]
+    return [LinearInterpolation(x_m, N_cen_i[:,ii]) for ii in axes(N_cen_i,2)]
 end
 
 """
@@ -99,14 +99,14 @@ function build_zhengsat_interpolator(
     x_m = LinRange(min_log_M, max_log_M, n_bin)
     N_sat_i = zeros(T,n_bin,length(model.yuan_ic))
 
-    for i in 1:size(N_sat_i,1)
-        for ii in 1:size(N_sat_i,2)
+    for i in axes(N_sat_i,1)
+        for ii in axes(N_sat_i,2)
             N_sat_i[i,ii] = max(T(0),(exp(x_m[i])-model.zheng_kappa[ii]*model.zheng_Mcut[ii])/model.zheng_M1[ii])^model.zheng_alpha[ii]
             N_sat_i[i,ii] = convert(T, max(0.0, N_sat_i[i,ii]))
         end
     end
 
-    return [LinearInterpolation(x_m, N_sat_i[:,ii]) for ii in 1:size(N_sat_i,2)]
+    return [LinearInterpolation(x_m, N_sat_i[:,ii]) for ii in axes(N_sat_i,2)]
 end
 
 """
@@ -127,7 +127,7 @@ function build_jiang_interpolator(
         return dns_dm
     end
 
-    for i in 1:size(x_m,1)
+    for i in eachindex(x_m)
         N_sh_i[i], err = quadgk( t->integrand_m(t, x_m[i]),
                 log(model.shang_Msmin), x_m[i], rtol=1e-8)
         N_sh_i[i] = convert(T, max(0.0, N_sh_i[i]))

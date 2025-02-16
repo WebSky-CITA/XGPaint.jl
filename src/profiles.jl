@@ -114,36 +114,37 @@ function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), or
     return 2integral / scale
 end
 
-function dimensionless_P_profile_los(model::Battaglia16ThermalSZProfile{T}, M_200, z, r) where T
+function dimensionless_P_profile_los(model::Battaglia16ThermalSZProfile{T}, r, z, M_200) where T
     par = get_params(model, M_200, z)
     R_200 = R_Δ(model, M_200, z, 200)
     x = r / angular_size(model, R_200, z)
     return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
 end
 
-function dimensionless_P_profile_los(model::BreakModel{T}, M_200, z, r) where T
+function dimensionless_P_profile_los(model::BreakModel{T}, r, z, M_200) where T
     par = get_params(model, M_200, z)
     R_200 = R_Δ(model, M_200, z, 200)
     x = r / angular_size(model, R_200, z)
     if M_200 < model.M_break * M_sun
-        return par.P₀ * (M_200/(model.M_break*M_sun))^model.alpha_break * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+        return (par.P₀ * (M_200/(model.M_break*M_sun))^model.alpha_break * 
+            _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ))
     else
         return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
     end
 end
 
 """Line-of-sight integrated electron pressure"""
-P_e_los(model, M_200, z, r) = 0.5176 * P_th_los(model, M_200, z, r)
+P_e_los(model, r, z, M_200c) = 0.5176 * P_th_los(model, r, z, M_200c)
 
 """Line-of-sight integrated thermal pressure"""
-P_th_los(model, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(model, z) * 
-    model.f_b / 2 * dimensionless_P_profile_los(model, M_200, z, r)
+P_th_los(model, r, z, M_200c) = constants.G * M_200c * 200 * ρ_crit(model, z) * 
+    model.f_b / 2 * dimensionless_P_profile_los(model, r, z, M_200c)
 
-function compton_y(model, M_200, z, r)
-    return P_e_los(model, M_200, z, r) * P_e_factor
+function compton_y(model, r, z, M_200c)
+    return P_e_los(model, r, z, M_200c) * P_e_factor
 end
 
-(model::Battaglia16ThermalSZProfile)(r, M_200, z) = compton_y(model, M_200, z, r)
+(model::Battaglia16ThermalSZProfile)(r, z, M_200c) = compton_y(model, r, z, M_200c)
 
 function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
         z_max=5.0, logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
@@ -184,14 +185,6 @@ end
 compute_θmin(model::AbstractLogInterpolatorProfile) = exp(first(first(model.ranges)))
 compute_θmin(::AbstractProfile{T}) where T = eps(T) 
 
-# DEBUGGING ONLY: VERY APPROXIMATE
-function websky_m200m_to_m200c(m200m, z, cosmo)
-    Ω_m = cosmo.Ω_m
-    omz = Ω_m * (1+z)^3 / ( Ω_m * (1+z)^3 + 1 - Ω_m )
-    m200c = omz^0.35 * m200m
-
-    return m200c
-end
 
 # find maximum radius to integrate to
 function build_max_paint_logradius(logθs, redshifts, logMs, 
@@ -289,9 +282,9 @@ function build_interpolator(model::AbstractProfile; cache_file::String="",
 end
 
 
-function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        α₀, δ₀, workspace::CarClenshawCurtisProfileWorkspace, 
-                        model, z, Mh, θmax, mult_factor=1) where T
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, model,
+                        workspace::CarClenshawCurtisProfileWorkspace, α₀, δ₀, 
+                        z, Mh, θmax, mult_factor=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -322,8 +315,8 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 end
 
 
-function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, workspace::GnomonicProfileWorkspace, model, z, Ms, θmax, mult_factor=1) where T
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, model,
+            workspace::GnomonicProfileWorkspace, α₀, δ₀, z, Mh, θmax, mult_factor=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -354,8 +347,8 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
 end
 
 
-function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, w::HealpixProfileWorkspace, model, z, Mh, θmax, mult_factor=1) where T
+function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, model, 
+            α₀, δ₀, z, Mh, θmax, mult_factor=1) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
@@ -364,7 +357,7 @@ function profile_paint!(m::HealpixMap{T, RingOrder},
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
+        θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
                                     mult_factor * model(θ, z, Mh),
@@ -376,23 +369,23 @@ end
 # for rectangular pixelizations
 
 # multi-halo painting utilities
-function paint!(m, model, workspace, 
-                masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
+function paint!(m, model, workspace, αs::AV, δs::AV, 
+                masses::AV, redshifts::AV, irange::AbstractUnitRange) where AV
     for i in irange
         α₀ = αs[i]
         δ₀ = δs[i]
-        mh = masses[i]
+        Mh = masses[i]
         z = redshifts[i]
-        θmax_ = compute_θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint!(m, α₀, δ₀, workspace, model, z, mh, θmax_)
+        θmax_ = compute_θmax(model, Mh * XGPaint.M_sun, z)
+        profile_paint!(m, model, workspace, α₀, δ₀, z, Mh, θmax_)
     end
 end
 
 
-function paint!(m::HealpixMap{T, RingOrder}, p::XGPaint.AbstractProfile, ws::Vector{W}, interp, masses::AV, 
-                    redshifts::AV, αs::AV, δs::AV) where {T, W <: HealpixProfileWorkspace, AV}
-    m .= 0.0
-
+function paint!(m::HealpixMap{T, RingOrder}, model::AbstractProfile, ws::Vector{W}, 
+        αs::AV, δs::AV, masses::AV, redshifts::AV) where {T, W <: HealpixProfileWorkspace, AV}
+    
+    fill(m, zero(T))
     N_sources = length(masses)
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
     chunks = chunk(N_sources, chunksize);
@@ -400,18 +393,18 @@ function paint!(m::HealpixMap{T, RingOrder}, p::XGPaint.AbstractProfile, ws::Vec
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, model, ws[i], αs, δs, redshifts, masses, i1:i2)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, ws[i], interp, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, model, ws[i], αs, δs, redshifts, masses, i1:i2)
     end
 end
 
-function paint!(m, p::XGPaint.AbstractProfile, workspace, model, masses::AV, 
-                        redshifts::AV, αs::AV, δs::AV)  where AV
+function paint!(m, model::XGPaint.AbstractProfile, workspace, 
+                αs::AV, δs::AV, redshifts::AV, masses::AV)  where AV
     fill!(m, 0)
     
     N_sources = length(masses)
@@ -419,18 +412,18 @@ function paint!(m, p::XGPaint.AbstractProfile, workspace, model, masses::AV,
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, model, workspace, masses, redshifts, αs, δs, 1:N_sources)
+        return paint!(m, model, workspace, αs, δs, redshifts, masses, 1:N_sources)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, model, workspace, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, model, workspace, αs, δs, redshifts, masses, i1:i2)
     end
 
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, model, workspace, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, model, workspace, αs, δs, redshifts, masses, i1:i2)
     end
 end
