@@ -15,7 +15,7 @@ end
 
 nu_to_X(nu) = (constants.h*nu)/(constants.k_B*T_cmb)
 
-struct Battaglia16SZPackProfile{T,C,I1,I2} <: AbstractGNFW{T}
+struct SZPackRSZProfile{T,C,I1,I2} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
@@ -24,14 +24,14 @@ struct Battaglia16SZPackProfile{T,C,I1,I2} <: AbstractGNFW{T}
     τ::T
 end
 
-function Battaglia16SZPackProfile(model_y_interp, x::T, τ=0.01; Omega_c=0.2589, 
+function SZPackRSZProfile(model_y_interp, x::T, τ=0.01; Omega_c=0.2589, 
         Omega_b=0.0486, h=0.6774, table_filename=rsz_szpack_table_filename()) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
     szpack_interp = read_szpack_table(table_filename)
-    return Battaglia16SZPackProfile(f_b, cosmo, X, model_y_interp, szpack_interp, τ)
+    return SZPackRSZProfile(f_b, cosmo, X, model_y_interp, szpack_interp, τ)
 end
 
 """
@@ -61,7 +61,7 @@ function SZpack(model_szp, θ, z, M_200; τ=0.01, showT=true)
     end
 end
 
-(model_szp::Battaglia16SZPackProfile)(θ, z, M) = SZpack(model_szp, θ, z, M)
+(model_szp::SZPackRSZProfile)(θ, z, M) = SZpack(model_szp, θ, z, M)
 
 
 function I_to_T_mult_factor(X)
@@ -70,7 +70,7 @@ function I_to_T_mult_factor(X)
 end
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        model::Battaglia16SZPackProfile, 
+                        model::SZPackRSZProfile, 
                         workspace::CarClenshawCurtisProfileWorkspace, α₀, δ₀, 
                         z, Mh, θmax) where T
     # get indices of the region to work on
@@ -110,7 +110,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 end
 
 
-function profile_paint!(m::HealpixMap{T, RingOrder}, model_szp::Battaglia16SZPackProfile, 
+function profile_paint!(m::HealpixMap{T, RingOrder}, model_szp::SZPackRSZProfile, 
             w::HealpixProfileWorkspace, α₀, δ₀, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
