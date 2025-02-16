@@ -31,7 +31,6 @@ function profileworkspace(shape, wcs::Gnomonic)
 end
 
 
-
 abstract type AbstractProfile{T} end
 abstract type AbstractGNFW{T} <: AbstractProfile{T} end
 
@@ -65,17 +64,17 @@ end
 const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
 
 
-function ρ_crit(𝕡, z)
-    H_z = H(𝕡.cosmo, z)
+function ρ_crit(model, z)
+    H_z = H(model.cosmo, z)
     return uconvert(u"kg/m^3", 3H_z^2 / (8π * constants.G))
 end
 
-function R_Δ(𝕡, M_Δ, z, Δ=200)
-    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(𝕡, z)))
+function R_Δ(model, M_Δ, z, Δ=200)
+    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(model, z)))
 end
 
-function angular_size(𝕡::AbstractProfile{T}, physical_size, z) where T
-    d_A = angular_diameter_dist(𝕡.cosmo, z)
+function angular_size(model::AbstractProfile{T}, physical_size, z) where T
+    d_A = angular_diameter_dist(model.cosmo, z)
 
     # convert both to the same units and strip units for atan
     phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
@@ -115,48 +114,47 @@ function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), or
     return 2integral / scale
 end
 
-function dimensionless_P_profile_los(𝕡::Battaglia16ThermalSZProfile{T}, M_200, z, r) where T
-    par = get_params(𝕡, M_200, z)
-    R_200 = R_Δ(𝕡, M_200, z, 200)
-    x = r / angular_size(𝕡, R_200, z)
+function dimensionless_P_profile_los(model::Battaglia16ThermalSZProfile{T}, M_200, z, r) where T
+    par = get_params(model, M_200, z)
+    R_200 = R_Δ(model, M_200, z, 200)
+    x = r / angular_size(model, R_200, z)
     return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
 end
 
-function dimensionless_P_profile_los(𝕡::BreakModel{T}, M_200, z, r) where T
-    par = get_params(𝕡, M_200, z)
-    R_200 = R_Δ(𝕡, M_200, z, 200)
-    x = r / angular_size(𝕡, R_200, z)
-    if M_200 < 𝕡.M_break * M_sun
-        return par.P₀ * (M_200/(𝕡.M_break*M_sun))^𝕡.alpha_break * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
+function dimensionless_P_profile_los(model::BreakModel{T}, M_200, z, r) where T
+    par = get_params(model, M_200, z)
+    R_200 = R_Δ(model, M_200, z, 200)
+    x = r / angular_size(model, R_200, z)
+    if M_200 < model.M_break * M_sun
+        return par.P₀ * (M_200/(model.M_break*M_sun))^model.alpha_break * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
     else
         return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
     end
 end
 
 """Line-of-sight integrated electron pressure"""
-P_e_los(𝕡, M_200, z, r) = 0.5176 * P_th_los(𝕡, M_200, z, r)
+P_e_los(model, M_200, z, r) = 0.5176 * P_th_los(model, M_200, z, r)
 
 """Line-of-sight integrated thermal pressure"""
-P_th_los(𝕡, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(𝕡, z) * 
-    𝕡.f_b / 2 * dimensionless_P_profile_los(𝕡, M_200, z, r)
+P_th_los(model, M_200, z, r) = constants.G * M_200 * 200 * ρ_crit(model, z) * 
+    model.f_b / 2 * dimensionless_P_profile_los(model, M_200, z, r)
 
-function compton_y(𝕡, M_200, z, r)
-    return P_e_los(𝕡, M_200, z, r) * P_e_factor
+function compton_y(model, M_200, z, r)
+    return P_e_los(model, M_200, z, r) * P_e_factor
 end
 
-(𝕡::Battaglia16ThermalSZProfile)(r, M_200, z) = compton_y(𝕡, M_200, z, r)
+(model::Battaglia16ThermalSZProfile)(r, M_200, z) = compton_y(model, M_200, z, r)
 
-function profile_grid(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
-              logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
+function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
+        z_max=5.0, logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
     logθs = LinRange(logθ_min, logθ_max, N_logθ)
     redshifts = LinRange(z_min, z_max, N_z)
     logMs = LinRange(logM_min, logM_max, N_logM)
-
-    return profile_grid(𝕡, logθs, redshifts, logMs)
+    return profile_grid(model, logθs, redshifts, logMs)
 end
 
-function profile_grid(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
+function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
@@ -167,8 +165,7 @@ function profile_grid(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
         for (iz, z) in enumerate(redshifts)
             for iθ in 1:N_logθ
                 θ = exp(logθs[iθ])
-                y = compton_y(𝕡, M, z, θ)
-                A[iθ, iz, im] = max(zero(T), y)
+                A[iθ, iz, im] = max(zero(T), model(M, z, θ))
             end
         end
     end
@@ -178,13 +175,13 @@ end
 
 
 # get angular size in radians of radius to stop at
-function compute_θmax(𝕡::AbstractProfile{T}, M_Δ, z; mult=4) where T
-    r = R_Δ(𝕡, M_Δ, z)
-    return T(mult * angular_size(𝕡, r, z))
+function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
+    r = R_Δ(model, M_Δ, z)
+    return T(mult * angular_size(model, r, z))
 end
 
 # prevent infinities at cusp
-compute_θmin(𝕡::AbstractLogInterpolatorProfile) = exp(first(first(𝕡.ranges)))
+compute_θmin(model::AbstractLogInterpolatorProfile) = exp(first(first(model.ranges)))
 compute_θmin(::AbstractProfile{T}) where T = eps(T) 
 
 # DEBUGGING ONLY: VERY APPROXIMATE
@@ -240,17 +237,17 @@ abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
 """
     LogInterpolatorProfile{T, P, I1}
 
-A profile that interpolates over (θ, z, M_halo) but internally interpolates over 
-log(θ) and log10(M) using a given interpolator. Evaluation of this profile is then done by 
-exponentiating the result of the interpolator.
+A profile that interpolates over a positive-definite function (θ, z, M_halo), but internally
+interpolates over log(θ) and log10(M) using a given interpolator. Evaluation of this profile
+is then done by exponentiating the result of the interpolator.
 
 ```
     f(θ, z, M) = exp(itp(log(θ), z, log10(M)))
 ```
 
 This is useful for interpolating over a large range of scales and masses, where the profile
-is expected to be smooth in log-log space. It wraps the model that created the interpolator 
-and the interpolator object itself.
+is expected to be smooth in log-log space. It wraps the original model and also the 
+interpolator object itself.
 """
 struct LogInterpolatorProfile{T, P <: AbstractProfile{T}, I1} <: AbstractInterpolatorProfile{T}
     model::P

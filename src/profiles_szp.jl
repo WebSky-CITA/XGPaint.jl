@@ -18,35 +18,35 @@ struct Battaglia16SZPackProfile{T,C,TSZ, ITP1, ITP2} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
-    𝕡_tsz::TSZ
+    model_tsz::TSZ
     y_interp::ITP1
     szpack_interp::ITP2
     τ::T
 end
 
-function Battaglia16SZPackProfile(𝕡_tsz, y_interp, x::T, τ=0.01; Omega_c=0.2589, 
+function Battaglia16SZPackProfile(model_tsz, y_interp, x::T, τ=0.01; Omega_c=0.2589, 
         Omega_b=0.0486, h=0.6774, table_filename=rsz_szpack_table_filename()) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
     szpack_interp = read_szpack_table(table_filename)
-    return Battaglia16SZPackProfile(f_b, cosmo, X, 𝕡_tsz, y_interp, szpack_interp, τ)
+    return Battaglia16SZPackProfile(f_b, cosmo, X, model_tsz, y_interp, szpack_interp, τ)
 end
 
-function SZpack(𝕡, M_200, z, r; τ=0.01, showT=true)
+function SZpack(model, M_200, z, r; τ=0.01, showT=true)
     """
     Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
     """
-    X = 𝕡.X
-    T_e = T_vir_calc(𝕡, M_200, z)
+    X = model.X
+    T_e = T_vir_calc(model, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
 
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(X_to_nu(X)))
-    dI = uconvert(u"kg*s^-2",𝕡.szpack_interp(t, nu)*u"MJy/sr")
+    dI = uconvert(u"kg*s^-2",model.szpack_interp(t, nu)*u"MJy/sr")
     
-    y = XGPaint.compton_y(𝕡.𝕡_tsz, M_200, z, r)
+    y = XGPaint.compton_y(model.model_tsz, M_200, z, r)
     I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)))
     T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
@@ -58,18 +58,18 @@ function SZpack(𝕡, M_200, z, r; τ=0.01, showT=true)
 end
 
 
-function profile_grid_szp(𝕡::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
+function profile_grid_szp(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, z_max=5.0, 
               logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
     logθs = LinRange(logθ_min, logθ_max, N_logθ)
     redshifts = LinRange(z_min, z_max, N_z)
     logMs = LinRange(logM_min, logM_max, N_logM)
 
-    return profile_grid_szp(𝕡, logθs, redshifts, logMs)
+    return profile_grid_szp(model, logθs, redshifts, logMs)
 end
 
 
-function profile_grid_szp(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where T
+function profile_grid_szp(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
@@ -80,7 +80,7 @@ function profile_grid_szp(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where
         for (iz, z) in enumerate(redshifts)
             for iθ in 1:N_logθ
                 θ = exp(logθs[iθ])
-                szp = SZpack(𝕡, M, z, θ)
+                szp = SZpack(model, M, z, θ)
                 A[iθ, iz, im] = max(zero(T), szp)
             end
         end
@@ -109,13 +109,13 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     θmin = compute_θmin(model)
 
     # needs mass in M_200
-    X = p.X
+    X = model.X
     T_e = T_vir_calc(p, Mh * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     nu = log(ustrip(X_to_nu(X)))
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
-    dI = p.szpack_interp(t, nu)*u"MJy/sr"
-    rsz_factor_I_over_y = (dI/(p.τ * θ_e))
+    dI = model.szpack_interp(t, nu)*u"MJy/sr"
+    rsz_factor_I_over_y = (dI/(model.τ * θ_e))
     
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
