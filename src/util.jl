@@ -61,10 +61,10 @@ Reads in a standard Battaglia 2016 model from disk for tSZ.
 """
 function load_precomputed_battaglia()
     prof_y, prof_logθs, prof_redshift, prof_logMs = load_precomputed_battaglia_data()
-    sitp = scale(Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid())))), 
+    interp_model = scale(Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid())))), 
         prof_logθs, prof_redshift, prof_logMs);
     p = Battaglia16ThermalSZProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
-    return p, InterpolatorProfile(p, sitp)
+    return p, InterpolatorProfile(p, interp_model)
 end
 
 

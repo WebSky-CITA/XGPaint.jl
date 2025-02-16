@@ -238,7 +238,7 @@ end
 
 # forward the interpolator calls to the wrapped interpolator
 (ip::InterpolatorProfile)(x1, x2, x3) = ip.itp(x1, x2, x3)
-(ip::InterpolatorProfile)(x1, x2, x3, x4) = ip.itp(x1, x2, x3, x4)
+# (ip::InterpolatorProfile)(x1, x2, x3, x4) = ip.itp(x1, x2, x3, x4)
 
 Base.show(io::IO, ip::InterpolatorProfile{T,P,I1}) where {T,P,I1} = print(
     io, "InterpolatorProfile{$(T),\n  $(P),\n  ...} interpolating over size ", size(ip.itp))
@@ -267,14 +267,14 @@ function build_interpolator(model::AbstractGNFW; cache_file::String="",
     end
 
     itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
-    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs)
-    return InterpolatorProfile(model, sitp)
+    interp_model = scale(itp, prof_logθs, prof_redshift, prof_logMs)
+    return InterpolatorProfile(model, interp_model)
 end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         α₀, δ₀, workspace::CarClenshawCurtisProfileWorkspace, 
-                        sitp, z, Ms, θmax, mult_factor=1) where T
+                        interp_model, z, Ms, θmax, mult_factor=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -283,6 +283,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
+    θmin = exp(first(first(interp_model.itp.ranges)))
 
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -295,8 +296,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             z₁ = workspace.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
+            θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                             mult_factor * exp(sitp(log(θ), z, log10(Ms))),
+                             mult_factor * exp(interp_model(log(θ), z, log10(Ms))),
                              zero(T))
         end
     end
@@ -304,7 +306,7 @@ end
 
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-            α₀, δ₀, workspace::GnomonicProfileWorkspace, sitp, z, Ms, θmax, mult_factor=1) where T
+            α₀, δ₀, workspace::GnomonicProfileWorkspace, interp_model, z, Ms, θmax, mult_factor=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -313,6 +315,7 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
+    θmin = exp(first(first(interp_model.itp.ranges)))
 
     x₀ = cos(δ₀) * cos(α₀)
     y₀ = cos(δ₀) * sin(α₀) 
@@ -325,8 +328,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
             z₁ = workspace.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
+            θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                             mult_factor * exp(sitp(log(θ), z, log10(Ms))),
+                             mult_factor * exp(interp_model(log(θ), z, log10(Ms))),
                              zero(T))
         end
     end
@@ -334,18 +338,19 @@ end
 
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-            α₀, δ₀, w::HealpixProfileWorkspace, sitp, z, Mh, θmax, mult_factor=1) where T
+            α₀, δ₀, w::HealpixProfileWorkspace, interp_model, z, Mh, θmax, mult_factor=1) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    θmin = max(exp(first(first(interp_model.itp.ranges))), w.θmin)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
-        θ = max(w.θmin, θ)  # clamp to minimum θ
+        θ = max(θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
-                                    mult_factor * exp(sitp(log(θ), z, log10(Mh))),
+                                    mult_factor * exp(interp_model(log(θ), z, log10(Mh))),
                                     zero(T))
     end
 end
@@ -354,7 +359,7 @@ end
 # for rectangular pixelizations
 
 # multi-halo painting utilities
-function paint!(m, p, workspace, sitp, 
+function paint!(m, p, workspace, interp_model, 
                 masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
     for i in irange
         α₀ = αs[i]
@@ -362,7 +367,7 @@ function paint!(m, p, workspace, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint!(m, α₀, δ₀, workspace, sitp, z, mh, θmax_)
+        profile_paint!(m, α₀, δ₀, workspace, interp_model, z, mh, θmax_)
     end
 end
 
@@ -388,7 +393,7 @@ function paint!(m::HealpixMap{T, RingOrder}, p::XGPaint.AbstractProfile, ws::Vec
     end
 end
 
-function paint!(m, p::XGPaint.AbstractProfile, workspace, sitp, masses::AV, 
+function paint!(m, p::XGPaint.AbstractProfile, workspace, interp_model, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
     fill!(m, 0)
     
@@ -397,18 +402,18 @@ function paint!(m, p::XGPaint.AbstractProfile, workspace, sitp, masses::AV,
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, 1:N_sources)
+        return paint!(m, p, workspace, interp_model, masses, redshifts, αs, δs, 1:N_sources)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, p, workspace, interp_model, masses, redshifts, αs, δs, i1:i2)
     end
 
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, p, workspace, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint!(m, p, workspace, interp_model, masses, redshifts, αs, δs, i1:i2)
     end
 end

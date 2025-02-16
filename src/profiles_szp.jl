@@ -106,6 +106,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
+    θmin = exp(first(first(interp_model.itp.ranges)))
 
     # needs mass in M_200
     X = p.X
@@ -128,6 +129,7 @@ function profile_paint_szp!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
+            θ = max(θmin, θ)  # clamp to minimum θ
             y = exp(p.y_interp(log(θ), z, logMh))
             m[i,j] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
         end
@@ -141,6 +143,7 @@ function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackPro
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
+    θmin = max(exp(first(first(interp_model.itp.ranges))), w.θmin)
 
     X = p.X
     T_e = T_vir_calc(p, Mh * M_sun, z)
@@ -154,8 +157,8 @@ function profile_paint_szp!(m::HealpixMap{T, RingOrder}, p::Battaglia16SZPackPro
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
-        θ = max(w.θmin, θ)  # clamp to minimum θ
+        θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
+        θ = max(θmin, θ)  # clamp to minimum θ
         y = exp(p.y_interp(log(θ), z, logMh))
         m.pixels[ir] += (θ < θmax) * ustrip(u"MJy/sr", rsz_factor_I_over_y) * y
     end

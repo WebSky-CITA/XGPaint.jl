@@ -176,14 +176,14 @@ function build_interpolator_rsz(model::AbstractGNFW; cache_file::String="",
     end
     
     itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
-    sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs)
-    return sitp
+    interp_model = scale(itp, prof_logθs, prof_redshift, prof_logMs)
+    return interp_model
 end
 
 
 function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
-                        sitp, z, Ms, θmax) where T
+                        interp_model, z, Ms, θmax) where T
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
@@ -191,6 +191,7 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
+    θmin = exp(first(first(interp_model.itp.ranges)))
     
     X_0 = calc_null(p, Ms*M_sun, z)
     X = p.X
@@ -211,8 +212,9 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
             z₁ = psa.sin_δ[i,j]
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
+            θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                                 sign * exp(sitp(log(θ), z, log10(Ms))),
+                                 sign * exp(interp_model(log(θ), z, log10(Ms))),
                                    zero(T))
         end
     end
@@ -225,23 +227,24 @@ function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, p,
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    sitp = w.profile_real_interp
-    
-   X_0 = calc_null(p, Mh, z)
-   X = p.X
-   if X > X_0
-       sign = 1
-   else
-       sign = -1
-   end
-    
+    interp_model = w.profile_real_interp
+    θmin = max(exp(first(first(interp_model.itp.ranges))), w.θmin)
+
+    X_0 = calc_null(p, Mh, z)
+    X = p.X
+    if X > X_0
+        sign = 1
+    else
+        sign = -1
+    end
+
     for ir in w.disc_buffer
         x₁, y₁, z₁ = w.posmap.pixels[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
-        θ = max(w.θmin, θ)  # clamp to minimum θ
+        θ = max(θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
-                                   sign * exp(sitp(log(θ), z, log10(Mh))),
+                                   sign * exp(interp_model(log(θ), z, log10(Mh))),
                                     zero(T))
     end
 end
@@ -250,7 +253,7 @@ end
 # for rectangular pixelizations
 
 # multi-halo painting utilities
-function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp, 
+function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, interp_model, 
                 masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
     for i in irange
         α₀ = αs[i]
@@ -258,11 +261,11 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp,
         mh = masses[i]
         z = redshifts[i]
         θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_rsz!(m, p, α₀, δ₀, psa, sitp, z, mh, θmax_)
+        profile_paint_rsz!(m, p, α₀, δ₀, psa, interp_model, z, mh, θmax_)
     end
 end
 
-function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV, 
+function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, interp_model, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
     fill!(m, 0)
     
@@ -273,12 +276,12 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, sitp, masses::AV,
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint_rsz!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint_rsz!(m, p, psa, interp_model, masses, redshifts, αs, δs, i1:i2)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint_rsz!(m, p, psa, sitp, masses, redshifts, αs, δs, i1:i2)
+        paint_rsz!(m, p, psa, interp_model, masses, redshifts, αs, δs, i1:i2)
     end
 end
