@@ -153,37 +153,10 @@ function profile_grid_rsz(𝕡::AbstractGNFW{T}, logθs, redshifts, logMs) where
 end
 
 
-"""Helper function to build a tSZ interpolator"""
-function build_interpolator_rsz(model::AbstractGNFW; cache_file::String="", 
-                            N_logθ=512, pad=256, overwrite=true, verbose=true)
 
-    if overwrite || (isfile(cache_file) == false)
-        verbose && print("Building new interpolator from model.\n")
-        rft = RadialFourierTransform(n=N_logθ, pad=pad)
-        logθ_min, logθ_max = log(minimum(rft.r)), log(maximum(rft.r))
-        prof_logθs, prof_redshift, prof_logMs, prof_y = profile_grid_rsz(model; 
-            N_logθ=N_logθ, logθ_min=logθ_min, logθ_max=logθ_max)
-        if length(cache_file) > 0
-            verbose && print("Saving new interpolator to $(cache_file).\n")
-            save(cache_file, Dict("prof_logθs"=>prof_logθs, 
-                "prof_redshift"=>prof_redshift, "prof_logMs"=>prof_logMs, "prof_y"=>prof_y))
-        end
-    else
-        print("Found cached Battaglia profile model. Loading from disk.\n")
-        model_grid = load(cache_file)
-        prof_logθs, prof_redshift, prof_logMs, prof_y = model_grid["prof_logθs"], 
-            model_grid["prof_redshift"], model_grid["prof_logMs"], model_grid["prof_y"]
-    end
-    
-    itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
-    interp_model = scale(itp, prof_logθs, prof_redshift, prof_logMs)
-    return interp_model
-end
-
-
-function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
+function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, model,
                         α₀, δ₀, psa::CarClenshawCurtisProfileWorkspace, 
-                        interp_model, z, Ms, θmax) where T
+                        z, Mh, θmax) where T
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
     i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
@@ -191,9 +164,9 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
     i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
     j_start = floor(Int, max(min(j1, j2), 1))
     j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
-    θmin = exp(first(first(interp_model.itp.ranges)))
+    θmin = compute_θmin(model)
     
-    X_0 = calc_null(p, Ms*M_sun, z)
+    X_0 = calc_null(p, Mh*M_sun, z)
     X = p.X
     if X > X_0
         sign = 1
@@ -213,22 +186,19 @@ function profile_paint_rsz!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p,
             d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
-            m[i,j] += ifelse(θ < θmax, 
-                                 sign * exp(interp_model(log(θ), z, log10(Ms))),
-                                   zero(T))
+            m[i,j] += ifelse(θ < θmax, sign * model(θ, z, Mh), zero(T))
         end
     end
 end
 
 
-function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, p,
+function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, model,
             α₀, δ₀, w::HealpixProfileWorkspace, z, Mh, θmax) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    interp_model = w.profile_real_interp
-    θmin = max(exp(first(first(interp_model.itp.ranges))), w.θmin)
+    θmin = max(compute_θmin(model), w.θmin)
 
     X_0 = calc_null(p, Mh, z)
     X = p.X
@@ -243,9 +213,7 @@ function profile_paint_rsz!(m::HealpixMap{T, RingOrder}, p,
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
-        m.pixels[ir] += ifelse(θ < θmax, 
-                                   sign * exp(interp_model(log(θ), z, log10(Mh))),
-                                    zero(T))
+        m.pixels[ir] += ifelse(θ < θmax, sign * model(θ, z, Mh), zero(T))
     end
 end
 
@@ -253,19 +221,19 @@ end
 # for rectangular pixelizations
 
 # multi-halo painting utilities
-function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, interp_model, 
+function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, 
                 masses::AV, redshifts::AV, αs::AV, δs::AV, irange::AbstractUnitRange) where AV
     for i in irange
         α₀ = αs[i]
         δ₀ = δs[i]
         mh = masses[i]
         z = redshifts[i]
-        θmax_ = θmax(p, mh * XGPaint.M_sun, z)
-        profile_paint_rsz!(m, p, α₀, δ₀, psa, interp_model, z, mh, θmax_)
+        θmax_ = compute_θmax(p, mh * XGPaint.M_sun, z)
+        profile_paint_rsz!(m, p, α₀, δ₀, psa, z, mh, θmax_)
     end
 end
 
-function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, interp_model, masses::AV, 
+function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, masses::AV, 
                         redshifts::AV, αs::AV, δs::AV)  where AV
     fill!(m, 0)
     
@@ -276,12 +244,12 @@ function paint_rsz!(m, p::XGPaint.AbstractProfile, psa, interp_model, masses::AV
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint_rsz!(m, p, psa, interp_model, masses, redshifts, αs, δs, i1:i2)
+        paint_rsz!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint_rsz!(m, p, psa, interp_model, masses, redshifts, αs, δs, i1:i2)
+        paint_rsz!(m, p, psa, masses, redshifts, αs, δs, i1:i2)
     end
 end
