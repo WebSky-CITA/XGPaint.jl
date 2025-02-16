@@ -64,7 +64,7 @@ function load_precomputed_battaglia()
     sitp = scale(Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid())))), 
         prof_logθs, prof_redshift, prof_logMs);
     p = Battaglia16ThermalSZProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
-    return p, sitp
+    return p, InterpolatorProfile(p, sitp)
 end
 
 

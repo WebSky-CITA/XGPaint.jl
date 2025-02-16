@@ -1,25 +1,9 @@
 
-struct Battaglia16KinematicSZProfile{T,C} <: AbstractGNFW{T}
-    f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
-    cosmo::C
-    X::T  # X = 2.6408 corresponding to frequency 150 GHz
-end
 
-function Battaglia16KinematicSZProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where {T <: Real}
-    OmegaM=Omega_b+Omega_c
-    f_b = Omega_b / OmegaM
-    cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
-    X = x
-    return Battaglia16KinematicSZProfile(f_b, cosmo, X)
-end
-
-
-struct RKSZpackProfile{T,C,P1,P2,I1,I2,I3,I4} <: AbstractGNFW{T}
+struct RKSZpackProfile{T,C,I1,I2,I3,I4} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T
-    p_y::P1
-    p_tau::P2
     y_interp::I1
     tau_interp::I2
     szpack_interp_ksz::I3
@@ -27,14 +11,13 @@ struct RKSZpackProfile{T,C,P1,P2,I1,I2,I3,I4} <: AbstractGNFW{T}
 end
 
 
-function RKSZpackProfile(model_y::P1, model_tau::P2, y_interp, tau_interp, 
-        szpack_interp_ksz, szpack_interp_T0; Omega_c::T=0.2589, Omega_b::T=0.0486, 
-        h::T=0.6774, x::T=2.6408) where {T<:Real, P1, P2}
+function RKSZpackProfile(y_interp, tau_interp, szpack_interp_ksz, szpack_interp_T0;
+        Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
-    @assert isangletypeparameter(model_tau)
-    return RKSZpackProfile(f_b, cosmo, x, model_y, model_tau, y_interp, tau_interp, 
+    @assert isangletypeparameter(tau_interp.model)
+    return RKSZpackProfile(f_b, cosmo, x, y_interp, tau_interp, 
         szpack_interp_ksz, szpack_interp_T0)
 end
 
@@ -62,12 +45,12 @@ function SZpack_ksz(𝕡, M_200, z, r, vel; τ=0.01, mu = 1.0, showT=true)
     # Term 1
     dI_1 = uconvert(u"kg*s^-2",(𝕡.szpack_interp_ksz(t, vel, mu, nu) * u"MJy/sr" - 
         𝕡.szpack_interp_T0(vel, mu, nu) * u"MJy/sr") / τ)
-    y = XGPaint.compton_y(𝕡.p_y, M_200, z, r)
+    y = compton_y(𝕡.y_interp.model, M_200, z, r)
     I_1 = uconvert(u"kg*s^-2",y * (dI_1/(θ_e)))
     
     # Term 2
     dI_2 = uconvert(u"kg*s^-2", (𝕡.szpack_interp_T0(vel, mu, nu) * u"MJy/sr")/τ)
-    tau = XGPaint.tau(𝕡.p_tau, r, M_200, z)
+    tau = XGPaint.tau(𝕡.tau_interp.model, r, M_200, z)
     I_2 = uconvert(u"kg*s^-2", dI_2 * tau)
     
     I = I_1 + I_2
@@ -132,9 +115,9 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, p::RKSZ
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             y = exp(p.y_interp(log(θ), z, log10(Ms)))
 
-            m[i,j] += ifelse(θ < θmax, 
-                             ,
-                             zero(T))
+            # m[i,j] += ifelse(θ < θmax, 
+            #                  ,
+            #                  zero(T))
         end
     end
 end
