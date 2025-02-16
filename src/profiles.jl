@@ -228,6 +228,21 @@ function build_max_paint_logradius(logθs, redshifts, logMs,
         redshifts, logMs);
 end
 
+abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
+
+# wrapper for interpolators that keeps around the original model, dispatches on T of model
+struct InterpolatorProfile{T, P <: AbstractProfile{T}, I1} <: AbstractInterpolatorProfile{T}
+    model::P
+    itp::I1
+end
+
+# forward the interpolator calls to the wrapped interpolator
+(ip::InterpolatorProfile)(x1, x2, x3) = ip.itp(x1, x2, x3)
+(ip::InterpolatorProfile)(x1, x2, x3, x4) = ip.itp(x1, x2, x3, x4)
+
+Base.show(io::IO, ip::InterpolatorProfile{T,P,I1}) where {T,P,I1} = print(
+    io, "InterpolatorProfile{$(T),\n  $(P),\n  ...} interpolating over size ", size(ip.itp))
+
 
 """Helper function to build a tSZ interpolator"""
 function build_interpolator(model::AbstractGNFW; cache_file::String="", 
@@ -253,7 +268,7 @@ function build_interpolator(model::AbstractGNFW; cache_file::String="",
 
     itp = Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid()))))
     sitp = scale(itp, prof_logθs, prof_redshift, prof_logMs)
-    return sitp
+    return InterpolatorProfile(model, sitp)
 end
 
 
