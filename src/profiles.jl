@@ -282,9 +282,9 @@ function build_interpolator(model::AbstractProfile; cache_file::String="",
 end
 
 
-function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, model,
-                        workspace::CarClenshawCurtisProfileWorkspace, α₀, δ₀, 
-                        z, Mh, θmax, mult_factor=1) where T
+function profile_paint_generic!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
+                        workspace::CarClenshawCurtisProfileWorkspace, model, α₀, δ₀, 
+                        z, Mh, θmax, normalization=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -308,15 +308,23 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, model,
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                             mult_factor * model(θ, z, Mh),
+                             normalization * model(θ, z, Mh),
                              zero(T))
         end
     end
 end
 
+# fall back to generic profile painter if no specialized painter is defined for the model
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
+                        workspace::CarClenshawCurtisProfileWorkspace, model, 
+                        α₀, δ₀, z, Mh, θmax, normalization=1) where T
+    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, normalization)
+end
 
-function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, model,
-            workspace::GnomonicProfileWorkspace, α₀, δ₀, z, Mh, θmax, mult_factor=1) where T
+
+function profile_paint_generic!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
+                                workspace::GnomonicProfileWorkspace, model, 
+                                α₀, δ₀, z, Mh, θmax, normalization=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -340,15 +348,22 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, model,
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                             mult_factor * model(θ, z, Mh),
+                             normalization * model(θ, z, Mh),
                              zero(T))
         end
     end
 end
 
+# fall back to generic profile painter if no specialized painter is defined for the model
+function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
+                        workspace::GnomonicProfileWorkspace, model, α₀, δ₀, 
+                        z, Mh, θmax, normalization=1) where T
+    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, normalization)
+end
 
-function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, model, 
-            α₀, δ₀, z, Mh, θmax, mult_factor=1) where T
+
+function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, 
+        model, α₀, δ₀, z, Mh, θmax, normalization=1) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
@@ -360,51 +375,58 @@ function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace,
         θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
-                                    mult_factor * model(θ, z, Mh),
+                                    normalization * model(θ, z, Mh),
                                     zero(T))
     end
 end
 
+# fall back to generic profile painter if no specialized painter is defined for the model
+function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, model, 
+                        α₀, δ₀, z, Mh, θmax, normalization=1) where T
+    profile_paint_generic!(m, w, model, α₀, δ₀, z, Mh, θmax, normalization)
+end
 
-# for rectangular pixelizations
 
-# multi-halo painting utilities
-function paint!(m, model, workspace, αs::AV, δs::AV, 
-                masses::AV, redshifts::AV, irange::AbstractUnitRange) where AV
+# paint the the sources in the given range
+function paintrange!(m, model, workspace, αs, δs, masses, redshifts, irange::AbstractUnitRange)
     for i in irange
         α₀ = αs[i]
         δ₀ = δs[i]
         Mh = masses[i]
         z = redshifts[i]
         θmax_ = compute_θmax(model, Mh * XGPaint.M_sun, z)
-        profile_paint!(m, model, workspace, α₀, δ₀, z, Mh, θmax_)
+        profile_paint!(m, workspace, model, α₀, δ₀, z, Mh, θmax_)
     end
 end
 
-
-function paint!(m::HealpixMap{T, RingOrder}, model::AbstractProfile, ws::Vector{W}, 
-        αs::AV, δs::AV, masses::AV, redshifts::AV) where {T, W <: HealpixProfileWorkspace, AV}
+# for healpix pixelizations, a buffer is currently required for each thread
+function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::AbstractProfile, 
+        αs, δs, masses, redshifts) where {T, W <: HealpixProfileWorkspace}
     
     fill(m, zero(T))
     N_sources = length(masses)
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize);
+    chunks = chunk(N_sources, chunksize)
+
+    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
+        return paintrange!(m, first(ws), model, αs, δs, redshifts, masses, 1:N_sources)
+    end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, model, ws[i], αs, δs, redshifts, masses, i1:i2)
+        paintrange!(m, ws[i], model, αs, δs, redshifts, masses, i1:i2)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, model, ws[i], αs, δs, redshifts, masses, i1:i2)
+        paintrange!(m, ws[i], model, αs, δs, redshifts, masses, i1:i2)
     end
 end
 
-function paint!(m, model::XGPaint.AbstractProfile, workspace, 
-                αs::AV, δs::AV, redshifts::AV, masses::AV)  where AV
+# staggered threading for safety
+function paint!(m, workspace, model, αs, δs, redshifts, masses)
     fill!(m, 0)
     
     N_sources = length(masses)
@@ -412,18 +434,18 @@ function paint!(m, model::XGPaint.AbstractProfile, workspace,
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paint!(m, model, workspace, αs, δs, redshifts, masses, 1:N_sources)
+        return paintrange!(m, workspace, model, αs, δs, redshifts, masses, 1:N_sources)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paint!(m, model, workspace, αs, δs, redshifts, masses, i1:i2)
+        paintrange!(m, workspace, model, αs, δs, redshifts, masses, i1:i2)
     end
 
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paint!(m, model, workspace, αs, δs, redshifts, masses, i1:i2)
+        paintrange!(m, workspace, model, αs, δs, redshifts, masses, i1:i2)
     end
 end

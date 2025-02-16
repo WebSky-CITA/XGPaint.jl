@@ -26,7 +26,7 @@ end
 """
 Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
 """
-function SZpack_ksz(model, r, z, M_200, vel; τ=0.01, mu = 1.0, showT=true)
+function SZpack_rksz(model, r, z, M_200, vel; τ=0.01, mu = 1.0, showT=true)
 
     X = model.X
     T_e = T_vir_calc(model, M_200, z)
@@ -64,12 +64,10 @@ function SZpack_ksz(model, r, z, M_200, vel; τ=0.01, mu = 1.0, showT=true)
     end
 end
 
-(model::RKSZpackProfile)(r, z, M, vel) = SZpack_ksz(model, r, z, M, vel)
+(model::RKSZpackProfile)(r, z, M, vel; τ=0.01, mu = 1.0, showT=true) = SZpack_rksz(
+    model, r, z, M, vel, τ=τ, mu=mu, showT=showT)
 
 function non_rel_ksz(model, r, z, M_200, vel; mu = 1.0)
-    """
-    Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
-    """
 
     # use velocity magnitude to determine direction along line-of-sight
     if vel < 0
@@ -84,5 +82,4 @@ function non_rel_ksz(model, r, z, M_200, vel; mu = 1.0)
 
     return abs(T)
 end
-
 

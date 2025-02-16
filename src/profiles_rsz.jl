@@ -107,75 +107,24 @@ function (model::RSZPerturbativeProfile)(r, z, M;
     return rSZ_perturbative(model, r, z, M, T_scale=T_scale, sim_type=sim_type, showT=showT)
 end
 
-function calc_null(model, M_200, z)
+function calc_null(model, z, M_200)
     T_e = T_vir_calc(model, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     X_0 = 3.830*(1 + 1.1674*θ_e - 0.8533*(θ_e^2))
-    
     return X_0
 end
 
-
+# like the usual paint, but use the sign of the null as the sign of the perturbation
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
-                        model::RSZPerturbativeProfile,
-                        workspace::CarClenshawCurtisProfileWorkspace, α₀, δ₀, 
-                        z, Mh, θmax) where T
-    # get indices of the region to work on
-    i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
-    i2, j2 = sky2pix(m, α₀ + θmax, δ₀ + θmax)
-    i_start = floor(Int, max(min(i1, i2), 1))
-    i_stop = ceil(Int, min(max(i1, i2), size(m, 1)))
-    j_start = floor(Int, max(min(j1, j2), 1))
-    j_stop = ceil(Int, min(max(j1, j2), size(m, 2)))
-    θmin = compute_θmin(model)
-    
-    X_0 = calc_null(p, Mh*M_sun, z)
-    X = model.X
-    if X > X_0
-        sign = 1
-    else
-        sign = -1
-    end 
-    
-    x₀ = cos(δ₀) * cos(α₀)
-    y₀ = cos(δ₀) * sin(α₀) 
-    z₀ = sin(δ₀)
-
-    @inbounds for j in j_start:j_stop
-        for i in i_start:i_stop
-            x₁ = workspace.cos_δ[i,j] * workspace.cos_α[i,j]
-            y₁ = workspace.cos_δ[i,j] * workspace.sin_α[i,j]
-            z₁ = workspace.sin_δ[i,j]
-            d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-            θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
-            θ = max(θmin, θ)  # clamp to minimum θ
-            m[i,j] += ifelse(θ < θmax, sign * model(θ, z, Mh), zero(T))
-        end
-    end
+                        workspace::CarClenshawCurtisProfileWorkspace, 
+                        model::RSZPerturbativeProfile, α₀, δ₀, z, Mh, θmax) where T
+    X_0 = calc_null(model, z, Mh)
+    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, sign(model.X - X_0))
 end
 
-
-function profile_paint!(m::HealpixMap{T, RingOrder}, model,
-            w::HealpixProfileWorkspace, α₀, δ₀, z, Mh, θmax) where T
-    ϕ₀ = α₀
-    θ₀ = T(π)/2 - δ₀
-    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    θmin = max(compute_θmin(model), w.θmin)
-
-    X_0 = calc_null(p, Mh, z)
-    X = model.X
-    if X > X_0
-        sign = 1
-    else
-        sign = -1
-    end
-
-    for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap.pixels[ir]
-        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
-        θ = max(θmin, θ)  # clamp to minimum θ
-        m.pixels[ir] += ifelse(θ < θmax, sign * model(θ, z, Mh), zero(T))
-    end
+# like the usual paint, but use the sign of the null as the sign of the perturbation
+function profile_paint!(m::HealpixMap{T, RingOrder}, 
+        workspace::HealpixProfileWorkspace, model, α₀, δ₀, z, Mh, θmax) where T
+    X_0 = calc_null(model, z, Mh)
+    profile_paint_generic!(m, workspace, model, α₀, δ₀, z, Mh, θmax, sign(X - X_0))
 end

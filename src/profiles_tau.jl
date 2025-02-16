@@ -2,6 +2,7 @@
 
 # ANG is a Value type, Val(true) if we want to use angular units, and 
 # Val(false) if we want to use physical units
+# you almost always want to use angular units, so the default is Val(true)
 
 struct BattagliaTauProfile{T,C,ANG} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
@@ -30,7 +31,6 @@ function get_params(::BattagliaTauProfile{T}, M_200, z) where T
     return (xc=T(xc), α=T(α), β=T(β), γ=T(γ), P₀=T(P₀))
 end
 
-
 function ρ_crit_comoving_h⁻²(model, z)
     return  (ρ_crit(model, z) ) / (1+z)^3 / model.cosmo.h^2
 end
@@ -48,7 +48,7 @@ function object_size(model::BattagliaTauProfile{T,C,true}, physical_size, z) whe
     return atan(phys_siz_unitless, d_A_unitless)
 end
 
-function object_size(model::BattagliaTauProfile{T,C,false}, physical_size, z) where {T,C}
+function object_size(::BattagliaTauProfile{T,C,false}, physical_size, z) where {T,C}
     return physical_size
 end
 
