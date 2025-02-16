@@ -258,7 +258,7 @@ struct LogInterpolatorProfile{T, P <: AbstractProfile{T}, I1} <: AbstractInterpo
 end
 
 # forward the interpolator calls to the wrapped interpolator
-(ip::LogInterpolatorProfile)(θ, z, mass_Msun) = exp(ip.itp(log(θ), z, log10(mass_Msun)))
+@inline (ip::LogInterpolatorProfile)(θ, z, Mh_Msun) = exp(ip.itp(log(θ), z, log10(Mh_Msun)))
 
 Base.show(io::IO, ip::LogInterpolatorProfile{T,P,I1}) where {T,P,I1} = print(
     io, "LogInterpolatorProfile{$(T),\n  $(P),\n  ...} interpolating over size ", size(ip.itp))
