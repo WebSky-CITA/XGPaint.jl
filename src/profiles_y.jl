@@ -29,9 +29,6 @@ function BreakModel(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, alpha_b
     return BreakModel(f_b, cosmo, alpha_break, M_break)
 end
 
-const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
-
-
 function generalized_nfw(x, xc, α, β, γ)
     x̄ = x / xc
     return x̄^γ * (1 + x̄^α)^((β - γ) / α)

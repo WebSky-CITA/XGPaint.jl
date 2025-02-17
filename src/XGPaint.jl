@@ -25,6 +25,13 @@ const M_sun = 1.98847e30u"kg"
 const T_cmb =  2.725 * u"K"
 const P_e_factor = constants.σ_e / (constants.m_e * constants.c_0^2)
 
+# top-level abstract types 
+abstract type AbstractProfileWorkspace{T} end
+abstract type AbstractProfile{T} end
+abstract type AbstractGNFW{T} <: AbstractProfile{T} end
+abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
+
+
 include("./util.jl")
 include("./model.jl")
 include("./profiles.jl")

@@ -65,6 +65,24 @@ get_cosmology(; h=0.69, Neff=3.04, OmegaK=0.0, OmegaM=0.29, OmegaR=nothing, Tcmb
         OmegaM=OmegaM, OmegaR=OmegaR, Tcmb=Tcmb, w0=w0, wa=wa)
 
 
+function ρ_crit(model, z)
+    H_z = H(model.cosmo, z)
+    return uconvert(u"kg/m^3", 3H_z^2 / (8π * constants.G))
+end
+
+function R_Δ(model, M_Δ, z, Δ=200)
+    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(model, z)))
+end
+
+function angular_size(model::AbstractProfile{T}, physical_size, z) where T
+    d_A = angular_diameter_dist(model.cosmo, z)
+
+    # convert both to the same units and strip units for atan
+    phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
+    d_A_unitless = T(ustrip(d_A))
+    return atan(phys_siz_unitless, d_A_unitless)
+end
+
 """
 Fill in basic halo properties.
 """

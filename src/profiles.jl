@@ -2,9 +2,11 @@
 
 # RECTANGULAR WORKSPACES
 
-abstract type AbstractProfileWorkspace end
 
-struct CarClenshawCurtisProfileWorkspace{A} <: AbstractProfileWorkspace
+# default workspaces are immutable, so just forward the type
+wrapserialworkspace(w, tid) = w
+
+struct CarClenshawCurtisProfileWorkspace{T,A<:AbstractArray{T,2}} <: AbstractProfileWorkspace{T}
     sin_α::A
     cos_α::A
     sin_δ::A
@@ -17,7 +19,8 @@ function profileworkspace(shape, wcs::CarClenshawCurtis)
         sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
 end
 
-struct GnomonicProfileWorkspace{A} <: AbstractProfileWorkspace
+
+struct GnomonicProfileWorkspace{T,A<:AbstractArray{T,2}} <: AbstractProfileWorkspace{T}
     sin_α::A
     cos_α::A
     sin_δ::A
@@ -30,10 +33,8 @@ function profileworkspace(shape, wcs::Gnomonic)
         sin.(α_map), cos.(α_map), sin.(δ_map), cos.(δ_map))
 end
 
+Base.show(io::IO, w::AbstractProfileWorkspace) = print(io, "$(typeof(w))")
 
-abstract type AbstractProfile{T} end
-abstract type AbstractGNFW{T} <: AbstractProfile{T} end
-abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
 
 function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
         z_max=5.0, logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
@@ -63,23 +64,131 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
     return logθs, redshifts, logMs, A
 end
 
-function ρ_crit(model, z)
-    H_z = H(model.cosmo, z)
-    return uconvert(u"kg/m^3", 3H_z^2 / (8π * constants.G))
+
+
+"""
+Computes a real-space beam interpolator and a maximum
+"""
+function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) where {T,Ti}
+    Nlmax = ceil(Int, log2(8π / θ_FWHM))
+    lmax = 2^Nlmax
+
+    b_l = gaussbeam(θ_FWHM, lmax)
+    θs = LinRange(zero(θ_FWHM), 5θ_FWHM, N_θ)
+    b_θ = XGPaint.bl2beam(b_l, θs)
+    atol = b_θ[begin] * rtol
+    i_max = findfirst(<(atol), b_θ)
+
+    θs = convert(LinRange{T, Int}, θs[begin:i_max])
+    beam_real_interp = cubic_spline_interpolation(
+        θs, T.(b_θ[begin:i_max]), extrapolation_bc=zero(T))
+    return beam_real_interp, θs
 end
 
-function R_Δ(model, M_Δ, z, Δ=200)
-    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(model, z)))
+
+# heuristic for sizehint
+_approx_discbuffer_size(nside, θmax) = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))
+
+struct HealpixSerialProfileWorkspace{T} <: AbstractProfileWorkspace{T}
+    nside::Int
+    ringinfo::RingInfo
+    disc_buffer::Vector{Int}
+    θmax::T
+    posmap::Vector{Tuple{T, T, T}}
+
+    HealpixSerialProfileWorkspace{T}(nside::Int, θmax) where T = new{T}(
+        nside,
+        RingInfo(0, 0, 0, 0.0, true),
+        sizehint!(Int[], _approx_discbuffer_size(nside, θmax)),
+        T(θmax),
+        vectorhealpixmap(T, nside)
+    )
+
+    HealpixSerialProfileWorkspace{T}(nside, ringinfo, disc_buffer, θmax, posmap) where T = new{T}(
+        nside, ringinfo, disc_buffer, T(θmax), posmap)
 end
 
-function angular_size(model::AbstractProfile{T}, physical_size, z) where T
-    d_A = angular_diameter_dist(model.cosmo, z)
+# default outer constructors for Float64
+HealpixSerialProfileWorkspace(nside::Int, θmax) = HealpixSerialProfileWorkspace{Float64}(nside, θmax)
 
-    # convert both to the same units and strip units for atan
-    phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
-    d_A_unitless = T(ustrip(d_A))
-    return atan(phys_siz_unitless, d_A_unitless)
+function Base.show(io::IO, ::HealpixSerialProfileWorkspace{T}) where T
+    expr = "HealpixSerialProfileWorkspace{$(T)}"
+    print(io, expr)
 end
+
+struct HealpixProfileWorkspace{T}  <: AbstractProfileWorkspace{T}
+    nside::Int
+    ringinfo::RingInfo
+    disc_buffer::Vector{Vector{Int}}
+    θmax::T
+    posmap::Vector{Tuple{T, T, T}}
+
+    HealpixProfileWorkspace{T}(nside::Int, θmax, nthreads=Threads.nthreads()) where T = new{T}(
+        nside,
+        RingInfo(0, 0, 0, 0.0, true),
+        Vector{Int}[sizehint!(Int[], _approx_discbuffer_size(nside, θmax)) for i in 1:nthreads],
+        T(θmax),
+        vectorhealpixmap(T, nside)
+    )
+end
+
+HealpixProfileWorkspace(nside::Int, θmax) = HealpixProfileWorkspace{Float64}(nside, θmax)
+
+# unlike other workspaces, Healpix workspace needs a mutable buffer per thread
+# so asking for a workspace with a thread id will return the appropriate mutable workspace
+function wrapserialworkspace(w::HealpixProfileWorkspace{T}, tid) where T
+    return HealpixSerialProfileWorkspace{T}(w.nside, w.ringinfo, w.disc_buffer[tid], w.θmax, w.posmap)
+end
+
+
+function realspacebeampaint!(hp_map, w::HealpixSerialProfileWorkspace, realprofile, flux, θ₀, ϕ₀)
+    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
+
+    for ir in w.disc_buffer
+        x₁, y₁, z₁ = w.posmap.pixels[ir]
+        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+        θ = acos(1 - d² / 2)
+        hp_map.pixels[ir] += flux * realprofile(θ)
+    end
+end
+
+
+"""Apply a beam to a profile grid"""
+function transform_profile_grid!(y_prof_grid, rft, lbeam)
+    rprof = y_prof_grid[:,1,1]
+    for i in axes(y_prof_grid, 2)
+        for j in axes(y_prof_grid, 3)
+            rprof .= y_prof_grid[:,i,j]
+            lprof = real2harm(rft, rprof)
+            lprof .*= lbeam
+            reverse!(lprof)
+            rprof′ = harm2real(rft, lprof)
+            y_prof_grid[:,i,j] .= rprof′
+        end
+    end
+end
+
+"prune a profile grid for negative values, extrapolate instead"
+function cleanup_negatives!(y_prof_grid)
+    for i in axes(y_prof_grid, 2)
+        for j in axes(y_prof_grid, 3)
+            extrapolating = false
+            fact = 1.0
+            for k in axes(y_prof_grid, 1)
+                if y_prof_grid[k,i,j] <= 0
+                    extrapolating = true
+                    fact = y_prof_grid[k-1,i,j] / y_prof_grid[k-2,i,j]
+                end
+                if extrapolating
+                    y_prof_grid[k,i,j] = max(fact * y_prof_grid[k-1,i,j], nextfloat(0.0))
+                end
+            end
+        end
+    end
+end
+
+
 
 # get angular size in radians of radius to stop at
 function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
@@ -276,15 +385,15 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
 end
 
 
-function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, 
+function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixSerialProfileWorkspace, 
         model, Mh, z, α₀, δ₀, θmax, normalization=1) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    θmin = max(compute_θmin(model), w.θmin)
+    θmin = compute_θmin(model)
     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
     for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap.pixels[ir]
+        x₁, y₁, z₁ = w.posmap[ir]
         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
         θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
@@ -295,13 +404,13 @@ function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWo
 end
 
 # fall back to generic profile painter if no specialized painter is defined for the model
-function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, model, 
+function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixSerialProfileWorkspace, model, 
                         Mh, z, α₀, δ₀, θmax, normalization=1) where T
     profile_paint_generic!(m, w, model, Mh, z, α₀, δ₀, θmax, normalization)
 end
 
 
-# paint the the sources in the given range
+# paint the the sources in the given range of indices
 function paintrange!(irange::AbstractUnitRange, m, workspace, model, masses, redshifts, αs, δs)
     for i in irange
         α₀ = αs[i]
@@ -313,53 +422,44 @@ function paintrange!(irange::AbstractUnitRange, m, workspace, model, masses, red
     end
 end
 
-# for healpix pixelizations, a buffer is currently required for each thread
-function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::AbstractProfile, 
-        masses, redshifts, αs, δs) where {T, W <: HealpixProfileWorkspace}
+
+_fillzero!(m) = fill!(m, zero(eltype(m)))
+_fillzero!(m::HealpixMap) = fill!(m.pixels, zero(eltype(m)))
+
+# paint! is threaded by default
+function paint!(m, workspace, model, masses, redshifts, αs, δs; 
+                zerobeforepainting=true)
     
-    fill(m, zero(T))
+    zerobeforepainting && _fillzero!(m)
+
     N_sources = length(masses)
     chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
     chunks = chunk(N_sources, chunksize)
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(1:N_sources, m, first(ws), model, masses, redshifts, αs, δs)
+        return paintrange!(1:N_sources, m, wrapserialworkspace(workspace, 1), 
+            model, masses, redshifts, αs, δs)
     end
 
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i
+    Threads.@threads for ti in 1:Threads.nthreads()
+        chunk_i = 2ti
         i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, ws[i], model, masses, redshifts, αs, δs)
+        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+            model, masses, redshifts, αs, δs)
     end
 
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
+    Threads.@threads for ti in 1:Threads.nthreads()
+        chunk_i = 2ti - 1
         i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, ws[i], model, masses, redshifts, αs, δs)
+        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+            model, masses, redshifts, αs, δs)
     end
 end
 
-# staggered threading for safety
-function paint!(m, workspace, model, masses, redshifts, αs, δs)
-    fill!(m, 0)
-    
-    N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize);
-
-    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(1:N_sources, m, workspace, model, masses, redshifts, αs, δs)
-    end
-    
-    Threads.@threads :static for i in 1:Threads.nthreads()
-        chunk_i = 2i
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, workspace, model, masses, redshifts, αs, δs)
-    end
-
-    Threads.@threads :static for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, workspace, model, masses, redshifts, αs, δs)
-    end
+# serial version of the paint function
+function paint!(m, workspace::HealpixSerialProfileWorkspace, model, masses, redshifts, αs, δs; 
+        zerobeforepainting=true)
+    zerobeforepainting && _fillzero!(m)
+    return paintrange!(1:length(masses), m, wrapserialworkspace(workspace, 1), 
+        model, masses, redshifts, αs, δs)
 end

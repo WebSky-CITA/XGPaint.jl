@@ -85,7 +85,7 @@ end
 
 # like the usual paint, but use the sign of the null as the sign of the perturbation
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-        workspace::HealpixProfileWorkspace, model::SZPackRSZProfile, 
+        workspace::HealpixSerialProfileWorkspace, model::SZPackRSZProfile, 
         Mh, z, α₀, δ₀, θmax) where T
     X = model.X
     nu = log(ustrip(X_to_nu(X)))
