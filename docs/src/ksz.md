@@ -55,11 +55,11 @@ workspace = profileworkspace(shape, wcs)
 
 # this only needs to be done once
 # to cache: interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=false)
-interp = build_interpolator(model)
+model_interp = build_interpolator(model)
 
 m = Enmap(zeros(shape), wcs)
 mass_in_Msun = 1f15
-paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec, proj_v_over_c)
+paint!(m, workspace, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 plot(log10.(abs.(m)), c = :thermal)
 ```
 
@@ -73,10 +73,10 @@ using Healpix
 
 nside = 2048
 m_hp = HealpixMap{Float64,RingOrder}(nside)
-w = XGPaint.HealpixSerialProfileWorkspace(nside, max_radius)
+w = HealpixProfileWorkspace(nside, max_radius)
 
 
-@time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec, proj_v_over_c)
+@time paint!(m_hp, w, model, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 # Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
 
 plot(m_hp)
