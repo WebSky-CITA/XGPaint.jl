@@ -83,8 +83,8 @@ using Healpix
 nside = 4096
 m_hp = HealpixMap{Float64,RingOrder}(nside)
 max_radius = deg2rad(5.0)  # maximum radius to consider for the profile
-w = XGPaint.HealpixProfileWorkspace(nside, max_radius)
-@time XGPaint.paint!(m_hp, w, y_model_interp, halo_mass, redshift, ra, dec)
+w = HealpixProfileWorkspace(nside, max_radius)
+@time paint!(m_hp, w, y_model_interp, halo_mass, redshift, ra, dec)
 # Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")  # to save, uncomment
 
 plot(m_hp)
