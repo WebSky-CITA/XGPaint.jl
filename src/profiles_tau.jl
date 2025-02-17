@@ -41,6 +41,7 @@ function r200c_comoving(p, m200c, z)
 end
 
 
+# if angular, return the R200 size in radians
 function object_size(model::BattagliaTauProfile{T,C,true}, physical_size, z) where {T,C}
     d_A = angular_diameter_dist(model.cosmo, z)
     phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
@@ -48,6 +49,7 @@ function object_size(model::BattagliaTauProfile{T,C,true}, physical_size, z) whe
     return atan(phys_siz_unitless, d_A_unitless)
 end
 
+# if physical, return the R200 size in Mpc
 function object_size(::BattagliaTauProfile{T,C,false}, physical_size, z) where {T,C}
     return physical_size
 end
