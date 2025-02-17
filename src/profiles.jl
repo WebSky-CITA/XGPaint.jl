@@ -70,7 +70,7 @@ function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
 end
 
 # prevent infinities at cusp
-compute_θmin(model::AbstractLogInterpolatorProfile) = exp(first(first(model.ranges)))
+compute_θmin(model::AbstractInterpolatorProfile) = exp(first(first(model.ranges)))
 compute_θmin(::AbstractProfile{T}) where T = eps(T) 
 
 
