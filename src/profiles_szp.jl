@@ -19,27 +19,27 @@ struct SZPackRSZProfile{T,C,I1,I2} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
-    model_y_interp::I1
+    y_model_interp::I1
     szpack_interp::I2
     τ::T
 end
 
-function SZPackRSZProfile(model_y_interp, x::T, τ=0.01; Omega_c=0.2589, 
+function SZPackRSZProfile(y_model_interp, x::T; τ=0.01, Omega_c=0.2589, 
         Omega_b=0.0486, h=0.6774, table_filename=rsz_szpack_table_filename()) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
     szpack_interp = read_szpack_table(table_filename)
-    return SZPackRSZProfile(f_b, cosmo, X, model_y_interp, szpack_interp, τ)
+    return SZPackRSZProfile(f_b, cosmo, X, y_model_interp, szpack_interp, τ)
 end
 
 """
-    SZpack(model, M_200, z, r; τ=0.01, showT=true)
+    SZpack(model_szp, θ, M_200, z; τ=0.01, showT=true)
 
 Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
 """
-function SZpack(model_szp, θ, z, M_200; τ=0.01, showT=true)
+function SZpack(model_szp, θ, M_200, z; τ=0.01, showT=true)
 
     X = model_szp.X
     T_e = T_vir_calc(model_szp, M_200, z)
@@ -49,7 +49,7 @@ function SZpack(model_szp, θ, z, M_200; τ=0.01, showT=true)
     nu = log(ustrip(X_to_nu(X)))
     dI = uconvert(u"kg*s^-2", model_szp.szpack_interp(t, nu)*u"MJy/sr")
     
-    y = compton_y(model_szp.model_y_interp, θ, z, M_200)
+    y = compton_y(model_szp.y_model_interp, θ, M_200, z)
     I = uconvert(u"kg*s^-2",y * (dI/(τ * θ_e)))
     T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
@@ -61,8 +61,8 @@ function SZpack(model_szp, θ, z, M_200; τ=0.01, showT=true)
     end
 end
 
-(model_szp::SZPackRSZProfile)(θ, z, M; τ=0.01, showT=true) = SZpack(
-    model_szp, θ, z, M, τ=τ, showT=showT)
+(model_szp::SZPackRSZProfile)(θ, M, z; τ=0.01, showT=true) = SZpack(
+    model_szp, θ, M, z, τ=τ, showT=showT)
 
 
 function I_to_T_mult_factor(X)
@@ -72,7 +72,7 @@ end
 
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         workspace::CarClenshawCurtisProfileWorkspace, 
-                        model::SZPackRSZProfile, α₀, δ₀, z, Mh, θmax) where T
+                        model::SZPackRSZProfile, Mh, z, α₀, δ₀, θmax) where T
     X = model.X
     nu = log(ustrip(X_to_nu(X)))
     T_e = T_vir_calc(p, Mh * M_sun, z)
@@ -80,12 +80,13 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     dI = model.szpack_interp(t, nu) * u"MJy/sr"
     rsz_factor_I_over_y = dI / (model.τ * θ_e)
-    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, rsz_factor_I_over_y)
+    profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, rsz_factor_I_over_y)
 end
 
 # like the usual paint, but use the sign of the null as the sign of the perturbation
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-        workspace::HealpixProfileWorkspace, model, α₀, δ₀, z, Mh, θmax) where T
+        workspace::HealpixProfileWorkspace, model::SZPackRSZProfile, 
+        Mh, z, α₀, δ₀, θmax) where T
     X = model.X
     nu = log(ustrip(X_to_nu(X)))
     T_e = T_vir_calc(p, Mh * M_sun, z)
@@ -94,5 +95,5 @@ function profile_paint!(m::HealpixMap{T, RingOrder},
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     dI = model.szpack_interp(t, nu)*u"MJy/sr"
     rsz_factor_I_over_y = dI / (model.τ * θ_e)
-    profile_paint_generic!(m, workspace, model, α₀, δ₀, z, Mh, θmax, rsz_factor_I_over_y)
+    profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, rsz_factor_I_over_y)
 end

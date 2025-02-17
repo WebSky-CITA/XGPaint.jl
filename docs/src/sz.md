@@ -34,8 +34,8 @@ ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass);
 This package relies on a precomputed interpolation table for performance when making large sky maps of the SZ effect. For this tutorial, we'll load a profile and the associated interpolator from disk.
 
 ```@example tsz
-model, interp = XGPaint.load_precomputed_battaglia()
-print(model)
+y_model_interp = XGPaint.load_precomputed_battaglia()
+print(y_model_interp)
 ```
 
 !!! note
@@ -44,8 +44,8 @@ print(model)
     configure the appropriate model and then build an interpolator. The interpolator generation is multithreaded and takes about five minutes on 16 cores. 
 
     ```
-    model = Battaglia16ThermalSZProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
-    interp = build_interpolator(model, cache_file="cached_b16.jld2", overwrite=true)
+    y_model = Battaglia16ThermalSZProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
+    y_model_interp = build_interpolator(y_model, cache_file="cached_b16.jld2", overwrite=true)
     ```
     This will save the results to the cache_file as well. If you want to load a result from disk, you can specify `overwrite=false`[^1].
 
@@ -68,7 +68,7 @@ workspace = profileworkspace(shape, wcs)
 
 Now it's time to apply the model to the map.
 ```@example tsz
-@time paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec)
+@time paint!(m, workspace, y_model_interp, halo_mass, redshift, ra, dec)
 plot(log10.(m), c = :thermal)
 ```
 
@@ -88,7 +88,7 @@ ws = [XGPaint.HealpixProfileWorkspace(nside, w0.θmin, w0.θmax,
     interp, w0.posmap) for _ in 1:Threads.nthreads()];
 
 
-@time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec)
+@time XGPaint.paint!(m_hp, ws, y_model_interp, halo_mass, redshift, ra, dec)
 # Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
 
 plot(m_hp)

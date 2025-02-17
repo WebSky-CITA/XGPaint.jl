@@ -125,13 +125,13 @@ include("test_query.jl")
 @testset "tsz" begin
     ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
     ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass);
-    model, interp = XGPaint.load_precomputed_battaglia()
+    y_model_interp = XGPaint.load_precomputed_battaglia()
     box = [4.5   -4.5;           # RA
        -3     3] * Pixell.degree  # DEC
     shape, wcs = geometry(Pixell.CarClenshawCurtis{Float64}, box, 0.5 * Pixell.arcminute)
     m = Enmap(zeros(shape), wcs)
     workspace = profileworkspace(shape, wcs)
-    @time paint!(m, model, workspace, interp, halo_mass, redshift, ra, dec)
+    @time paint!(m, workspace, y_model_interp, halo_mass, redshift, ra, dec)
 
     ymap_ref = XGPaint.load_example_tsz_map()
     @test sum(abs, m.data .- ymap_ref) ≈ 0 atol=1e-7

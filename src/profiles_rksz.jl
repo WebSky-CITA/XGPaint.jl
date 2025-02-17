@@ -4,20 +4,20 @@ struct RKSZpackProfile{T,C,I1,I2,I3,I4} <: AbstractGNFW{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
     X::T
-    model_y_interp::I1
+    y_model_interp::I1
     tau_interp::I2
     szpack_interp_ksz::I3
     szpack_interp_T0::I4
 end
 
 
-function RKSZpackProfile(model_y_interp, tau_interp, szpack_interp_ksz, szpack_interp_T0;
+function RKSZpackProfile(y_model_interp, tau_interp, szpack_interp_ksz, szpack_interp_T0;
         Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, x::T=2.6408) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
     @assert isangletypeparameter(tau_interp.model)
-    return RKSZpackProfile(f_b, cosmo, x, model_y_interp, tau_interp, 
+    return RKSZpackProfile(f_b, cosmo, x, y_model_interp, tau_interp, 
         szpack_interp_ksz, szpack_interp_T0)
 end
 
@@ -45,7 +45,7 @@ function SZpack_rksz(model, r, z, M_200, vel; τ=0.01, mu = 1.0, showT=true)
     # Term 1
     dI_1 = uconvert(u"kg*s^-2",(model.szpack_interp_ksz(t, vel, mu, nu) * u"MJy/sr" - 
         model.szpack_interp_T0(vel, mu, nu) * u"MJy/sr") / τ)
-    y = compton_y(model.model_y_interp.model, M_200, z, r)
+    y = compton_y(model.y_model_interp.model, r, M_200, z)
     I_1 = uconvert(u"kg*s^-2",y * (dI_1/(θ_e)))
     
     # Term 2

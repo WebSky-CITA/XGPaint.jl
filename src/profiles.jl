@@ -33,6 +33,7 @@ end
 
 abstract type AbstractProfile{T} end
 abstract type AbstractGNFW{T} <: AbstractProfile{T} end
+abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
 
 function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
         z_max=5.0, logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
@@ -62,6 +63,23 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
     return logθs, redshifts, logMs, A
 end
 
+function ρ_crit(model, z)
+    H_z = H(model.cosmo, z)
+    return uconvert(u"kg/m^3", 3H_z^2 / (8π * constants.G))
+end
+
+function R_Δ(model, M_Δ, z, Δ=200)
+    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(model, z)))
+end
+
+function angular_size(model::AbstractProfile{T}, physical_size, z) where T
+    d_A = angular_diameter_dist(model.cosmo, z)
+
+    # convert both to the same units and strip units for atan
+    phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
+    d_A_unitless = T(ustrip(d_A))
+    return atan(phys_siz_unitless, d_A_unitless)
+end
 
 # get angular size in radians of radius to stop at
 function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
@@ -70,7 +88,7 @@ function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
 end
 
 # prevent infinities at cusp
-compute_θmin(model::AbstractInterpolatorProfile) = exp(first(first(model.ranges)))
+compute_θmin(model::AbstractInterpolatorProfile) = exp(first(first(model.itp.ranges)))
 compute_θmin(::AbstractProfile{T}) where T = eps(T) 
 
 
@@ -112,7 +130,6 @@ function build_max_paint_logradius(logθs, redshifts, logMs,
         redshifts, logMs);
 end
 
-abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
 
 
 """
@@ -130,13 +147,22 @@ This is useful for interpolating over a large range of scales and masses, where 
 is expected to be smooth in log-log space. It wraps the original model and also the 
 interpolator object itself.
 """
-struct LogInterpolatorProfile{T, P <: AbstractProfile{T}, I1} <: AbstractInterpolatorProfile{T}
+struct LogInterpolatorProfile{T, P <: AbstractProfile{T}, I1, C} <: AbstractInterpolatorProfile{T}
     model::P
     itp::I1
+    cosmo::C
+end
+
+
+function LogInterpolatorProfile(model::AbstractProfile, itp)
+    return LogInterpolatorProfile(model, itp, model.cosmo)  # use wrapped cosmology
 end
 
 # forward the interpolator calls to the wrapped interpolator
-@inline (ip::LogInterpolatorProfile)(θ, z, Mh_Msun) = exp(ip.itp(log(θ), z, log10(Mh_Msun)))
+# IMPORTANT: for backwards compat, interpolator internal order is θ, z, mass
+# which DIFFERS from the rest of the code which is (θ, mass, z, α, δ)
+# should fix this at some point
+@inline (ip::LogInterpolatorProfile)(θ, Mh_Msun, z) = exp(ip.itp(log(θ), z, log10(Mh_Msun)))
 
 Base.show(io::IO, ip::LogInterpolatorProfile{T,P,I1}) where {T,P,I1} = print(
     io, "LogInterpolatorProfile{$(T),\n  $(P),\n  ...} interpolating over size ", size(ip.itp))
@@ -171,8 +197,8 @@ end
 
 
 function profile_paint_generic!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
-                        workspace::CarClenshawCurtisProfileWorkspace, model, α₀, δ₀, 
-                        z, Mh, θmax, normalization=1) where T
+                        workspace::CarClenshawCurtisProfileWorkspace, model, Mh, z, α₀, δ₀, 
+                        θmax, normalization=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -196,7 +222,7 @@ function profile_paint_generic!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                             normalization * model(θ, z, Mh),
+                             T(normalization * model(θ, Mh, z)),
                              zero(T))
         end
     end
@@ -205,14 +231,14 @@ end
 # fall back to generic profile painter if no specialized painter is defined for the model
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         workspace::CarClenshawCurtisProfileWorkspace, model, 
-                        α₀, δ₀, z, Mh, θmax, normalization=1) where T
-    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, normalization)
+                        Mh, z, α₀, δ₀, θmax, normalization=1) where T
+    profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, normalization)
 end
 
 
 function profile_paint_generic!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
                                 workspace::GnomonicProfileWorkspace, model, 
-                                α₀, δ₀, z, Mh, θmax, normalization=1) where T
+                                Mh, z, α₀, δ₀, θmax, normalization=1) where T
 
     # get indices of the region to work on
     i1, j1 = sky2pix(m, α₀ - θmax, δ₀ - θmax)
@@ -236,7 +262,7 @@ function profile_paint_generic!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
             θ =  acos(clamp(1 - d² / 2, -one(T), one(T)))
             θ = max(θmin, θ)  # clamp to minimum θ
             m[i,j] += ifelse(θ < θmax, 
-                             normalization * model(θ, z, Mh),
+                             normalization * model(θ, Mh, z),
                              zero(T))
         end
     end
@@ -244,14 +270,14 @@ end
 
 # fall back to generic profile painter if no specialized painter is defined for the model
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
-                        workspace::GnomonicProfileWorkspace, model, α₀, δ₀, 
-                        z, Mh, θmax, normalization=1) where T
-    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, normalization)
+                        workspace::GnomonicProfileWorkspace, model, Mh, z, α₀, δ₀, 
+                        θmax, normalization=1) where T
+    profile_paint_generic!(m, model, workspace, Mh, z, α₀, δ₀, θmax, normalization)
 end
 
 
 function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, 
-        model, α₀, δ₀, z, Mh, θmax, normalization=1) where T
+        model, Mh, z, α₀, δ₀, θmax, normalization=1) where T
     ϕ₀ = α₀
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
@@ -263,33 +289,33 @@ function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWo
         θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
         θ = max(θmin, θ)  # clamp to minimum θ
         m.pixels[ir] += ifelse(θ < θmax, 
-                                    normalization * model(θ, z, Mh),
+                                    normalization * model(θ, Mh, z),
                                     zero(T))
     end
 end
 
 # fall back to generic profile painter if no specialized painter is defined for the model
 function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixProfileWorkspace, model, 
-                        α₀, δ₀, z, Mh, θmax, normalization=1) where T
-    profile_paint_generic!(m, w, model, α₀, δ₀, z, Mh, θmax, normalization)
+                        Mh, z, α₀, δ₀, θmax, normalization=1) where T
+    profile_paint_generic!(m, w, model, Mh, z, α₀, δ₀, θmax, normalization)
 end
 
 
 # paint the the sources in the given range
-function paintrange!(m, model, workspace, αs, δs, masses, redshifts, irange::AbstractUnitRange)
+function paintrange!(irange::AbstractUnitRange, m, workspace, model, masses, redshifts, αs, δs)
     for i in irange
         α₀ = αs[i]
         δ₀ = δs[i]
         Mh = masses[i]
         z = redshifts[i]
         θmax_ = compute_θmax(model, Mh * XGPaint.M_sun, z)
-        profile_paint!(m, workspace, model, α₀, δ₀, z, Mh, θmax_)
+        profile_paint!(m, workspace, model, Mh, z, α₀, δ₀, θmax_)
     end
 end
 
 # for healpix pixelizations, a buffer is currently required for each thread
 function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::AbstractProfile, 
-        αs, δs, masses, redshifts) where {T, W <: HealpixProfileWorkspace}
+        masses, redshifts, αs, δs) where {T, W <: HealpixProfileWorkspace}
     
     fill(m, zero(T))
     N_sources = length(masses)
@@ -297,24 +323,24 @@ function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::AbstractProfi
     chunks = chunk(N_sources, chunksize)
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(m, first(ws), model, αs, δs, redshifts, masses, 1:N_sources)
+        return paintrange!(1:N_sources, m, first(ws), model, masses, redshifts, αs, δs)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paintrange!(m, ws[i], model, αs, δs, redshifts, masses, i1:i2)
+        paintrange!(i1:i2, m, ws[i], model, masses, redshifts, αs, δs)
     end
 
     Threads.@threads for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paintrange!(m, ws[i], model, αs, δs, redshifts, masses, i1:i2)
+        paintrange!(i1:i2, m, ws[i], model, masses, redshifts, αs, δs)
     end
 end
 
 # staggered threading for safety
-function paint!(m, workspace, model, αs, δs, redshifts, masses)
+function paint!(m, workspace, model, masses, redshifts, αs, δs)
     fill!(m, 0)
     
     N_sources = length(masses)
@@ -322,18 +348,18 @@ function paint!(m, workspace, model, αs, δs, redshifts, masses)
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(m, workspace, model, αs, δs, redshifts, masses, 1:N_sources)
+        return paintrange!(1:N_sources, m, workspace, model, masses, redshifts, αs, δs)
     end
     
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i
         i1, i2 = chunks[chunk_i]
-        paintrange!(m, workspace, model, αs, δs, redshifts, masses, i1:i2)
+        paintrange!(i1:i2, m, workspace, model, masses, redshifts, αs, δs)
     end
 
     Threads.@threads :static for i in 1:Threads.nthreads()
         chunk_i = 2i - 1
         i1, i2 = chunks[chunk_i]
-        paintrange!(m, workspace, model, αs, δs, redshifts, masses, i1:i2)
+        paintrange!(i1:i2, m, workspace, model, masses, redshifts, αs, δs)
     end
 end
