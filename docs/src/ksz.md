@@ -73,10 +73,7 @@ using Healpix
 
 nside = 2048
 m_hp = HealpixMap{Float64,RingOrder}(nside)
-w0 = XGPaint.HealpixProfileWorkspace(nside, 
-    exp(minimum(interp.ranges[1])), π/180, interp)
-ws = [XGPaint.HealpixProfileWorkspace(nside, w0.θmin, w0.θmax,
-    interp, w0.posmap) for _ in 1:Threads.nthreads()];
+w = XGPaint.HealpixSerialProfileWorkspace(nside, max_radius)
 
 
 @time XGPaint.paint!(m_hp, model, ws, interp, halo_mass, redshift, ra, dec, proj_v_over_c)

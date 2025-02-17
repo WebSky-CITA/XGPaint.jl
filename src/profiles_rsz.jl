@@ -124,7 +124,7 @@ end
 
 # like the usual paint, but use the sign of the null as the sign of the perturbation
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-        workspace::HealpixProfileWorkspace, model::RSZPerturbativeProfile, 
+        workspace::HealpixSerialProfileWorkspace, model::RSZPerturbativeProfile, 
         Mh, z, α₀, δ₀, θmax) where T
     X_0 = calc_null(model, Mh, z)
     profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, sign(X - X_0))

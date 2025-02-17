@@ -106,7 +106,7 @@ end
 
 # for healpix pixelizations, a buffer is currently required for each thread
 function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::BattagliaTauProfile, 
-        masses, redshifts, αs, δs, proj_v_over_c) where {T, W <: HealpixProfileWorkspace}
+        masses, redshifts, αs, δs, proj_v_over_c) where {T, W <: HealpixSerialProfileWorkspace}
     
     fill(m, zero(T))
     N_sources = length(masses)
