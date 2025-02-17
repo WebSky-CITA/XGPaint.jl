@@ -73,11 +73,11 @@ using Healpix
 
 nside = 2048
 m_hp = HealpixMap{Float64,RingOrder}(nside)
+max_radius = deg2rad(5.0)  # maximum radius to consider for the profile
 w = HealpixProfileWorkspace(nside, max_radius)
 
-
-@time paint!(m_hp, w, model, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
-# Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")
+@time paint!(m_hp, w, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
+# Healpix.saveToFITS(m_hp, "!y.fits", typechar="D")  # to save, uncomment
 
 plot(m_hp)
 ```
