@@ -8,6 +8,7 @@
 /docs/build/
 /docs/site/
 /docs/src/Manifest.toml
+/docs/Manifest.toml
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 *.h5
