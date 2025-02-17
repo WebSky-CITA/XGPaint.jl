@@ -135,7 +135,7 @@ function build_shang_interpolator(
         N_sat_i[i] = convert(T, max(0.0, N_sat_i[i]))
     end
 
-    return LinearInterpolation(x_m, N_sat_i)
+    return linear_interpolation(x_m, N_sat_i)
 end
 
 function sigma_cen(m::T, model::CIB_Planck2013) where T
@@ -165,7 +165,7 @@ function build_muofn_interpolator(model;
         n[i], err = quadgk( lmu->jiang_shmf(exp(lmu), one(T), model),
                 log(mu[i]), 0.0f0, rtol=1.0f-6)
     end
-    return LinearInterpolation(T.(reverse(n)), T.(reverse(mu)))
+    return linear_interpolation(T.(reverse(n)), T.(reverse(mu)))
 end
 
 """

@@ -14,11 +14,11 @@ function RSZPerturbativeProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6
 end
 
 """
-    T_vir_calc(model, M, z::T) where T
+    T_vir_calc(model, M, z)
 
 Calculates the virial temperature for a given halo using Wang et al. 2007.
 """
-function T_vir_calc(model, M, z::T) where T
+function T_vir_calc(model::AbstractProfile{T}, M, z) where T
 
     µ = 0.6  #µ is the mean molecular weight -> used the primordial abundance
     if z >= 1
@@ -35,7 +35,7 @@ end
 
 Calculates the temperature for a given halo using https://arxiv.org/pdf/2207.05834.pdf.
 """
-function T_mass_calc(model,M,z::T; scale_type="Ty", sim_type="combination") where T
+function T_mass_calc(model::AbstractProfile{T}, M, z; scale_type="Ty", sim_type="combination") where T
 
     E_z = model.cosmo.Ω_m*(1 + z)^3 + model.cosmo.Ω_Λ
     par_dict_scale = Dict([("Ty",[1.426,0.566,0.024]),("Tm",[1.207,0.589,0.003]),("Tsl",[1.196,0.641,-0.048])])
@@ -53,11 +53,11 @@ function T_mass_calc(model,M,z::T; scale_type="Ty", sim_type="combination") wher
 end
 
 """
-    rSZ_perturbative(model, M_200, z, r; T_scale="virial", sim_type="combination", showT=true)
+    rSZ_perturbative(model, r, M_200, z; T_scale="virial", sim_type="combination", showT=true)
 
 Calculates the integrated relativistic compton-y signal along the line of sight.
 """
-function rSZ_perturbative(model, r, z, M_200; T_scale="virial", sim_type="combination", showT=true)
+function rSZ_perturbative(model, r, M_200, z; T_scale="virial", sim_type="combination", showT=true)
 
     #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
     X = model.X
@@ -90,7 +90,7 @@ function rSZ_perturbative(model, r, z, M_200; T_scale="virial", sim_type="combin
         (465992/105)*Xt - (11792/7)*Xt^2 + (19778/105)*Xt^3) + St^8*((-628/7) + (7601/210)*Xt)
 
     prefac = ((X*ℯ^X)/(ℯ^X-1))*θ_e*(Y_0+θ_e*Y_1+θ_e^2*Y_2+θ_e^3*Y_3+θ_e^4*Y_4)
-    y = compton_y(model, r, z, M_200)
+    y = compton_y(model, r, M_200, z)
     n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
     I = (X^3/(ℯ^X-1)) * (2*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
     T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
@@ -102,12 +102,12 @@ function rSZ_perturbative(model, r, z, M_200; T_scale="virial", sim_type="combin
     end
 end
 
-function (model::RSZPerturbativeProfile)(r, z, M; 
+function (model::RSZPerturbativeProfile)(r, M, z; 
         T_scale="virial", sim_type="combination", showT=true)
-    return rSZ_perturbative(model, r, z, M, T_scale=T_scale, sim_type=sim_type, showT=showT)
+    return rSZ_perturbative(model, r, M, z, T_scale=T_scale, sim_type=sim_type, showT=showT)
 end
 
-function calc_null(model, z, M_200)
+function calc_null(model, M_200, z)
     T_e = T_vir_calc(model, M_200, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     X_0 = 3.830*(1 + 1.1674*θ_e - 0.8533*(θ_e^2))
@@ -117,14 +117,15 @@ end
 # like the usual paint, but use the sign of the null as the sign of the perturbation
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}}, 
                         workspace::CarClenshawCurtisProfileWorkspace, 
-                        model::RSZPerturbativeProfile, α₀, δ₀, z, Mh, θmax) where T
-    X_0 = calc_null(model, z, Mh)
-    profile_paint_generic!(m, model, workspace, α₀, δ₀, z, Mh, θmax, sign(model.X - X_0))
+                        model::RSZPerturbativeProfile, Mh, z, α₀, δ₀, θmax) where T
+    X_0 = calc_null(model, Mh, z)
+    profile_paint_generic!(m, model, workspace, Mh, z, α₀, δ₀, θmax, sign(model.X - X_0))
 end
 
 # like the usual paint, but use the sign of the null as the sign of the perturbation
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-        workspace::HealpixProfileWorkspace, model, α₀, δ₀, z, Mh, θmax) where T
-    X_0 = calc_null(model, z, Mh)
-    profile_paint_generic!(m, workspace, model, α₀, δ₀, z, Mh, θmax, sign(X - X_0))
+        workspace::HealpixProfileWorkspace, model::RSZPerturbativeProfile, 
+        Mh, z, α₀, δ₀, θmax) where T
+    X_0 = calc_null(model, Mh, z)
+    profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, sign(X - X_0))
 end

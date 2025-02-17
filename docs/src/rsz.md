@@ -19,7 +19,7 @@ box = [-30   30;           # RA
        -30   30] * Pixell.arcminute  # DEC
 shape, wcs = geometry(Pixell.CarClenshawCurtis, box, 1 * Pixell.arcminute)
 workspace = profileworkspace(shape, wcs)
-model_y, model_y_interp = XGPaint.load_precomputed_battaglia();
+y_model_interp = XGPaint.load_precomputed_battaglia();
 nothing # hide
 ```
 
@@ -27,7 +27,7 @@ nothing # hide
 ```@example rsz
 tsz_snap = Enmap(zeros(shape), wcs)
 mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
-paint!(tsz_snap, model_y, workspace, model_y_interp, [mass_in_Msun], [z], [0.0], [0.0])
+paint!(tsz_snap, workspace, y_model_interp, [mass_in_Msun], [z], [0.0], [0.0])
 plot(log10.(tsz_snap))
 ```
 
@@ -35,7 +35,7 @@ plot(log10.(tsz_snap))
 ```@example rsz
 tsz_snap = Enmap(zeros(shape), wcs)
 mass_in_Msun = ustrip(M_200 / XGPaint.M_sun)
-paint!(tsz_snap, model_y, workspace, model_y_interp, [mass_in_Msun], [z], [0.0], [0.0])
+paint!(tsz_snap, workspace, y_model_interp, [mass_in_Msun], [z], [0.0], [0.0])
 plot(log10.(tsz_snap))
 ```
 
@@ -51,26 +51,26 @@ plot(ras, log10.(tsz_snap[:,j_ctr]), label="tSZ", xlabel="RA [rad]", ylabel="log
 
 ```@example rsz
 # generate a snapshot of a cluster at a specific frequency
-function cluster_snapshot(nu, shape, wcs, model_y, model_y_interp, workspace)
+function cluster_snapshot(nu, shape, wcs, y_model_interp, workspace)
     X = nu_to_X(uconvert(u"s^-1",nu))
     m = Enmap(zeros(shape), wcs);
 
     # construct a new SZpack object for each frequency; this loads a table from disk.
     # keep these around if you're looping over multiple maps at fixed frequency
-    model_szp = Battaglia16SZPackProfile(model_y, model_y_interp, X)
+    model_szp = SZPackRSZProfile(y_model_interp, X)
 
-    paint!(m, model_szp, workspace, [mass_in_Msun], [z], [0.0], [0.0])
+    paint!(m, workspace, model_szp, [mass_in_Msun], [z], [0.0], [0.0])
     return m
 end
 
-snap = cluster_snapshot(500u"GHz", shape, wcs, model_y, model_y_interp, workspace)
+snap = cluster_snapshot(500u"GHz", shape, wcs, y_model_interp, workspace)
 plot(log10.(snap))
 ```
 
 
 ```@example rsz
 freqs = LinRange(30.0, 800.0, 100) .* u"GHz"
-snaps = [cluster_snapshot(nu, shape, wcs, model_y, model_y_interp, workspace) for nu in freqs]
+snaps = [cluster_snapshot(nu, shape, wcs, y_model_interp, workspace) for nu in freqs]
 I_rsz = [snap[i_ctr, j_ctr] * u"MJy/sr" for snap in snaps]
 I_tsz = similar(I_rsz)
 

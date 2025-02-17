@@ -117,7 +117,7 @@ function build_r2z_interpolator(min_z::T, max_z::T,
         rrange[i] = ustrip(T, u"Mpc",
             Cosmology.comoving_radial_dist(u"Mpc", cosmo, zrange[i]))
     end
-    r2z = LinearInterpolation(rrange, zrange; extrapolation_bc=Line());
+    r2z = linear_interpolation(rrange, zrange; extrapolation_bc=Line());
     return r2z
 end
 
@@ -203,7 +203,7 @@ function build_c_lnm2r_interpolator(;cmin::T=1f-3, cmax::T=25.0f0,
     ms  = LinRange(mmin,mmax,nbin)
     r = [solve_r(c_,m_) for c_ in cs, m_ in ms]
 
-    return LinearInterpolation((T.(cs), T.(ms)), T.(r))
+    return linear_interpolation((T.(cs), T.(ms)), T.(r))
 end
 
 random_phi(::Type{Float32}) = rand(Float32) * Float32(2π)

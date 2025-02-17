@@ -32,24 +32,6 @@ end
 const ρ_crit_factor = uconvert(u"kg/m^3", 3u"km^2*Mpc^-2*s^-2" / (8π * constants.G))
 
 
-function ρ_crit(model, z)
-    H_z = H(model.cosmo, z)
-    return uconvert(u"kg/m^3", 3H_z^2 / (8π * constants.G))
-end
-
-function R_Δ(model, M_Δ, z, Δ=200)
-    return ∛(M_Δ / (4π/3 * Δ * ρ_crit(model, z)))
-end
-
-function angular_size(model::AbstractProfile{T}, physical_size, z) where T
-    d_A = angular_diameter_dist(model.cosmo, z)
-
-    # convert both to the same units and strip units for atan
-    phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
-    d_A_unitless = T(ustrip(d_A))
-    return atan(phys_siz_unitless, d_A_unitless)
-end
-
 function generalized_nfw(x, xc, α, β, γ)
     x̄ = x / xc
     return x̄^γ * (1 + x̄^α)^((β - γ) / α)
@@ -72,8 +54,6 @@ function get_params(::AbstractGNFW{T}, M_200, z) where T
     return (xc=T(xc), α=T(α), β=T(β), γ=T(γ), P₀=T(P₀))
 end
 
-# _tsz_y₁(x, _a) = (x*(_a+1))^(1/(_a+1))
-# _tsz_x₁(y, _a) = y^(_a+1)/(_a+1)
 function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), order=9)
     x² = x^2
     scale = 1e9
@@ -82,14 +62,14 @@ function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), or
     return 2integral / scale
 end
 
-function dimensionless_P_profile_los(model::Battaglia16ThermalSZProfile{T}, r, z, M_200) where T
+function dimensionless_P_profile_los(model::Battaglia16ThermalSZProfile{T}, r, M_200, z) where T
     par = get_params(model, M_200, z)
     R_200 = R_Δ(model, M_200, z, 200)
     x = r / angular_size(model, R_200, z)
     return par.P₀ * _nfw_profile_los_quadrature(x, par.xc, par.α, par.β, par.γ)
 end
 
-function dimensionless_P_profile_los(model::BreakModel{T}, r, z, M_200) where T
+function dimensionless_P_profile_los(model::BreakModel{T}, r, M_200, z) where T
     par = get_params(model, M_200, z)
     R_200 = R_Δ(model, M_200, z, 200)
     x = r / angular_size(model, R_200, z)
@@ -102,14 +82,14 @@ function dimensionless_P_profile_los(model::BreakModel{T}, r, z, M_200) where T
 end
 
 """Line-of-sight integrated electron pressure"""
-P_e_los(model, r, z, M_200c) = 0.5176 * P_th_los(model, r, z, M_200c)
+P_e_los(model, r, M_200c, z) = 0.5176 * P_th_los(model, r, M_200c, z)
 
 """Line-of-sight integrated thermal pressure"""
-P_th_los(model, r, z, M_200c) = constants.G * M_200c * 200 * ρ_crit(model, z) * 
-    model.f_b / 2 * dimensionless_P_profile_los(model, r, z, M_200c)
+P_th_los(model, r, M_200c, z) = constants.G * M_200c * 200 * ρ_crit(model, z) * 
+    model.f_b / 2 * dimensionless_P_profile_los(model, r, M_200c, z)
 
-function compton_y(model, r, z, M_200c)
-    return P_e_los(model, r, z, M_200c) * P_e_factor
+function compton_y(model, r, M_200c, z)
+    return P_e_los(model, r, M_200c, z) * P_e_factor
 end
 
-(model::Battaglia16ThermalSZProfile)(r, z, M_200c) = compton_y(model, r, z, M_200c)
+(model::Battaglia16ThermalSZProfile)(r, M_200c, z) = compton_y(model, r, M_200c, z)
