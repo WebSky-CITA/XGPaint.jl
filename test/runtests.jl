@@ -139,8 +139,7 @@ end
 
 @testset "tau_profile" begin
     # test the 3D tau profile
-
-    p = BattagliaTauProfilePhysical(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
+    p = XGPaint.BattagliaTauProfilePhysical(Omega_c=0.267, Omega_b=0.0493,  h=0.6712)
 
     # fits are in Msun/h, will change later
     par = get_params(p, (1e14M_sun / 0.6712), 0.5)
