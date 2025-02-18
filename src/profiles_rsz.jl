@@ -13,6 +13,12 @@ function RSZPerturbativeProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6
     return RSZPerturbativeProfile(f_b, cosmo, X)
 end
 
+# wrap the compton y in a type so it uses the Battaglia+16 profile
+function compton_y(model::RSZPerturbativeProfile, r, M_200c, z)
+    return P_e_los(
+        Battaglia16ThermalSZProfile(model.f_b, model.cosmo), r, M_200c, z) * P_e_factor
+end
+
 """
     T_vir_calc(model, M, z)
 
@@ -55,9 +61,10 @@ end
 """
     rSZ_perturbative(model, r, M_200, z; T_scale="virial", sim_type="combination", showT=true)
 
-Calculates the integrated relativistic compton-y signal along the line of sight.
+Calculates the integrated relativistic compton-y signal along the line of sight. Mass 
+requires units.
 """
-function rSZ_perturbative(model, r, M_200, z; T_scale="virial", sim_type="combination", showT=true)
+function rSZ_perturbative(model, r, M_200, z; T_scale="virial", sim_type="combination", showT=false)
 
     #X = (constants.ħ*ω)/(constants.k_B*T_cmb) # omega is standard frequency in Hz
     X = model.X
@@ -93,22 +100,24 @@ function rSZ_perturbative(model, r, M_200, z; T_scale="virial", sim_type="combin
     y = compton_y(model, r, M_200, z)
     n = prefac * (constants.m_e*constants.c_0^2)/(T_e*constants.k_B) * y
     I = (X^3/(ℯ^X-1)) * (2*(constants.k_B*T_cmb)^3)/((constants.h*constants.c_0)^2) * n 
-    T = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
+    T_over_Tcmb = I/abs((2 * constants.h^2 * ω^4 * ℯ^X)/(
+        constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2))
 
-    if showT==true
-        return abs(T)
+    if showT
+        return abs(T_over_Tcmb) + 0
     else
         return I
     end
 end
 
 function (model::RSZPerturbativeProfile)(r, M, z; 
-        T_scale="virial", sim_type="combination", showT=true)
-    return rSZ_perturbative(model, r, M, z, T_scale=T_scale, sim_type=sim_type, showT=showT)
+        T_scale="virial", sim_type="combination", showT=false)
+    return ustrip(uconvert(u"Jy/sr", rSZ_perturbative(
+        model, r, M, z, T_scale=T_scale, sim_type=sim_type, showT=showT)))
 end
 
 function calc_null(model, M_200, z)
-    T_e = T_vir_calc(model, M_200, z)
+    T_e = T_vir_calc(model, M_200 * M_sun, z)
     θ_e = (constants.k_B*T_e)/(constants.m_e*constants.c_0^2)
     X_0 = 3.830*(1 + 1.1674*θ_e - 0.8533*(θ_e^2))
     return X_0
