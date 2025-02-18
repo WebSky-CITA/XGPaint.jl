@@ -1,26 +1,36 @@
 
+# can be used with either angular (default) or physical units
+abstract type AbstractBattagliaTauProfile{T} <: AbstractGNFW{T} end
 
-# ANG is a Value type, Val(true) if we want to use angular units, and 
-# Val(false) if we want to use physical units
-# you almost always want to use angular units, so the default is Val(true)
-
-struct BattagliaTauProfile{T,C,ANG} <: AbstractGNFW{T}
+# default is radian angle radial units
+struct BattagliaTauProfile{T,C} <: AbstractBattagliaTauProfile{T}
     f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
     cosmo::C
 end
 
-# check if the tau profile is in terms of angle or distance; usually should be in angle
-isangletypeparameter(::BattagliaTauProfile{T,C,true}) where {T,C} = true
-isangletypeparameter(::BattagliaTauProfile{T,C,false}) where {T,C} = false
+# alternative: physical units in the radial direction
+struct BattagliaTauProfilePhysical{T,C} <: AbstractBattagliaTauProfile{T}
+    f_b::T  # Omega_b / Omega_c = 0.0486 / 0.2589
+    cosmo::C
+end
 
-function BattagliaTauProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774, angle=true) where {T <: Real}
+
+function BattagliaTauProfile(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
-    return BattagliaTauProfile{T, typeof(cosmo), angle}(f_b, cosmo)
+    return BattagliaTauProfile{T, typeof(cosmo)}(f_b, cosmo)
 end
 
-function get_params(::BattagliaTauProfile{T}, M_200c, z) where T
+
+function BattagliaTauProfilePhysical(; Omega_c::T=0.2589, Omega_b::T=0.0486, h::T=0.6774) where {T <: Real}
+    OmegaM=Omega_b+Omega_c
+    f_b = Omega_b / OmegaM
+    cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
+    return BattagliaTauProfilePhysical{T, typeof(cosmo)}(f_b, cosmo)
+end
+
+function get_params(::AbstractBattagliaTauProfile{T}, M_200c, z) where T
 	z₁ = z + 1
 	m = M_200c / (1e14M_sun)
     P₀ = 4.e3 * m^0.29 * z₁^(-0.66)
@@ -42,7 +52,7 @@ end
 
 
 # if angular, return the R200 size in radians
-function object_size(model::BattagliaTauProfile{T,C,true}, physical_size, z) where {T,C}
+function object_size(model::BattagliaTauProfile{T,C}, physical_size, z) where {T,C}
     d_A = angular_diameter_dist(model.cosmo, z)
     phys_siz_unitless = T(ustrip(uconvert(unit(d_A), physical_size)))
     d_A_unitless = T(ustrip(d_A))
@@ -50,13 +60,13 @@ function object_size(model::BattagliaTauProfile{T,C,true}, physical_size, z) whe
 end
 
 # if physical, return the R200 size in Mpc
-function object_size(::BattagliaTauProfile{T,C,false}, physical_size, z) where {T,C}
+function object_size(::BattagliaTauProfilePhysical{T,C}, physical_size, z) where {T,C}
     return physical_size
 end
 
 
 # returns a density, which we can check against Msun/Mpc² 
-function rho_2d(model::BattagliaTauProfile, r, m200c, z)
+function rho_2d(model::AbstractBattagliaTauProfile, r, m200c, z)
     par = get_params(model, m200c, z)
     r200c = R_Δ(model, m200c, z, 200)
     X = r / object_size(model, r200c, z)  # either ang/ang or phys/phys
@@ -66,7 +76,7 @@ function rho_2d(model::BattagliaTauProfile, r, m200c, z)
     return result * rho_crit * (r200c * (1+z))
 end
 
-function ne2d(model::BattagliaTauProfile, r, m200c, z)
+function ne2d(model::AbstractBattagliaTauProfile, r, m200c, z)
     me = constants.ElectronMass
     mH = constants.ProtonMass
     mHe = 4mH
@@ -87,7 +97,7 @@ end
 
 # evaluation functions never take Unitful inputs, only raw numbers
 # mass is in Msun
-function (tau_model::BattagliaTauProfile)(r, m200c, z)
+function (tau_model::AbstractBattagliaTauProfile)(r, m200c, z)
     return tau(tau_model, r, m200c * M_sun, z)
 end
 
@@ -95,7 +105,7 @@ end
 # for kSZ, we need to extend paintrange! and paint! to take in a velocity
 
 # paint the the sources in the given range
-function paintrange!(irange::AbstractUnitRange, m, workspace, model::BattagliaTauProfile, 
+function paintrange!(irange::AbstractUnitRange, m, workspace, model::AbstractBattagliaTauProfile, 
                      masses, redshifts, αs, δs, proj_v_over_c)
     for i in irange
         α₀ = αs[i]
@@ -108,7 +118,7 @@ function paintrange!(irange::AbstractUnitRange, m, workspace, model::BattagliaTa
 end
 
 # for healpix pixelizations, a buffer is currently required for each thread
-function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::BattagliaTauProfile, 
+function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::AbstractBattagliaTauProfile, 
         masses, redshifts, αs, δs, proj_v_over_c) where {T, W <: HealpixSerialProfileWorkspace}
     
     fill(m, zero(T))
@@ -135,7 +145,7 @@ function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::BattagliaTauP
 end
 
 # staggered threading for safety
-function paint!(m, workspace, model::BattagliaTauProfile, masses, redshifts, αs, δs, proj_v_over_c)
+function paint!(m, workspace, model::AbstractBattagliaTauProfile, masses, redshifts, αs, δs, proj_v_over_c)
     fill!(m, 0)
     
     N_sources = length(masses)
