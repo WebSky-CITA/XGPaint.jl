@@ -68,6 +68,24 @@ function load_precomputed_battaglia()
 end
 
 
+function load_precomputed_battaglia_tau_data()
+    rootpath = artifact"precomputed_battaglia_tau"
+    model_file = joinpath(rootpath, "battaglia_tau_profile_interp.jld2")
+    model = load(model_file)
+    prof_logθs, prof_redshift, prof_logMs, prof_y = model["prof_logθs"], 
+        model["prof_redshift"], model["prof_logMs"], model["prof_y"]
+    return prof_y, prof_logθs, prof_redshift, prof_logMs
+end
+
+
+function load_precomputed_battaglia_tau()
+    prof_y, prof_logθs, prof_redshift, prof_logMs = load_precomputed_battaglia_tau_data()
+    interp_model = scale(Interpolations.interpolate(log.(prof_y), BSpline(Cubic(Line(OnGrid())))), 
+        prof_logθs, prof_redshift, prof_logMs);
+    p = BattagliaTauProfile(Omega_c=0.2589, Omega_b=0.0486, h=0.6774)
+    return LogInterpolatorProfile(p, interp_model)
+end
+
 """
 Generates a list of tuples which describe starting and ending chunk indices.
 Useful for parallelizing an array operation.

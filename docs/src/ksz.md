@@ -54,8 +54,8 @@ We can now compute the integrated electron density,
 workspace = profileworkspace(shape, wcs)
 
 # this only needs to be done once
-# to cache: interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=false)
-model_interp = build_interpolator(model)
+# to DIY: interp = build_interpolator(model, cache_file="cached_btau.jld2", overwrite=true)
+model_interp = XGPaint.load_precomputed_battaglia_tau()
 
 m = Enmap(zeros(shape), wcs)
 paint!(m, workspace, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
