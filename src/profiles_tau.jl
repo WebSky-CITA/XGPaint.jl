@@ -90,7 +90,7 @@ end
 
 # r is either a physical or angular radius. unitful does not do little h, so physical radius 
 # is always in Mpc, and angular radius is always in radians.
-function tau(model, r, m200c, z)
+function compute_tau(model, r, m200c, z)
     return constants.ThomsonCrossSection * ne2d(model, r, m200c, z) + 0  # ensure unitless
 end
 
@@ -98,6 +98,6 @@ end
 # evaluation functions never take Unitful inputs, only raw numbers
 # mass is in Msun
 function (tau_model::AbstractBattagliaTauProfile)(r, m200c, z)
-    return tau(tau_model, r, m200c * M_sun, z)
+    return compute_tau(tau_model, r, m200c * M_sun, z)
 end
 

@@ -21,7 +21,7 @@ struct SZPackRSZProfile{T,C,I1,I2} <: AbstractGNFW{T}
     X::T  # X = 2.6408 corresponding to frequency 150 GHz
     y_model_interp::I1
     szpack_interp::I2
-    τ::T
+    szpack_fiducial_tau::T
 end
 
 # forward min-theta to the y interpolator
@@ -29,18 +29,19 @@ compute_θmin(model::SZPackRSZProfile) = min(
     exp(first(first(model.y_model_interp.itp.ranges))))
 
 
-function SZPackRSZProfile(y_model_interp, x::T; τ=0.01, Omega_c=0.2589, 
+function SZPackRSZProfile(y_model_interp, x::T; szpack_fiducial_tau=0.01, Omega_c=0.2589, 
         Omega_b=0.0486, h=0.6774, table_filename=rsz_szpack_table_filename()) where T
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, OmegaM=OmegaM)
     X = x
     szpack_interp = read_szpack_table(table_filename)
-    return SZPackRSZProfile(f_b, cosmo, X, y_model_interp, szpack_interp, τ)
+    return SZPackRSZProfile(f_b, cosmo, X, y_model_interp, szpack_interp, szpack_fiducial_tau)
 end
 
+
 """
-    SZpack(model_szp, θ, M_200, z; τ=0.01, showT=true)
+    SZpack(model_szp, θ, M_200, z; showT=false)
 
 Outputs the integrated compton-y signal calculated using SZpack along the line of sight.
 Note: M_200 requires units.
@@ -56,7 +57,7 @@ function SZpack(model_szp, θ, M_200, z; showT=false)
     # y = compton_y(model_szp.y_model_interp.model, θ, M_200, z)
     Mh = M_200 / M_sun + 0
     y = model_szp.y_model_interp(θ, Mh, z)
-    I = uconvert(u"kg*s^-2",y * (dI/(model_szp.τ * θ_e)))
+    I = uconvert(u"kg*s^-2",y * (dI/(model_szp.szpack_fiducial_tau * θ_e)))
     T = I/uconvert(u"kg*s^-2",abs((2 * constants.h^2 * X_to_nu(X)^4 * ℯ^X) / 
         (constants.k_B * constants.c_0^2 * T_cmb * (ℯ^X - 1)^2)))
 
@@ -83,7 +84,8 @@ function compute_rsz_factor_I_over_y(model_szp::SZPackRSZProfile, Mh, z)
     t = ustrip(uconvert(u"keV",T_e * constants.k_B))
     nu = log(ustrip(uconvert(u"s^-1", X_to_nu(X))))
     dI = uconvert(u"kg*s^-2", model_szp.szpack_interp(t, nu)*u"MJy/sr")
-    rsz_factor_I_over_y = ustrip(uconvert(u"MJy/sr", (dI/(model_szp.τ * θ_e))))
+    rsz_factor_I_over_y = ustrip(uconvert(u"MJy/sr", 
+        dI/(model_szp.szpack_fiducial_tau * θ_e)))
     return rsz_factor_I_over_y
 end
 
