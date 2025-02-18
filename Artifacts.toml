@@ -23,3 +23,11 @@ lazy = true
     [[rsz_table.download]]
     url = "https://github.com/WebSky-CITA/XGPaint.jl/releases/download/rsz_example/szpack_interp_T75_upd.dat.tar.gz"
     sha256 = "2e9cb9d04d1014292597f10a9507cdd4d9071522932854979ab5bb6e1290004d"
+
+[precomputed_battaglia_tau]
+git-tree-sha1 = "70266f95de16e21b2a73f99087038cd018fd1c97"
+lazy = true
+
+    [[precomputed_battaglia_tau.download]]
+    url = "https://github.com/WebSky-CITA/XGPaint.jl/releases/download/tau_example/precomputed_battaglia_tau.tar.gz"
+    sha256 = "7a751d7913eb6a13f20354bed06b746fc1402623230af27fbeab6fb31b272bce"

@@ -456,10 +456,54 @@ function paint!(m, workspace, model, masses, redshifts, αs, δs;
     end
 end
 
-# serial version of the paint function, mostly for debugging
-function paint!(m, workspace::HealpixSerialProfileWorkspace, model, masses, redshifts, αs, δs; 
+
+# for kSZ, we need to extend paintrange! and paint! to take in a velocity
+
+# paint the the sources in the given range
+function paintrange!(irange::AbstractUnitRange, m, workspace, model, 
+                     masses, redshifts, αs, δs, proj_v_over_c)
+    for i in irange
+        θmax = compute_θmax(model, masses[i] * XGPaint.M_sun, redshifts[i])
+        profile_paint!(m, workspace, model, 
+            masses[i], redshifts[i], αs[i], δs[i], θmax, proj_v_over_c[i])
+    end
+end
+
+
+# extend general paint! to take in a projected velocity
+function paint!(m, workspace, model, masses, redshifts, αs, δs, proj_v_over_c; 
         zerobeforepainting=true)
     zerobeforepainting && _fillzero!(m)
-    return paintrange!(1:length(masses), m, wrapserialworkspace(workspace, 1), 
-        model, masses, redshifts, αs, δs)
+
+    N_sources = length(masses)
+    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
+    chunks = chunk(N_sources, chunksize)
+
+    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
+        return paintrange!(1:N_sources, m, wrapserialworkspace(workspace, 1), 
+            model, masses, redshifts, αs, δs, proj_v_over_c)
+    end
+
+    Threads.@threads for ti in 1:Threads.nthreads()
+        chunk_i = 2ti
+        i1, i2 = chunks[chunk_i]
+        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+            model, masses, redshifts, αs, δs, proj_v_over_c)
+    end
+
+    Threads.@threads for ti in 1:Threads.nthreads()
+        chunk_i = 2ti - 1
+        i1, i2 = chunks[chunk_i]
+        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+            model, masses, redshifts, αs, δs, proj_v_over_c)
+    end
 end
+
+
+# # serial version of the paint function, mostly for debugging
+# function paint!(m, workspace::HealpixSerialProfileWorkspace, model, masses, redshifts, αs, δs; 
+#         zerobeforepainting=true)
+#     zerobeforepainting && _fillzero!(m)
+#     return paintrange!(1:length(masses), m, wrapserialworkspace(workspace, 1), 
+#         model, masses, redshifts, αs, δs)
+# end
