@@ -58,7 +58,6 @@ workspace = profileworkspace(shape, wcs)
 model_interp = build_interpolator(model)
 
 m = Enmap(zeros(shape), wcs)
-mass_in_Msun = 1f15
 paint!(m, workspace, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 plot(log10.(abs.(m)), c = :thermal)
 ```

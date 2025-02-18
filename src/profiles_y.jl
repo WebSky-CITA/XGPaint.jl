@@ -85,8 +85,21 @@ P_e_los(model, r, M_200c, z) = 0.5176 * P_th_los(model, r, M_200c, z)
 P_th_los(model, r, M_200c, z) = constants.G * M_200c * 200 * ρ_crit(model, z) * 
     model.f_b / 2 * dimensionless_P_profile_los(model, r, M_200c, z)
 
-function compton_y(model, r, M_200c, z)
-    return P_e_los(model, r, M_200c, z) * P_e_factor
+"""
+    compton_y(model, r, M_200c, z)
+
+Calculate the Compton y parameter for a given model at a given radius, mass, and redshift.
+Mass needs to have units!
+"""
+function compton_y(model::Battaglia16ThermalSZProfile, r, M_200c, z)
+    return P_e_los(model, r, M_200c, z) * P_e_factor + 0   # +0 to strip units
+end
+function compton_y(model::BreakModel, r, M_200c, z)
+    return P_e_los(model, r, M_200c, z) * P_e_factor + 0   # +0 to strip units
 end
 
-(model::Battaglia16ThermalSZProfile)(r, M_200c, z) = compton_y(model, r, M_200c, z)
+
+# direct evaluation of a model at a given radius, mass, and redshift. 
+# mass is in Msun; Unitful is NOT used in these evaluation functions
+(model::Battaglia16ThermalSZProfile)(r, M_200c, z) = compton_y(model, r, M_200c * M_sun, z)
+(model::BreakModel)(r, M_200c, z) = compton_y(model, r, M_200c * M_sun, z)

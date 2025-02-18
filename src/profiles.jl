@@ -52,11 +52,11 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 
     Threads.@threads :static for im in 1:N_logM
         logM = logMs[im]
-        M = 10^(logM) * M_sun
+        M = 10^(logM)
         for (iz, z) in enumerate(redshifts)
             for iθ in 1:N_logθ
                 θ = exp(logθs[iθ])
-                A[iθ, iz, im] = max(zero(T), model(M, z, θ))
+                A[iθ, iz, im] = max(zero(T), model(θ, M, z))
             end
         end
     end
