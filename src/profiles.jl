@@ -456,7 +456,7 @@ function paint!(m, workspace, model, masses, redshifts, αs, δs;
     end
 end
 
-# serial version of the paint function
+# serial version of the paint function, mostly for debugging
 function paint!(m, workspace::HealpixSerialProfileWorkspace, model, masses, redshifts, αs, δs; 
         zerobeforepainting=true)
     zerobeforepainting && _fillzero!(m)
