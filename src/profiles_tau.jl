@@ -117,34 +117,8 @@ function paintrange!(irange::AbstractUnitRange, m, workspace, model::AbstractBat
     end
 end
 
-# for healpix pixelizations, a buffer is currently required for each thread
-function paint!(m::HealpixMap{T, RingOrder}, ws::Vector{W}, model::AbstractBattagliaTauProfile, 
-        masses, redshifts, αs, δs, proj_v_over_c) where {T, W <: HealpixSerialProfileWorkspace}
-    
-    fill(m, zero(T))
-    N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize)
 
-    if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(1:N_sources, m, first(ws), model, masses, 
-            redshifts, αs, δs, proj_v_over_c)
-    end
-
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, ws[i], model, masses, redshifts, αs, δs, proj_v_over_c)
-    end
-
-    Threads.@threads for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, ws[i], model, masses, redshifts, αs, δs, proj_v_over_c)
-    end
-end
-
-# staggered threading for safety
+# extend general paint! to take in a velocity
 function paint!(m, workspace, model::AbstractBattagliaTauProfile, masses, redshifts, αs, δs, proj_v_over_c)
     fill!(m, 0)
     
@@ -153,19 +127,21 @@ function paint!(m, workspace, model::AbstractBattagliaTauProfile, masses, redshi
     chunks = chunk(N_sources, chunksize);
 
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(1:N_sources, m, workspace, model, 
-            masses, redshifts, αs, δs, proj_v_over_c)
-    end
-    
-    Threads.@threads :static for i in 1:Threads.nthreads()
-        chunk_i = 2i
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, workspace, model, masses, redshifts, αs, δs, proj_v_over_c)
+        return paintrange!(1:N_sources, m, wrapserialworkspace(workspace, 1), 
+            model, masses, redshifts, αs, δs, proj_v_over_c)
     end
 
-    Threads.@threads :static for i in 1:Threads.nthreads()
-        chunk_i = 2i - 1
+    Threads.@threads for ti in 1:Threads.nthreads()
+        chunk_i = 2ti
         i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, workspace, model, masses, redshifts, αs, δs, proj_v_over_c)
+        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+            model, masses, redshifts, αs, δs, proj_v_over_c)
+    end
+
+    Threads.@threads for ti in 1:Threads.nthreads()
+        chunk_i = 2ti - 1
+        i1, i2 = chunks[chunk_i]
+        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+            model, masses, redshifts, αs, δs, proj_v_over_c)
     end
 end

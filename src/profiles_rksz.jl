@@ -5,7 +5,7 @@ struct RKSZpackProfile{T,C,I1,I2,I3,I4} <: AbstractGNFW{T}
     cosmo::C
     X::T
     y_model_interp::I1
-    tau_interp::I2
+    tau_model_interp::I2
     szpack_interp_ksz::I3
     szpack_interp_T0::I4
 end
@@ -16,11 +16,9 @@ function RKSZpackProfile(y_model_interp, tau_interp, szpack_interp_ksz, szpack_i
     OmegaM=Omega_b+Omega_c
     f_b = Omega_b / OmegaM
     cosmo = get_cosmology(T, h=h, Neff=3.046, OmegaM=OmegaM)
-    @assert isangletypeparameter(tau_interp.model)
     return RKSZpackProfile(f_b, cosmo, x, y_model_interp, tau_interp, 
         szpack_interp_ksz, szpack_interp_T0)
 end
-
 
 
 """
@@ -50,7 +48,7 @@ function SZpack_rksz(model, r, M_200, z, vel; τ=0.01, mu = 1.0, showT=true)
     
     # Term 2
     dI_2 = uconvert(u"kg*s^-2", (model.szpack_interp_T0(vel, mu, nu) * u"MJy/sr")/τ)
-    tau = tau(model.tau_interp.model, r, M_200, z)
+    tau = tau(model.tau_model_interp.model, r, M_200, z)
     I_2 = uconvert(u"kg*s^-2", dI_2 * tau)
     
     I = I_1 + I_2
