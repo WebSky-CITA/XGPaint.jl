@@ -176,7 +176,7 @@ end
 
     zz = 2.5
     Mnew = 93218298413772.23 * (XGPaint.M_sun / p.cosmo.h)  # Mcrit
-    tc = XGPaint.tau(p, 3u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) + 0
+    tc = XGPaint.compute_tau(p, 3u"Mpc" / (1+zz) / p.cosmo.h, Mnew, zz) + 0
     @test abs(1 - tc / 4.475127577749756e-05) < 1e-3
 
 end
