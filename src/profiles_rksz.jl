@@ -23,7 +23,7 @@ end
 
 
 """
-    SZpack_rksz(model, r, M_200, z, vel; τ=0.01, mu = 1.0)
+    SZpack_rksz(model, r, M_200, z, vel, mu)
 
 Computes the relativistic kSZ signal using the SZpack tables.
 """
