@@ -112,7 +112,7 @@ end
 
 function (model::RSZPerturbativeProfile)(r, M, z; 
         T_scale="virial", sim_type="combination", showT=false)
-    return ustrip(uconvert(u"Jy/sr", rSZ_perturbative(
+    return ustrip(uconvert(u"MJy/sr", rSZ_perturbative(
         model, r, M, z, T_scale=T_scale, sim_type=sim_type, showT=showT)))
 end
 
