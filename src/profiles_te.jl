@@ -86,20 +86,19 @@ end
 
 
 """
-    T0_normalization(sz_model, tau_model, M_200c, z)
+    T0_normalization(model, M_200c, z)
 
 Calculate central electron temperature normalization using pressure and density profiles.
-Uses SZ profile for pressure and tau profile for electron density.
 """
-function T0_normalization(sz_model, tau_model, M_200c, z)
+function T0_normalization(model::AbstractBattagliaTeMomentProfile, M_200c, z)
     # Compute P_e0 from SZ model
-    par_sz = get_params(sz_model, M_200c, z)
-    P_e0 = 0.5176 * sz_model.f_b / 2 * constants.G * M_200c * 200 * 
+    par_sz = get_params(model.sz_model, M_200c, z)
+    P_e0 = 0.5176 * model.sz_model.f_b / 2 * constants.G * M_200c * 200 * 
            par_sz.P₀ # ρ_crit(sz_model, z) cancelled
 
     # Compute n_e0 from τ model
-    par_tau = get_params(tau_model, M_200c, z)
-    R_200c = R_Δ(tau_model, M_200c, z, 200)
+    par_tau = get_params(model.tau_model, M_200c, z)
+    R_200c = R_Δ(model.tau_model, M_200c, z, 200)
     m_eff = compute_meff()  # m_eff = me + nH*mH + nHe*mHe
     n_e0 = (R_200c * par_tau.P₀) / m_eff / (1+z)^2  # ρ_crit cancelled
 
@@ -107,12 +106,10 @@ function T0_normalization(sz_model, tau_model, M_200c, z)
     return P_e0 / (n_e0 * constants.BoltzmannConstant)
 end
 
-function dimensionless_T_profile(x, sz_model::Battaglia16ThermalSZProfile, 
-    tau_model::AbstractBattagliaTauProfile, M_200c, z)
-    
-    par_sz = get_params(sz_model, M_200c, z)
-    par_tau = get_params(tau_model, M_200c, z)
-    dimensionless_T_profile(x, par_sz, par_tau)
+function dimensionless_T_profile(x, model::AbstractBattagliaTeMomentProfile, M_200c, z)
+    par_sz = get_params(model.sz_model, M_200c, z)
+    par_tau = get_params(model.tau_model, M_200c, z)
+    return dimensionless_T_profile(x, par_sz, par_tau)
 end
 
 function dimensionless_T_profile(x, par_sz, par_tau)
@@ -122,21 +119,20 @@ function dimensionless_T_profile(x, par_sz, par_tau)
 end
 
 """
-    moment_los_quadrature(x, qi, sz_model, tau_model, M_200c, z; zmax=10.0, rtol=1e-4, order=7)
+    moment_los_quadrature(x, qi, odel, M_200c, z; zmax=10.0, rtol=1e-4, order=7)
 
 Compute line-of-sight integral of temperature profile raised to power (qi+1).
 Uses Gauss-Kronrod quadrature for numerical integration.
 """
 function moment_los_quadrature(x, qi,
-    sz_model::Battaglia16ThermalSZProfile,
-    tau_model::AbstractBattagliaTauProfile,
+    model::AbstractBattagliaTeMomentProfile,
     M_200c, z::Real;
     zmax::Real=10.0, rtol::Real=1e-4, order::Integer=7)
     
     x² = x^2
     scale = 1  # Scale factor to avoid numerical underflow
     integral, err = quadgk(y -> scale * dimensionless_T_profile(√(y^2 + x²), 
-        sz_model, tau_model, M_200c, z)^(qi+1),
+        model, M_200c, z)^(qi+1),
         0.0, zmax, rtol=rtol, order=order)
     return 2integral / scale
 end
@@ -151,8 +147,8 @@ Note: This function is for reference and may not be used in final implementation
 function Te_3d(r, model::AbstractBattagliaTeMomentProfile, M_200c, z)
     R_200c = R_Δ(model, M_200c, z, 200)
     x = r / object_size(model, R_200c, z)  # either ang/ang or phys/phys
-    T0 = T0_normalization(model.sz_model, model.tau_model, M_200c, z)
-    T_dimensionless = dimensionless_T_profile(x, model.sz_model, model.tau_model, M_200c, z)
+    T0 = T0_normalization(model, M_200c, z)
+    T_dimensionless = dimensionless_T_profile(x, model, M_200c, z)
     return T0 * T_dimensionless
 end
 
@@ -165,8 +161,8 @@ Combines temperature normalization with line-of-sight integration.
 function Theta_moment(model::AbstractBattagliaTeMomentProfile, qi, r, M_200c, z)
     R_200c = R_Δ(model, M_200c, z, 200)
     x = r / object_size(model, R_200c, z)  # either ang/ang or phys/phys
-    T_moment_dimensionless_los = moment_los_quadrature(x, qi, model.sz_model, model.tau_model, M_200c, z)
-    T0 = T0_normalization(model.sz_model, model.tau_model, M_200c, z)
+    T_moment_dimensionless_los = moment_los_quadrature(x, qi, model, M_200c, z)
+    T0 = T0_normalization(model, M_200c, z)
     factor = Theta_e_factor * T0 + 0  # ensure unitless
     return factor^(qi+1) * T_moment_dimensionless_los
 end
