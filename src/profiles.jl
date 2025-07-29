@@ -36,8 +36,8 @@ end
 Base.show(io::IO, w::AbstractProfileWorkspace) = print(io, "$(typeof(w))")
 
 
-function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
-        z_max=5.0, logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
+function profile_grid(model::AbstractGNFW{T}; N_z=128, N_logM=128, N_logθ=256, z_min=0.005, 
+        z_max=3.0, logM_min=14.0, logM_max=16.0, logθ_min=-16.5, logθ_max=2.5) where T
 
     logθs = LinRange(logθ_min, logθ_max, N_logθ)
     redshifts = LinRange(z_min, z_max, N_z)
@@ -63,6 +63,23 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 
     return logθs, redshifts, logMs, A
 end
+
+# function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
+#     θs = exp.(logθs)
+#     Ms = 10.0 .^ logMs
+
+#     N_logθ, N_z, N_logM = length(θs), length(redshifts), length(Ms)
+#     A = Array{T}(undef, N_logθ, N_z, N_logM)
+
+#     # This is nearly optimal for most models (broadcasts over θ, loops over z and M)
+#     for (im, M) in enumerate(Ms)
+#         for (iz, z) in enumerate(redshifts)
+#             A[:, iz, im] = max.(zero(T), model.(θs, Ref(M), Ref(z)))
+#         end
+#     end
+#     return logθs, redshifts, logMs, A
+# end
+
 
 
 
@@ -156,18 +173,33 @@ end
 
 """Apply a beam to a profile grid"""
 function transform_profile_grid!(y_prof_grid, rft, lbeam)
-    rprof = y_prof_grid[:,1,1]
-    for i in axes(y_prof_grid, 2)
-        for j in axes(y_prof_grid, 3)
-            rprof .= y_prof_grid[:,i,j]
+    pad_val = rft.pad
+    Nθ, Nz, Nm = size(y_prof_grid)
+    # 1. Pad the grid along the radial (first) dimension:
+    padded = zeros(eltype(y_prof_grid), Nθ + 2*pad_val, Nz, Nm)
+    padded[pad_val+1 : pad_val+Nθ, :, :] .= y_prof_grid
+
+    # 2. For each profile, perform the FFT-based beam convolution:
+    for j in axes(padded, 3)
+        for i in axes(padded, 2)
+            # Extract the padded radial profile.
+            rprof = padded[:, i, j]
+            # Forward transform (real → harmonic)
             lprof = real2harm(rft, rprof)
-            lprof .*= lbeam
-            reverse!(lprof)
-            rprof′ = harm2real(rft, lprof)
-            y_prof_grid[:,i,j] .= rprof′
+            # Apply the beam convolution in Fourier space.
+            lprof .*= lbeam         # multiply by the beam
+            reverse!(lprof)        # reverse as in your current implementation
+            # Inverse transform (harmonic → real)
+            rprof_transformed = harm2real(rft, lprof)
+            padded[:, i, j] .= rprof_transformed
         end
     end
+
+    # 3. Unpad the result back to original dimensions:
+    y_prof_grid .= padded[pad_val+1 : pad_val+Nθ, :, :]
 end
+
+
 
 "prune a profile grid for negative values, extrapolate instead"
 function cleanup_negatives!(y_prof_grid)
@@ -188,13 +220,41 @@ function cleanup_negatives!(y_prof_grid)
     end
 end
 
+# function cleanup_negatives!(y_prof_grid)
+#     K = axes(y_prof_grid, 1).stop  # total number of radial points
+#     for i in axes(y_prof_grid, 2)
+#         for j in axes(y_prof_grid, 3)
+#             extrapolating = false
+#             fact = 1.0
+#             # Process from k = (K-2) down to 1; then k+1 and k+2 are within bounds.
+#             for k in reverse(1:(K-2))
+#                 if y_prof_grid[k, i, j] <= 0
+#                     extrapolating = true
+#                     fact = y_prof_grid[k+1, i, j] / y_prof_grid[k+2, i, j]
+#                 end
+#                 if extrapolating
+#                     y_prof_grid[k, i, j] = max(fact * y_prof_grid[k+1, i, j], nextfloat(0.0))
+#                 end
+#             end
+#         end
+#     end
+# end
+
 
 
 # get angular size in radians of radius to stop at
-function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
+# function compute_θmax(model::AbstractProfile{T}, M_Δ, z; mult=4) where T
+#     r = R_Δ(model, M_Δ, z)
+#     return T(mult * angular_size(model, r, z))
+# end
+
+function compute_θmax(model::AbstractProfile{T}, M_Δ, z; FWHM=10, mult=4) where T
     r = R_Δ(model, M_Δ, z)
-    return T(mult * angular_size(model, r, z))
+    theta1 = 2 * FWHM * (π/10800) 
+    theta2 = mult * angular_size(model, r, z)
+    return T(max(theta1, theta2))
 end
+
 
 # prevent infinities at cusp
 compute_θmin(model::AbstractInterpolatorProfile) = exp(first(first(model.itp.ranges)))
@@ -279,7 +339,7 @@ Base.show(io::IO, ip::LogInterpolatorProfile{T,P,I1}) where {T,P,I1} = print(
 
 """Helper function to build a (θ, z, Mh) interpolator"""
 function build_interpolator(model::AbstractProfile; cache_file::String="", 
-                            N_logθ=512, pad=256, overwrite=true, verbose=true)
+                            N_logθ=256, pad=128, overwrite=true, verbose=true)
 
     if overwrite || (isfile(cache_file) == false)
         verbose && print("Building new interpolator from model.\n")
@@ -418,6 +478,7 @@ function paintrange!(irange::AbstractUnitRange, m, workspace, model, masses, red
         Mh = masses[i]
         z = redshifts[i]
         θmax_ = compute_θmax(model, Mh * XGPaint.M_sun, z)
+        # θmax_ = workspace.θmax
         profile_paint!(m, workspace, model, Mh, z, α₀, δ₀, θmax_)
     end
 end
@@ -464,6 +525,7 @@ function paintrange!(irange::AbstractUnitRange, m, workspace, model,
                      masses, redshifts, αs, δs, proj_v_over_c)
     for i in irange
         θmax = compute_θmax(model, masses[i] * XGPaint.M_sun, redshifts[i])
+        # θmax = workspace.θmax
         profile_paint!(m, workspace, model, 
             masses[i], redshifts[i], αs[i], δs[i], θmax, proj_v_over_c[i])
     end
