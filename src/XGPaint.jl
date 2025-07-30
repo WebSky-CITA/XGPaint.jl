@@ -44,6 +44,7 @@ include("./cib.jl")
 include("./co_broadband.jl")
 include("./lrg.jl")
 include("./radio.jl")
+include("./a10_fast_profile.jl")  # ← fast 1‑D spline
 
 export get_cosmology, read_halo_catalog_hdf5, sort_halo_catalog
 export Radio_Sehgal2009, CIB_Planck2013, CIB_Scarfy, CO_CROWNED, LRG_Yuan23

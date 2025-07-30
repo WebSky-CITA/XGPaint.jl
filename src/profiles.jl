@@ -36,23 +36,54 @@ end
 Base.show(io::IO, w::AbstractProfileWorkspace) = print(io, "$(typeof(w))")
 
 
-function profile_grid(model::AbstractGNFW{T}; N_z=128, N_logM=128, N_logθ=256, z_min=0.005, 
-        z_max=3.0, logM_min=14.0, logM_max=16.0, logθ_min=-16.5, logθ_max=2.5) where T
+# function profile_grid(model::AbstractGNFW{T}; N_z=128, N_logM=128, N_logθ=256, z_min=0.005, 
+#         z_max=3.0, logM_min=14.0, logM_max=16.0, logθ_min=-16.5, logθ_max=2.5) where T
 
-    logθs = LinRange(logθ_min, logθ_max, N_logθ)
-    redshifts = LinRange(z_min, z_max, N_z)
-    logMs = LinRange(logM_min, logM_max, N_logM)
-    return profile_grid(model, logθs, redshifts, logMs)
+#     logθs = LinRange(logθ_min, logθ_max, N_logθ)
+#     redshifts = LinRange(z_min, z_max, N_z)
+#     logMs = LinRange(logM_min, logM_max, N_logM)
+#     return profile_grid(model, logθs, redshifts, logMs)
+# end
+
+# function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
+
+#     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
+#     A = zeros(T, (N_logθ, N_z, N_logM))
+
+#     Threads.@threads :static for im in 1:N_logM
+#         logM = logMs[im]
+#         M = 10^(logM)
+#         for (iz, z) in enumerate(redshifts)
+#             for iθ in 1:N_logθ
+#                 θ = exp(logθs[iθ])
+#                 A[iθ, iz, im] = max(zero(T), model(θ, M, z))
+#             end
+#         end
+#     end
+
+#     return logθs, redshifts, logMs, A
+# end
+
+# ---------------------------------------------------------------------
+#  NEW  — generic profile_grid so interpolator profiles also work
+# ---------------------------------------------------------------------
+function profile_grid(model::AbstractProfile{T}; N_z=128, N_logM=128, N_logθ=256,
+                                           z_min=0.005, z_max=3.0,
+                                           logM_min=14.0, logM_max=16.0,
+                                           logθ_min=-16.5, logθ_max=2.5) where T
+    logθs     = LinRange(logθ_min,  logθ_max,  N_logθ)
+    redshifts = LinRange(z_min,     z_max,     N_z)
+    logMs     = LinRange(logM_min,  logM_max,  N_logM)
+    return profile_grid(model, logθs, redshifts, logMs)   # → calls the next method
 end
 
-function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
-
+function profile_grid(model::AbstractProfile{T},
+                      logθs, redshifts, logMs) where T
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
 
     Threads.@threads :static for im in 1:N_logM
-        logM = logMs[im]
-        M = 10^(logM)
+        M = 10.0 ^ logMs[im]
         for (iz, z) in enumerate(redshifts)
             for iθ in 1:N_logθ
                 θ = exp(logθs[iθ])
@@ -60,9 +91,9 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
             end
         end
     end
-
     return logθs, redshifts, logMs, A
 end
+
 
 # function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 #     θs = exp.(logθs)
@@ -569,3 +600,6 @@ end
 #     return paintrange!(1:length(masses), m, wrapserialworkspace(workspace, 1), 
 #         model, masses, redshifts, αs, δs)
 # end
+
+
+
