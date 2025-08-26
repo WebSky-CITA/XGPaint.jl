@@ -7,28 +7,28 @@ print(&quot;Number of halos: &quot;, length(halo_mass))
 
 # the current test halos do not include velocities, so we randomly generate some for this
 proj_v_over_c = randn(eltype(ra), length(halo_mass)) / 1000</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2455621-element Vector{Float32}:
- -0.0009361488
- -0.0008154242
- -0.00029576206
-  0.001643454
- -0.0005322391
-  0.0004934927
-  0.00040210085
-  0.00034000102
-  0.0013418447
- -0.00018218244
+  0.0005622049
+ -0.00056082325
+ -0.001038601
+  0.0014946641
+  0.00012473993
+ -0.00032923388
+ -9.164345f-5
+ -0.0013519655
+  0.0006624282
+  0.0007542292
   ⋮
- -0.0005800015
-  0.0006991213
-  0.0004997368
-  0.002103249
- -0.000118109594
- -0.0008923438
-  0.00074940594
-  0.0007886189
- -0.0019417992</code></pre><p>This small catalog is limited to a relatively small patch of the sky. Before we generate some SZ maps, let&#39;s take a look at the halo mass distribution.</p><pre><code class="language-julia hljs">b = 10.0 .^ (11:0.25:16)
+ -0.0012638515
+ -0.00015591749
+ -0.001652645
+  0.001287908
+ -0.0014722773
+ -0.00094738905
+  0.0005477699
+  0.00020177309
+ -0.0002912756</code></pre><p>This small catalog is limited to a relatively small patch of the sky. Before we generate some SZ maps, let&#39;s take a look at the halo mass distribution.</p><pre><code class="language-julia hljs">b = 10.0 .^ (11:0.25:16)
 histogram(halo_mass, bins=b, xaxis=(:log10, (1e11, 1e16)),
-    yscale=:log10, label=&quot;&quot;, xlabel=&quot;Halo mass (solar masses)&quot;, ylabel=&quot;counts&quot;)</code></pre><img src="ef544d21.svg" alt="Example block output"/><p>To allow for safe threaded painting on a single map, we&#39;ll sort the halo catalog by declinations.</p><pre><code class="language-julia hljs">ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(Float32[0.03305517, -0.052936707, 0.07140066, -0.06599737, -0.05942857, -0.05192846, 0.022953046, 0.01955623, 0.05080256, 0.00839793  …  0.060685053, -0.061119348, -0.040161338, 0.047465798, -0.041020952, -0.048511826, -0.018889412, 0.058788735, -0.050192643, -0.0027171609], Float32[-0.11871151, -0.118711114, -0.118711084, -0.11871107, -0.1187108, -0.118710734, -0.11871068, -0.118710674, -0.11871066, -0.11871049  …  0.10907136, 0.1090714, 0.10907147, 0.109071486, 0.1090715, 0.109071545, 0.10907169, 0.10907171, 0.10907183, 0.10907187], Float32[2.583177, 0.6798465, 1.4767964, 2.4593022, 1.3147808, 1.7026237, 1.313409, 1.2228533, 2.061896, 1.7019778  …  0.4401552, 3.107578, 1.2217613, 2.3513637, 2.2199023, 1.7342392, 0.6818484, 0.8421148, 1.2661853, 2.0941606], Float32[1.8216356f12, 3.4135917f12, 4.958732f12, 3.3517478f12, 2.6270643f12, 2.1461618f12, 1.5084386f12, 4.1571304f12, 1.3568221f12, 2.2222684f12  …  4.438609f12, 1.3447792f12, 1.5955485f12, 1.7920556f12, 8.5669514f12, 2.6231164f12, 2.2672384f12, 2.409821f13, 5.5713213f12, 2.7740707f12])</code></pre><p>Now, we&#39;ll set up the map to generate. We will construct a small CAR (Clenshaw-Curtis variant) patch on the sky. You have to construct a workspace <strong>for each new sky patch</strong>.</p><pre><code class="language-julia hljs">using Pixell
+    yscale=:log10, label=&quot;&quot;, xlabel=&quot;Halo mass (solar masses)&quot;, ylabel=&quot;counts&quot;)</code></pre><img src="f137cdde.svg" alt="Example block output"/><p>To allow for safe threaded painting on a single map, we&#39;ll sort the halo catalog by declinations.</p><pre><code class="language-julia hljs">ra, dec, redshift, halo_mass = sort_halo_catalog(ra, dec, redshift, halo_mass);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(Float32[0.03305517, -0.052936707, 0.07140066, -0.06599737, -0.05942857, -0.05192846, 0.022953046, 0.01955623, 0.05080256, 0.00839793  …  0.060685053, -0.061119348, -0.040161338, 0.047465798, -0.041020952, -0.048511826, -0.018889412, 0.058788735, -0.050192643, -0.0027171609], Float32[-0.11871151, -0.118711114, -0.118711084, -0.11871107, -0.1187108, -0.118710734, -0.11871068, -0.118710674, -0.11871066, -0.11871049  …  0.10907136, 0.1090714, 0.10907147, 0.109071486, 0.1090715, 0.109071545, 0.10907169, 0.10907171, 0.10907183, 0.10907187], Float32[2.583177, 0.6798465, 1.4767964, 2.4593022, 1.3147808, 1.7026237, 1.313409, 1.2228533, 2.061896, 1.7019778  …  0.4401552, 3.107578, 1.2217613, 2.3513637, 2.2199023, 1.7342392, 0.6818484, 0.8421148, 1.2661853, 2.0941606], Float32[1.8216356f12, 3.4135917f12, 4.958732f12, 3.3517478f12, 2.6270643f12, 2.1461618f12, 1.5084386f12, 4.1571304f12, 1.3568221f12, 2.2222684f12  …  4.438609f12, 1.3447792f12, 1.5955485f12, 1.7920556f12, 8.5669514f12, 2.6231164f12, 2.2672384f12, 2.409821f13, 5.5713213f12, 2.7740707f12])</code></pre><p>Now, we&#39;ll set up the map to generate. We will construct a small CAR (Clenshaw-Curtis variant) patch on the sky. You have to construct a workspace <strong>for each new sky patch</strong>.</p><pre><code class="language-julia hljs">using Pixell
 box = [4.5   -4.5;           # RA
        -3     3] * Pixell.degree  # DEC
 shape, wcs = geometry(CarClenshawCurtis{Float64}, box, 0.5 * Pixell.arcminute)
@@ -60,7 +60,7 @@ model_interp = XGPaint.load_precomputed_battaglia_tau()
 
 m = Enmap(zeros(shape), wcs)
 paint!(m, workspace, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
-plot(log10.(abs.(m)), c = :thermal)</code></pre><img src="f5cc1c20.svg" alt="Example block output"/><h2 id="Healpix"><a class="docs-heading-anchor" href="#Healpix">Healpix</a><a id="Healpix-1"></a><a class="docs-heading-anchor-permalink" href="#Healpix" title="Permalink"></a></h2><p>To generate Healpix maps, you&#39;ll need the <a href="https://github.com/ziotom78/Healpix.jl">Healpix.jl</a> package.</p><pre><code class="language-julia hljs">using Healpix
+plot(log10.(abs.(m)), c = :thermal)</code></pre><img src="db17f928.svg" alt="Example block output"/><h2 id="Healpix"><a class="docs-heading-anchor" href="#Healpix">Healpix</a><a id="Healpix-1"></a><a class="docs-heading-anchor-permalink" href="#Healpix" title="Permalink"></a></h2><p>To generate Healpix maps, you&#39;ll need the <a href="https://github.com/ziotom78/Healpix.jl">Healpix.jl</a> package.</p><pre><code class="language-julia hljs">using Healpix
 
 nside = 2048
 m_hp = HealpixMap{Float64,RingOrder}(nside)
@@ -70,4 +70,4 @@ w = HealpixProfileWorkspace(nside, max_radius)
 @time paint!(m_hp, w, model_interp, halo_mass, redshift, ra, dec, proj_v_over_c)
 # Healpix.saveToFITS(m_hp, &quot;!y.fits&quot;, typechar=&quot;D&quot;)  # to save, uncomment
 
-plot(m_hp)</code></pre><img src="57662d55.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sz/">« Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../rsz/">Relativistic Sunyaev–Zeldovich Effect »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 26 August 2025 05:38">Tuesday 26 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(m_hp)</code></pre><img src="99ff12be.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../sz/">« Sunyaev–Zeldovich Effect</a><a class="docs-footer-nextpage" href="../rsz/">Relativistic Sunyaev–Zeldovich Effect »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Tuesday 26 August 2025 05:39">Tuesday 26 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
