@@ -36,7 +36,7 @@ end
 Base.show(io::IO, w::AbstractProfileWorkspace) = print(io, "$(typeof(w))")
 
 
-function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
+function profile_grid(model::AbstractProfile{T}; N_z=256, N_logM=256, N_logθ=512, z_min=1e-3, 
         z_max=5.0, logM_min=11, logM_max=15.7, logθ_min=-16.5, logθ_max=2.5) where T
 
     logθs = LinRange(logθ_min, logθ_max, N_logθ)
@@ -45,7 +45,7 @@ function profile_grid(model::AbstractGNFW{T}; N_z=256, N_logM=256, N_logθ=512, 
     return profile_grid(model, logθs, redshifts, logMs)
 end
 
-function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
+function profile_grid(model::AbstractProfile{T}, logθs, redshifts, logMs) where T
 
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
