@@ -1,10 +1,11 @@
 name = "XGPaint"
 uuid = "af630e4a-6754-4ec2-ab8a-f9f8b9ebafbf"
 authors = ["Zack Li"]
-version = "0.4"
+version = "0.4.0"
 
 [deps]
 CSVFiles = "5d742f6a-9f54-50ce-8119-2520741973ca"
+ChunkSplitters = "ae650224-84b6-46f8-82ea-d812ca08434e"
 Cosmology = "76746363-e552-5dba-9a5a-cef6fa9cc5ab"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
