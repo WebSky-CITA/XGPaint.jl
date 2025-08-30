@@ -1,10 +1,10 @@
 
 
+# Import ChunkSplitters for better threading
+using ChunkSplitters: chunks
+
 # RECTANGULAR WORKSPACES
 
-
-# default workspaces are immutable, so just forward the type
-wrapserialworkspace(w, tid) = w
 
 struct CarClenshawCurtisProfileWorkspace{T,A<:AbstractArray{T,2}} <: AbstractProfileWorkspace{T}
     sin_α::A
@@ -50,13 +50,16 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
     N_logθ, N_z, N_logM = length(logθs), length(redshifts), length(logMs)
     A = zeros(T, (N_logθ, N_z, N_logM))
 
-    Threads.@threads :static for im in 1:N_logM
-        logM = logMs[im]
-        M = 10^(logM)
-        for (iz, z) in enumerate(redshifts)
-            for iθ in 1:N_logθ
-                θ = exp(logθs[iθ])
-                A[iθ, iz, im] = max(zero(T), model(θ, M, z))
+    # Use ChunkSplitters for better load balancing
+    Threads.@threads for chunk in chunks(1:N_logM; n=Threads.nthreads())
+        for im in chunk
+            logM = logMs[im]
+            M = 10^(logM)
+            for (iz, z) in enumerate(redshifts)
+                for iθ in 1:N_logθ
+                    θ = exp(logθs[iθ])
+                    A[iθ, iz, im] = max(zero(T), model(θ, M, z))
+                end
             end
         end
     end
@@ -325,7 +328,7 @@ end
 function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}}, 
                         workspace::GnomonicProfileWorkspace, model, Mh, z, α₀, δ₀, 
                         θmax, normalization=1) where T
-    profile_paint_generic!(m, model, workspace, Mh, z, α₀, δ₀, θmax, normalization)
+    profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, normalization)
 end
 
 
@@ -417,25 +420,15 @@ function paint!(m, workspace, model, masses, redshifts, αs, δs;
     zerobeforepainting && _fillzero!(m)
 
     N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize)
-
+    
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(1:N_sources, m, wrapserialworkspace(workspace, 1), 
+        return paintrange!(1:N_sources, m, workspace, 
             model, masses, redshifts, αs, δs)
     end
 
-    Threads.@threads for ti in 1:Threads.nthreads()
-        chunk_i = 2ti
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
-            model, masses, redshifts, αs, δs)
-    end
-
-    Threads.@threads for ti in 1:Threads.nthreads()
-        chunk_i = 2ti - 1
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+    # Use ChunkSplitters for better load balancing
+    Threads.@threads for chunk in chunks(1:N_sources; n=2*Threads.nthreads())
+        paintrange!(chunk, m, workspace, 
             model, masses, redshifts, αs, δs)
     end
 end
@@ -460,25 +453,15 @@ function paint!(m, workspace, model, masses, redshifts, αs, δs, proj_v_over_c;
     zerobeforepainting && _fillzero!(m)
 
     N_sources = length(masses)
-    chunksize = ceil(Int, N_sources / (2Threads.nthreads()))
-    chunks = chunk(N_sources, chunksize)
-
+    
     if N_sources < 2Threads.nthreads()  # don't thread if there are not many sources
-        return paintrange!(1:N_sources, m, wrapserialworkspace(workspace, 1), 
+        return paintrange!(1:N_sources, m, workspace, 
             model, masses, redshifts, αs, δs, proj_v_over_c)
     end
 
-    Threads.@threads for ti in 1:Threads.nthreads()
-        chunk_i = 2ti
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
-            model, masses, redshifts, αs, δs, proj_v_over_c)
-    end
-
-    Threads.@threads for ti in 1:Threads.nthreads()
-        chunk_i = 2ti - 1
-        i1, i2 = chunks[chunk_i]
-        paintrange!(i1:i2, m, wrapserialworkspace(workspace, ti), 
+    # Use ChunkSplitters for better load balancing
+    Threads.@threads for chunk in chunks(1:N_sources; n=2*Threads.nthreads())
+        paintrange!(chunk, m, workspace, 
             model, masses, redshifts, αs, δs, proj_v_over_c)
     end
 end
@@ -488,6 +471,6 @@ end
 # function paint!(m, workspace::HealpixSerialProfileWorkspace, model, masses, redshifts, αs, δs; 
 #         zerobeforepainting=true)
 #     zerobeforepainting && _fillzero!(m)
-#     return paintrange!(1:length(masses), m, wrapserialworkspace(workspace, 1), 
+#     return paintrange!(1:length(masses), m, workspace, 
 #         model, masses, redshifts, αs, δs)
 # end

@@ -3,6 +3,7 @@ using Healpix
 using Random
 using Random: MersenneTwister
 using LazyArtifacts
+using ChunkSplitters: chunks
 
 """
 Utility function to read an HDF5 table with x, y, z, M_h as the four rows.
@@ -96,22 +97,12 @@ function chunk(arr_len, chunksize::Integer)
 end
 
 
-function getrange(n)
-    tid = Threads.threadid()
-    nt = Threads.nthreads()
-    d , r = divrem(n, nt)
-    from = (tid - 1) * d + min(r, tid - 1) + 1
-    to = from + d - 1 + (tid ≤ r ? 1 : 0)
-    from:to
-end
+function threaded_rand!(random_number_generators, arr::Array{T,1}) where T
 
-
-function threaded_rand!(random_number_generators, arr::Array{T,1};
-      chunksize=4096) where T
-
-   num = size(arr,1)
-   Threads.@threads :static for (i1, i2) in chunk(num, chunksize)
-      @views rand!(random_number_generators[Threads.threadid()], arr[i1:i2])
+   # Use ChunkSplitters for better threading
+   Threads.@threads for chunk in chunks(eachindex(arr); n=Threads.nthreads())
+      tid = Threads.threadid()
+      @views rand!(random_number_generators[tid], arr[chunk])
    end
 end
 

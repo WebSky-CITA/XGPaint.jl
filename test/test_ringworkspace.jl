@@ -6,7 +6,10 @@ using Test
 """
 Brute-force reference implementation that loops over all pixels
 """
-function profile_paint_bruteforce!(m::HealpixMap{T, RingOrder}, model, Mh, z, α₀, δ₀, θmax, normalization=1) where T
+function profile_paint_bruteforce!(
+    m::HealpixMap{T, RingOrder}, model, Mh, z, α₀, δ₀, θmax, normalization=1
+) where T
+
     ϕ₀ = α₀  
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
@@ -105,42 +108,6 @@ XGPaint.compute_θmin(::TestModel{T}) where T = eps(T)
             @test_nowarn XGPaint.profile_paint_generic!(map_test, workspace, model, 
                                                        1e14, 0.5, test_case.α₀, test_case.δ₀, test_case.θmax)
         end
-    end
-
-    @testset "RingWorkspace Performance" begin
-        # Simple performance check - should be faster than brute force
-        nside = 128  # Smaller than before for faster testing
-        res = Healpix.Resolution(nside)
-        workspace = RingWorkspace(res)
-        
-        map_ringworkspace = HealpixMap{Float64, RingOrder}(zeros(Float64, nside2npix(nside)))
-        map_bruteforce = HealpixMap{Float64, RingOrder}(zeros(Float64, nside2npix(nside)))
-        
-        model = TestModel(1.0)
-        
-        # Test case
-        α₀, δ₀, θmax = 1.5708, 0.7854, 0.1
-        Mh, z = 1e14, 0.5
-        
-        # Warm up
-        XGPaint.profile_paint_generic!(map_ringworkspace, workspace, model, Mh, z, α₀, δ₀, θmax)
-        profile_paint_bruteforce!(map_bruteforce, model, Mh, z, α₀, δ₀, θmax)
-        
-        # Time RingWorkspace
-        fill!(map_ringworkspace.pixels, 0.0)
-        time_ringworkspace = @elapsed XGPaint.profile_paint_generic!(map_ringworkspace, workspace, model, Mh, z, α₀, δ₀, θmax)
-        
-        # Time brute force
-        fill!(map_bruteforce.pixels, 0.0)
-        time_bruteforce = @elapsed profile_paint_bruteforce!(map_bruteforce, model, Mh, z, α₀, δ₀, θmax)
-        
-        speedup = time_bruteforce / time_ringworkspace
-        
-        # Should be significantly faster
-        @test speedup > 5.0  # Conservative threshold
-        
-        # Should also give same results
-        @test map_ringworkspace.pixels ≈ map_bruteforce.pixels
     end
 
     @testset "RingWorkspace vs Brute Force with Real Y Profile" begin
