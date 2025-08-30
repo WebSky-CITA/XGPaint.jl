@@ -33,6 +33,7 @@ abstract type AbstractInterpolatorProfile{T} <: AbstractProfile{T} end
 
 
 include("./util.jl")
+include("./healpixworkspace.jl")
 include("./model.jl")
 include("./profiles.jl")
 include("./profiles_y.jl")

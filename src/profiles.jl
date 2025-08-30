@@ -65,7 +65,6 @@ function profile_grid(model::AbstractGNFW{T}, logθs, redshifts, logMs) where T
 end
 
 
-
 """
 Computes a real-space beam interpolator and a maximum
 """
@@ -86,72 +85,17 @@ function realspacegaussbeam(::Type{T}, θ_FWHM::Ti; rtol=1e-24, N_θ::Int=2000) 
 end
 
 
-# heuristic for sizehint
-_approx_discbuffer_size(nside, θmax) = ceil(Int, 1.1 * π * θmax^2 / (nside2pixarea(nside)))
+# function realspacebeampaint!(hp_map, w::HealpixSerialProfileWorkspace, realprofile, flux, θ₀, ϕ₀)
+#     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+#     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
 
-struct HealpixSerialProfileWorkspace{T} <: AbstractProfileWorkspace{T}
-    nside::Int
-    ringinfo::RingInfo
-    disc_buffer::Vector{Int}
-    θmax::T
-    posmap::Vector{Tuple{T, T, T}}
-
-    HealpixSerialProfileWorkspace{T}(nside::Int, θmax) where T = new{T}(
-        nside,
-        RingInfo(0, 0, 0, 0.0, true),
-        sizehint!(Int[], _approx_discbuffer_size(nside, θmax)),
-        T(θmax),
-        vectorhealpixmap(T, nside)
-    )
-
-    HealpixSerialProfileWorkspace{T}(nside, ringinfo, disc_buffer, θmax, posmap) where T = new{T}(
-        nside, ringinfo, disc_buffer, T(θmax), posmap)
-end
-
-# default outer constructors for Float64
-HealpixSerialProfileWorkspace(nside::Int, θmax) = HealpixSerialProfileWorkspace{Float64}(nside, θmax)
-
-function Base.show(io::IO, ::HealpixSerialProfileWorkspace{T}) where T
-    expr = "HealpixSerialProfileWorkspace{$(T)}"
-    print(io, expr)
-end
-
-struct HealpixProfileWorkspace{T}  <: AbstractProfileWorkspace{T}
-    nside::Int
-    ringinfo::RingInfo
-    disc_buffer::Vector{Vector{Int}}
-    θmax::T
-    posmap::Vector{Tuple{T, T, T}}
-
-    HealpixProfileWorkspace{T}(nside::Int, θmax, nthreads=Threads.nthreads()) where T = new{T}(
-        nside,
-        RingInfo(0, 0, 0, 0.0, true),
-        Vector{Int}[sizehint!(Int[], _approx_discbuffer_size(nside, θmax)) for i in 1:nthreads],
-        T(θmax),
-        vectorhealpixmap(T, nside)
-    )
-end
-
-HealpixProfileWorkspace(nside::Int, θmax) = HealpixProfileWorkspace{Float64}(nside, θmax)
-
-# unlike other workspaces, Healpix workspace needs a mutable buffer per thread
-# so asking for a workspace with a thread id will return the appropriate mutable workspace
-function wrapserialworkspace(w::HealpixProfileWorkspace{T}, tid) where T
-    return HealpixSerialProfileWorkspace{T}(w.nside, w.ringinfo, w.disc_buffer[tid], w.θmax, w.posmap)
-end
-
-
-function realspacebeampaint!(hp_map, w::HealpixSerialProfileWorkspace, realprofile, flux, θ₀, ϕ₀)
-    x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, hp_map.resolution, θ₀, ϕ₀, w.θmax)
-
-    for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap.pixels[ir]
-        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ = acos(1 - d² / 2)
-        hp_map.pixels[ir] += flux * realprofile(θ)
-    end
-end
+#     for ir in w.disc_buffer
+#         x₁, y₁, z₁ = w.posmap.pixels[ir]
+#         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+#         θ = acos(1 - d² / 2)
+#         hp_map.pixels[ir] += flux * realprofile(θ)
+#     end
+# end
 
 
 """Apply a beam to a profile grid"""
@@ -385,26 +329,66 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, Gnomonic{T}},
 end
 
 
-function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixSerialProfileWorkspace, 
+# function profile_paint_generic!(m::HealpixMap{T, RingOrder}, w::HealpixSerialProfileWorkspace, 
+#         model, Mh, z, α₀, δ₀, θmax, normalization=1) where T
+#     ϕ₀ = α₀
+#     θ₀ = T(π)/2 - δ₀
+#     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
+#     θmin = compute_θmin(model)
+#     XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
+#     for ir in w.disc_buffer
+#         x₁, y₁, z₁ = w.posmap[ir]
+#         d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+#         θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
+#         θ = max(θmin, θ)  # clamp to minimum θ
+#         m.pixels[ir] += ifelse(θ < θmax, 
+#                                     normalization * model(θ, Mh, z),
+#                                     zero(T))
+#     end
+# end
+
+function profile_paint_generic!(m::HealpixMap{T, RingOrder}, workspace::RingWorkspace{T}, 
         model, Mh, z, α₀, δ₀, θmax, normalization=1) where T
-    ϕ₀ = α₀
+    ϕ₀ = α₀  
     θ₀ = T(π)/2 - δ₀
     x₀, y₀, z₀ = ang2vec(θ₀, ϕ₀)
     θmin = compute_θmin(model)
-    XGPaint.queryDiscRing!(w.disc_buffer, w.ringinfo, m.resolution, θ₀, ϕ₀, θmax)
-    for ir in w.disc_buffer
-        x₁, y₁, z₁ = w.posmap[ir]
-        d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
-        θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
-        θ = max(θmin, θ)  # clamp to minimum θ
-        m.pixels[ir] += ifelse(θ < θmax, 
-                                    normalization * model(θ, Mh, z),
-                                    zero(T))
+    
+    # Get relevant rings for this disc
+    ring_start, ring_end = get_relevant_rings(workspace.res, θ₀, θmax)
+    
+    for ring_idx in ring_start:ring_end
+        # Get pixel ranges on this ring that intersect the disc
+        range1, range2 = get_ring_disc_ranges(workspace, ring_idx, θ₀, ϕ₀, θmax)
+        
+        # Get precomputed ring info
+        first_pixel = workspace.ring_first_pixels[ring_idx]
+        
+        # Process both ranges (range2 may be empty for no phi wraparound)
+        for pixel_range in (range1, range2)
+            for pix_idx in pixel_range
+                # Convert ring pixel index to global healpix pixel index
+                global_pix = first_pixel + pix_idx - 1
+                
+                # Get position of this pixel
+                x₁, y₁, z₁ = pix2vecRing(workspace.res, global_pix)
+                
+                # Compute angular distance
+                d² = (x₁ - x₀)^2 + (y₁ - y₀)^2 + (z₁ - z₀)^2
+                θ = acos(clamp(1 - d² / 2, -one(T), one(T)))
+                θ = max(θmin, θ)  # clamp to minimum θ
+                
+                # Add contribution to map
+                m.pixels[global_pix] += ifelse(θ < θmax,
+                                              normalization * model(θ, Mh, z),
+                                              zero(T))
+            end
+        end
     end
 end
 
 # fall back to generic profile painter if no specialized painter is defined for the model
-function profile_paint!(m::HealpixMap{T, RingOrder}, w::HealpixSerialProfileWorkspace, model, 
+function profile_paint!(m::HealpixMap{T, RingOrder}, w::RingWorkspace{T}, model, 
                         Mh, z, α₀, δ₀, θmax, normalization=1) where T
     profile_paint_generic!(m, w, model, Mh, z, α₀, δ₀, θmax, normalization)
 end

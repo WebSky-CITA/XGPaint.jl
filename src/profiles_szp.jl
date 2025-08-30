@@ -99,8 +99,8 @@ function profile_paint!(m::Enmap{T, 2, Matrix{T}, CarClenshawCurtis{T}},
 end
 
 function profile_paint!(m::HealpixMap{T, RingOrder}, 
-        workspace::HealpixSerialProfileWorkspace, model::SZPackRSZProfile, 
+        workspace::RingWorkspace{T}, model::SZPackRSZProfile, 
         Mh, z, α₀, δ₀, θmax) where T
-    rsz_factor_I_over_y = compute_rsz_factor_I_over_y(model_szp, Mh, z)
-    profile_paint_generic!(m, workspace, model, Mh, z, α₀, δ₀, θmax, rsz_factor_I_over_y)
+    rsz_factor_I_over_y = compute_rsz_factor_I_over_y(model, Mh, z)
+    profile_paint_generic!(m, workspace, model.y_model_interp, Mh, z, α₀, δ₀, θmax, rsz_factor_I_over_y)
 end

@@ -8,6 +8,10 @@ using XGPaint: M_sun, get_params, generalized_nfw, rho_2d, ne2d
 using Unitful, UnitfulAstro
 using PhysicalConstants.CODATA2018
 
+# Include HEALPix ring workspace tests
+include("test_healpix_rings.jl")
+include("test_ringworkspace.jl")
+
 # relative background evolutions differ by 1e-3 between Julia and Python 2
 rtol = 1e-3
 cosmo = XGPaint.get_cosmology(h=0.7f0, OmegaM=0.25f0)
@@ -119,8 +123,6 @@ end
 
 end
 
-
-include("test_query.jl")
 
 @testset "tsz" begin
     ra, dec, redshift, halo_mass = XGPaint.load_example_halos()
