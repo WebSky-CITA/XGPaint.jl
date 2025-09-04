@@ -52,6 +52,6 @@ export paint!, generate_sources, process_sources, profile_grid, profile_paint!
 export profileworkspace, paint_szp!, profile_grid_szp, profile_paint_szp!, paint_rsz!, profile_grid_rsz, profile_paint_rsz!
 export build_interpolator, Battaglia16ThermalSZProfile, RSZPerturbativeProfile, build_interpolator_szp, build_interpolator_rsz, Arnauld10ThermalSZProfile
 export SZPackRSZProfile, nu_to_X, X_to_nu, BattagliaTauProfile, HealpixProfileWorkspace, HealpixSerialProfileWorkspace
-export  realspacegaussbeam, RadialFourierTransform, transform_profile_grid!, LogInterpolatorProfile, cleanup_negatives!
+export  realspacegaussbeam, RadialFourierTransform, transform_profile_grid!, LogInterpolatorProfile, cleanup_negatives!, build_beam_convolved_A10_2D, A10ThetaProfile, profile_grid_θ_θ500, transform_profile_grid_θ!, cleanup_negatives_θ!, BeamConvolvedA10_2D, CachedBeamConvolvedA10_2D
 
 end # module
