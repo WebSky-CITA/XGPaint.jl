@@ -38,6 +38,7 @@ include("./model.jl")
 include("./profiles.jl")
 include("./profiles_y.jl")
 include("./profiles_tau.jl")
+include("./profiles_tau_sigmoid.jl")
 include("./profiles_rsz.jl")
 include("./profiles_szp.jl")
 include("./profiles_rksz.jl")
@@ -51,6 +52,7 @@ export Radio_Sehgal2009, CIB_Planck2013, CIB_Scarfy, CO_CROWNED, LRG_Yuan23
 export paint!, generate_sources, process_sources, profile_grid, profile_paint!
 export profileworkspace, paint_szp!, profile_grid_szp, profile_paint_szp!, paint_rsz!, profile_grid_rsz, profile_paint_rsz!
 export build_interpolator, Battaglia16ThermalSZProfile, RSZPerturbativeProfile, build_interpolator_szp, build_interpolator_rsz
+export SigmoidBattagliaTauProfile, SigmoidBattagliaTauProfilePhysical, SigmoidBreakModel, sigmoid_suppression
 export SZPackRSZProfile, nu_to_X, X_to_nu, BattagliaTauProfile, HealpixRingProfileWorkspace
 
 end # module
