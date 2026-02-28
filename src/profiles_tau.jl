@@ -35,21 +35,11 @@ function get_params(::AbstractBattagliaTauProfile{T}, M_200c, z) where T
 	m = M_200c / (1e14M_sun)
     P₀ = 4.e3 * m^0.29 * z₁^(-0.66)
 	α =  0.88 * m^(-0.03) * z₁^0.19
-	β = -3.83 * m^0.04 * z₁^(-0.025)
+	β = 3.83 * m^0.04 * z₁^(-0.025)
 	xc = 0.5
     γ = -0.2
     return (xc=T(xc), α=T(α), β=T(β), γ=T(γ), P₀=T(P₀))
 end
-
-function ρ_crit_comoving_h⁻²(model, z)
-    return  (ρ_crit(model, z) ) / (1+z)^3 / model.cosmo.h^2
-end
-
-function r200c_comoving(model, M_200c, z)
-    rho_crit = ρ_crit(model, z) / (1+z)^3 
-    return cbrt(M_200c/ (4π/3 * rho_crit * 200)) 
-end
-
 
 # if angular, return the R200 size in radians
 function object_size(model::BattagliaTauProfile{T,C}, physical_size, z) where {T,C}
@@ -68,12 +58,11 @@ end
 # returns a density, which we can check against Msun/Mpc² 
 function rho_2d(model::AbstractBattagliaTauProfile, r, m200c, z)
     par = get_params(model, m200c, z)
-    r200c = R_Δ(model, m200c, z, 200)
+    r200c = R_Δ(model, m200c, z, 200)   # this is physical units
     X = r / object_size(model, r200c, z)  # either ang/ang or phys/phys
-    rho_crit = ρ_crit_comoving_h⁻²(model, z)  # need to sort this out, it's all in comoving...
-    result = par.P₀ * XGPaint._nfw_profile_los_quadrature(X, par.xc, par.α, par.β, par.γ)
-
-    return result * rho_crit * (r200c * (1+z))
+    rho_crit = ρ_crit(model, z)   # this is physical units
+    rho_fit = par.P₀ * XGPaint._nfw_profile_los_quadrature(X, par.xc, par.α, par.β, par.γ)   # dimensionless _nfw_profile_los_quadrature comes from profiles_y.jl TODO move
+    return rho_fit * model.f_b * rho_crit * r200c # mistake in battaglia 2016: need f_b to convert from m to gas. note r200c due to integral over X
 end
 
 function ne2d(model::AbstractBattagliaTauProfile, r, m200c, z)
@@ -83,8 +72,8 @@ function ne2d(model::AbstractBattagliaTauProfile, r, m200c, z)
     xH = 0.76
     nH_ne = 2xH / (xH + 1)
     nHe_ne = (1 - xH)/(2 * (1 + xH))
-    factor = (me + nH_ne*mH + nHe_ne*mHe) / model.cosmo.h^2
-    result = rho_2d(model, r, m200c, z)  # (Msun/h) / (Mpc/h)^2
+    factor = (me + nH_ne*mH + nHe_ne*mHe)
+    result = rho_2d(model, r, m200c, z)  # (Msun) / (Mpc)^2
     return result / factor
 end
 

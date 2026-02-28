@@ -31,11 +31,11 @@ end
 
 function generalized_nfw(x, xc, α, β, γ)
     x̄ = x / xc
-    return x̄^γ * (1 + x̄^α)^((β - γ) / α)
+    return x̄^γ * (1 + x̄^α)^(-(β + γ) / α)    # correction to battaglia 2016 tau.
 end
 
 function _generalized_scaled_nfw(x̄, α, β, γ)
-    return x̄^γ * (1 + x̄^α)^((β - γ) / α)
+    return x̄^γ * (1 + x̄^α)^(-(β + γ) / α)
 end
 
 
@@ -47,11 +47,11 @@ function get_params(::AbstractGNFW{T}, M_200, z) where T
 	β = 4.35 * m^0.0393 * z₁^0.415
 	α = 1
     γ = -0.3
-    β = γ - α * β  # Sigurd's conversion from Battaglia to standard NFW
+    β = - γ - α * β  # to match bataglia form.
     return (xc=T(xc), α=T(α), β=T(β), γ=T(γ), P₀=T(P₀))
 end
 
-function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), order=9)
+function _nfw_profile_los_quadrature(x, xc, α, β, γ; zmax=1e5, rtol=eps(), order=9)    # FIXME put zmax back to 1e5?
     x² = x^2
     scale = 1e9
     integral, err = quadgk(y -> scale * generalized_nfw(√(y^2 + x²), xc, α, β, γ),
