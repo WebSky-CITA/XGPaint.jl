@@ -62,15 +62,15 @@ end
 @with_kw struct CIB_Scarfy{T<:Real} <: AbstractCIBModel{T} @deftype T
     nside::Int64    = 4096
     min_redshift = 0.0
-    max_redshift = 5.0
-    min_mass     = 1e12
+    max_redshift = 7.5
+    min_mass     = 1e10
     box_size     = 40000
 
     # defaults for Scarfy redshift evo
-    scarfy_A     = 57.3686
-    scarfy_a0    = 0.5493
-    scarfy_alpha = 3.102086
-    scarfy_beta  = 3.088586
+    scarfy_A     = 269.268
+    scarfy_a0    = 0.2017
+    scarfy_alpha = 2.066865
+    scarfy_beta  = 2.04286
     # UniverseMachine-derived quenching fraction
     quench::Bool = true
     quench_Qmin0 = -1.944
@@ -82,18 +82,20 @@ end
     quench_sigVQa = 0.037
     quench_sigVQl = 0.107
     # shang HOD
-    shang_Td     = 23.0
+    shang_Td     = 20.0226
     shang_beta   = 1.6
-    shang_alpha  = 0.36
+    shang_alpha  = 0.3721
     shang_Msmin  = 1e11
     shang_Mmin   = 1e10
     shang_I0     = 92
+    shang_sigmaM = 0.1
 
-    scarfy_Mpeak  = 10^13.6586
-    scarfy_alphaM = -0.862555
-    scarfy_betaM  = 2.786
+    scarfy_Mpeak  = 10^12.56173
+    scarfy_alphaM = -2.2142
+    scarfy_betaM  = 0.0942
     scarfy_I0     = 6.0e12
     scarfy_lumdex = 0.1
+    scarfy_B      = -0.3993
 
     # jiang
     jiang_gamma_1    = 0.13
@@ -145,8 +147,11 @@ end
 
 function sigma_cen(m::T, model::CIB_Scarfy) where T
     lsf = exp((randn()-0.5*2.302585*model.scarfy_lumdex)*2.302585*model.scarfy_lumdex)
-    return model.scarfy_I0/((m/model.scarfy_Mpeak)^model.scarfy_alphaM
-                            +(m/model.scarfy_Mpeak)^model.scarfy_betaM)*lsf
+    lum1 = (exp( -(log10(m) - log10(model.scarfy_Mpeak))^2 /
+        (T(2)*model.shang_sigmaM) ) * m) / sqrt(T(2π) * model.shang_sigmaM)
+    lum2 = model.scarfy_I0/((m/model.scarfy_Mpeak)^model.scarfy_alphaM
+                            +(m/model.scarfy_Mpeak)^model.scarfy_betaM)
+    return (lum1*model.scarfy_B+lum2)*lsf
 end
 
 function nu2theta(nu::T, z::T, model::AbstractCIBModel) where T
