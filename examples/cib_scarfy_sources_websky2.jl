@@ -3,7 +3,7 @@ using Healpix
 using HDF5
 
 ## Load halos from HDF5 files, establish a CIB model and cosmology
-@time halo_pos, halo_mass = read_halo_catalog_hdf5("/project/rrg-rbond-ac/dongwooc/websky2_ubermerge_halos-light.h5")
+@time halo_pos, halo_mass = read_halo_catalog_hdf5("/home/dongwooc/scratchspace/websky2_ubermerge_halos-light.h5")
 cosmo = get_cosmology(h=0.6736f0, OmegaM=0.314f0)
 model = CIB_Scarfy{Float32}(nside=4096)
 
@@ -73,7 +73,7 @@ function write_chunk(
 end
 
 ##
-function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=5)
+function run_all_chunks(output_dir, halo_pos, halo_mass, freqs; N_chunks=2)
     # provide views into halo positions and masses for chunks of the halos
     N_halos = size(halo_mass, 1)
     chunksize = trunc(Integer, N_halos / N_chunks + 1)
@@ -102,7 +102,7 @@ freqs = [
 """
 freqs = ["353", "143", "217", "545", "857"]
 
-scratch_dir = "/scratch/dongwooc/cib_scarfy_20260621/"
+scratch_dir = "/home/dongwooc/scratchspace/cib_scarfy_20260621/"
 println("SCRATCH: ", scratch_dir)
 mkpath(scratch_dir)
 mkpath(joinpath(scratch_dir, "sources"))

@@ -22,6 +22,8 @@ Define broadband CO model parameters. All numbers not typed are converted to typ
     r21_average     = 0.75
     r21_sigmascatter= 0.11
     r21_rolloff     = 0.86 # 1 cuts off r21 sharply; set < 1 to avoid errors
+    r21_zevoidx     = 0.5  # 0 for no evolution
+    sled_zevoidx    = 0.5  # 0 for no evolution
     R_CO10_CI       = 0.18*77.83 # r=0.18 times cubic frequency scaling
     scatterdex_CO_CI= 0.2
     xRJ_GHz = 0.0176086 # factor used in RJ to thermodynamic deltaT conversion
@@ -58,10 +60,11 @@ function process_sources(model::AbstractCOModel{T}, sources,
         LIR_cen[i] = Lnu_to_LIR(Td)*sources.lum_cen[i]*nu2theta(2.10833f12,sources.redshift_cen[i],cib_model)
         rnd = Float32(randn())
         r21 = model.r21_average+model.r21_sigmascatter*(rnd+r21_ratioB-sqrt(rnd^2.0f0-2*r21_ratioA*rnd+r21_ratioB^2))/2.0f0 # cuts off r21 at 1, assumes subthermal
+	r21 = 1-(1-r21)/(1+sources.redshift_cen[i])^model.r21_zevoidx
         # generate CO SLED for each source with log-normal LCO(1-0) scatter
         LcoJ_cen[i,1] = LIR_cen[i]^(1/model.alpha_IR_CO)*10^(-model.beta_IR_CO/model.alpha_IR_CO)*exp((randn()-0.5*2.302585*model.scatterdex_IR_CO)*2.302585*model.scatterdex_IR_CO)*4.9e-5
         for J in 2:model.Jupmax
-            LcoJ_cen[i,J] = LcoJ_cen[i,1]/(1.0f0+exp((log.(1.0f0/r21-1.0f0)-1.0f0)+Float32(J-1)))*J^3
+            LcoJ_cen[i,J] = LcoJ_cen[i,1]/(1.0f0+exp((log.(1.0f0/r21-1.0f0)-1.0f0)+Float32(J-1)))^(1-model.sled_zevoidx+model.sled_zevoidx/(1+sources.redshift_cen[i]))*J^3
         end
         for J in 1:model.Jupmax
             nuJ_cen[i,J] = 115.27f0*J/(1.0f0+sources.redshift_cen[i])
@@ -80,11 +83,12 @@ function process_sources(model::AbstractCOModel{T}, sources,
         LIR_sat[i] = Lnu_to_LIR(Td)*sources.lum_sat[i]*XGPaint.nu2theta(2.10833f12,sources.redshift_sat[i],cib_model)
         rnd = Float32(randn())
         r21 = model.r21_average+model.r21_sigmascatter*(rnd+r21_ratioB-sqrt(rnd^2.0f0-2*r21_ratioA*rnd+r21_ratioB^2))/2.0f0 # cuts off r21 at 1, assumes subthermal
+	r21 = 1-(1-r21)/(1+sources.redshift_sat[i])^model.r21_zevoidx
         # generate CO SLED for each source with log-normal LCO(1-0) scatter
         LcoJ_sat[i,1] = LIR_sat[i]^(1/model.alpha_IR_CO)*10^(-model.beta_IR_CO/model.alpha_IR_CO)*exp((randn()-0.5*2.302585*model.scatterdex_IR_CO)*2.302585*model.scatterdex_IR_CO)*4.9e-5
         LcoJ_sat[i,1] = LIR_sat[i]^(1/1.37)*10^(1.74/1.37)*exp((randn()-0.5*2.302585*0.3)*2.302585*0.3)*4.9e-5
         for J in 2:model.Jupmax
-            LcoJ_sat[i,J] = LcoJ_sat[i,1]/(1.0f0+exp((log.(1.0f0/r21-1.0f0)-1.0f0)+Float32(J-1)))*J^3
+            LcoJ_sat[i,J] = LcoJ_sat[i,1]/(1.0f0+exp((log.(1.0f0/r21-1.0f0)-1.0f0)+Float32(J-1)))^(1-model.sled_zevoidx+model.sled_zevoidx/(1+sources.redshift_sat[i]))*J^3
         end
         for J in 1:model.Jupmax
             nuJ_sat[i,J] = 115.27f0*J/(1.0f0+sources.redshift_sat[i])

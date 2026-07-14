@@ -313,6 +313,53 @@ function process_sats!(
     end
 end
 
+### VARIATION WITH PECULIAR VELOCITY INFO
+# Fill up arrays with information related to CIB satellites.
+# *Then* push *both* satellites and centrals around in redshift space
+#     w/ the peculiar radial velocity of the central.
+function process_sats_with_vrad!(
+        model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
+        Healpix_res::Resolution;
+        interp, hp_ind_sat, dist_sat, redshift_sat, theta_sat, phi_sat,
+        lum_sat, cumsat,
+        halo_mass, halo_pos, halo_vrad, redshift_cen,
+	n_sat_bar, n_sat_bar_result) where T
+
+    N_halos = size(halo_mass, 1)
+    Threads.@threads :static for i_halo = 1:N_halos
+        r_cen = m2r(halo_mass[i_halo], cosmo)
+        c_cen = mz2c(halo_mass[i_halo], redshift_cen[i_halo], cosmo)
+        for j in 1:n_sat_bar_result[i_halo]
+            # i is central halo index, j is index of satellite within each halo
+            i_sat = cumsat[i_halo]+j # index of satellite in satellite arrays
+
+            log_msat_inner = max(log(rand(T)), T(-7.0))
+            r_sat = r_cen * interp.c_lnm2r(
+                c_cen, log_msat_inner) * T(200.0^(-1.0/3.0))
+            m_sat = (interp.muofn(rand(T) * n_sat_bar[i_halo])
+                * halo_mass[i_halo])
+
+            phi = random_phi(T)
+            theta = random_theta(T)
+            x_sat = halo_pos[1,i_halo] + r_sat * sin(theta) * cos(phi)
+            y_sat = halo_pos[2,i_halo] + r_sat * sin(theta) * sin(phi)
+            z_sat = halo_pos[3,i_halo] + r_sat * cos(theta)
+            dist_sat[i_sat] = sqrt(x_sat^2 + y_sat^2 + z_sat^2)
+            redshift_sat[i_sat] = interp.r2z(dist_sat[i_sat])
+            theta_sat[i_sat], phi_sat[i_sat] = Healpix.vec2ang(x_sat, y_sat, z_sat)
+
+            lum_sat[i_sat] = sigma_cen(m_sat, model)
+            fquench_result = min(one(T),interp.fquench(log(m_sat),log(1+redshift_sat[i_sat])))
+            lum_sat[i_sat]*= zero(T)^(rand(T) < fquench_result)
+            lum_sat[i_sat]*= z_evo(redshift_sat[i_sat], model)
+            hp_ind_sat[i_sat] = Healpix.vec2pixRing(
+                Healpix_res, x_sat, y_sat, z_sat)
+	    # it is now safe to inject peculiar velocities into all halos
+	    redshift_sat[i_sat] = (1+redshift_sat[i_sat])*(1+halo_vrad[i_halo]/299792.458)-1
+	    redshift_cen[i_halo] = (1+redshift_cen[i_halo])*(1+halo_vrad[i_halo]/299792.458)-1
+        end
+    end
+end
 
 """
     generate_sources(model, cosmo, halo_pos_inp, halo_mass_inp; verbose=true)
@@ -392,6 +439,69 @@ function generate_sources(
 end
 
 
+function generate_sources(
+        model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
+        halo_pos_inp::AbstractArray{TH,2}, halo_mass_inp::AbstractArray{TH,1},
+        halo_vrad_inp::AbstractArray{TH,1};
+        verbose=true) where {T, TH}
+
+    # make sure halo inputs are the CIB type
+    halo_pos = convert(Array{T,2}, halo_pos_inp)
+    halo_mass = convert(Array{T,1}, halo_mass_inp)
+    halo_vrad = convert(Array{T,1}, halo_vrad_inp)
+
+    # set up basics
+    N_halos = size(halo_mass, 1)
+    interp = get_interpolators( model, cosmo, minimum(halo_mass), maximum(halo_mass))
+    res = Resolution(model.nside)
+
+    verbose && println("Allocating for $(N_halos) centrals.")
+    hp_ind_cen = Array{Int64}(undef, N_halos)  # healpix index of halo
+    lum_cen = Array{T}(undef, N_halos)  # Lum of central w/o ν-dependence
+    redshift_cen = Array{T}(undef, N_halos)
+    theta_cen = Array{T}(undef, N_halos)
+    phi_cen = Array{T}(undef, N_halos)
+    dist_cen = Array{T}(undef, N_halos)
+    n_sat_bar = Array{T}(undef, N_halos)
+    n_sat_bar_result = Array{Int32}(undef, N_halos)
+
+    # STEP 1: compute central properties -----------------------------------
+    verbose && println("Processing centrals on $(Threads.nthreads()) threads.")
+    process_centrals!(model, cosmo, res,
+        interp=interp, hp_ind_cen=hp_ind_cen, dist_cen=dist_cen,
+        redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, 
+        lum_cen=lum_cen, n_sat_bar=n_sat_bar,
+        n_sat_bar_result=n_sat_bar_result,
+        halo_pos=halo_pos, halo_mass=halo_mass)
+
+    # STEP 2: Generate satellite arrays -----------------------------
+    cumsat = generate_subhalo_offsets(n_sat_bar_result)
+    total_n_sat = cumsat[end]
+    hp_ind_sat = Array{Int64}(undef, total_n_sat)  # healpix index of halo
+    lum_sat = Array{T}(undef, total_n_sat)  # Lum of central w/o ν-dependence
+    redshift_sat = Array{T}(undef, total_n_sat)
+    theta_sat = Array{T}(undef, total_n_sat)
+    phi_sat = Array{T}(undef, total_n_sat)
+    dist_sat = Array{T}(undef, total_n_sat)
+
+    # STEP 3: compute satellite properties -----------------------------------
+    verbose && println("Processing $(total_n_sat) satellites.")
+    process_sats_with_vrad!(model, cosmo, res,
+        interp=interp, hp_ind_sat=hp_ind_sat, dist_sat=dist_sat,
+        redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat,
+        lum_sat=lum_sat, cumsat=cumsat,
+        halo_mass=halo_mass, halo_pos=halo_pos, halo_vrad=halo_vrad,
+	redshift_cen=redshift_cen,
+        n_sat_bar=n_sat_bar, n_sat_bar_result=n_sat_bar_result)
+    
+    return (
+        hp_ind_cen=hp_ind_cen, lum_cen=lum_cen,
+        redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, dist_cen=dist_cen,
+        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat,
+        redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat, dist_sat=dist_sat,
+        N_cen=N_halos, N_sat=total_n_sat
+    )
+end
 
 function fill_fluxes!(nu_obs, model::AbstractCIBModel{T}, sources,
         fluxes_cen::AbstractArray, fluxes_sat::AbstractArray) where T
