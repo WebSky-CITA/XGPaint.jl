@@ -276,7 +276,7 @@ function process_sats!(
         model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         Healpix_res::Resolution;
         interp, hp_ind_sat, dist_sat, redshift_sat, theta_sat, phi_sat,
-        lum_sat, cumsat,
+        lum_sat, cumsat, mass_sat,
         halo_mass, halo_pos, redshift_cen, n_sat_bar, n_sat_bar_result) where T
 
     N_halos = size(halo_mass, 1)
@@ -308,6 +308,7 @@ function process_sats!(
             lum_sat[i_sat]*= z_evo(redshift_sat[i_sat], model)
             hp_ind_sat[i_sat] = Healpix.vec2pixRing(
                 Healpix_res, x_sat, y_sat, z_sat)
+	    mass_sat[i_sat] = m_sat
 
         end
     end
@@ -321,7 +322,7 @@ function process_sats_with_vrad!(
         model::AbstractCIBModel{T}, cosmo::Cosmology.FlatLCDM{T},
         Healpix_res::Resolution;
         interp, hp_ind_sat, dist_sat, redshift_sat, theta_sat, phi_sat,
-        lum_sat, cumsat,
+        lum_sat, cumsat, mass_sat,
         halo_mass, halo_pos, halo_vrad, redshift_cen,
 	n_sat_bar, n_sat_bar_result) where T
 
@@ -357,6 +358,7 @@ function process_sats_with_vrad!(
 	    # it is now safe to inject peculiar velocities into all halos
 	    redshift_sat[i_sat] = (1+redshift_sat[i_sat])*(1+halo_vrad[i_halo]/299792.458)-1
 	    redshift_cen[i_halo] = (1+redshift_cen[i_halo])*(1+halo_vrad[i_halo]/299792.458)-1
+	    mass_sat[i_sat] = m_sat
         end
     end
 end
@@ -419,20 +421,21 @@ function generate_sources(
     theta_sat = Array{T}(undef, total_n_sat)
     phi_sat = Array{T}(undef, total_n_sat)
     dist_sat = Array{T}(undef, total_n_sat)
+    mass_sat = Array{T}(undef, total_n_sat)
 
     # STEP 3: compute satellite properties -----------------------------------
     verbose && println("Processing $(total_n_sat) satellites.")
     process_sats!(model, cosmo, res,
         interp=interp, hp_ind_sat=hp_ind_sat, dist_sat=dist_sat,
         redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat,
-        lum_sat=lum_sat, cumsat=cumsat,
+        lum_sat=lum_sat, cumsat=cumsat, mass_sat=mass_sat,
         halo_mass=halo_mass, halo_pos=halo_pos, redshift_cen=redshift_cen,
         n_sat_bar=n_sat_bar, n_sat_bar_result=n_sat_bar_result)
     
     return (
         hp_ind_cen=hp_ind_cen, lum_cen=lum_cen,
         redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, dist_cen=dist_cen,
-        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat,
+        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat, mass_sat=mass_sat,
         redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat, dist_sat=dist_sat,
         N_cen=N_halos, N_sat=total_n_sat
     )
@@ -483,13 +486,14 @@ function generate_sources(
     theta_sat = Array{T}(undef, total_n_sat)
     phi_sat = Array{T}(undef, total_n_sat)
     dist_sat = Array{T}(undef, total_n_sat)
+    mass_sat = Array{T}(undef, total_n_sat)
 
     # STEP 3: compute satellite properties -----------------------------------
     verbose && println("Processing $(total_n_sat) satellites.")
     process_sats_with_vrad!(model, cosmo, res,
         interp=interp, hp_ind_sat=hp_ind_sat, dist_sat=dist_sat,
         redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat,
-        lum_sat=lum_sat, cumsat=cumsat,
+        lum_sat=lum_sat, cumsat=cumsat, mass_sat=mass_sat,
         halo_mass=halo_mass, halo_pos=halo_pos, halo_vrad=halo_vrad,
 	redshift_cen=redshift_cen,
         n_sat_bar=n_sat_bar, n_sat_bar_result=n_sat_bar_result)
@@ -497,7 +501,7 @@ function generate_sources(
     return (
         hp_ind_cen=hp_ind_cen, lum_cen=lum_cen,
         redshift_cen=redshift_cen, theta_cen=theta_cen, phi_cen=phi_cen, dist_cen=dist_cen,
-        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat,
+        hp_ind_sat=hp_ind_sat, lum_sat=lum_sat, mass_sat=mass_sat,
         redshift_sat=redshift_sat, theta_sat=theta_sat, phi_sat=phi_sat, dist_sat=dist_sat,
         N_cen=N_halos, N_sat=total_n_sat
     )

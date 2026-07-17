@@ -38,6 +38,8 @@ function write_chunk(
         write(file, "redshift", sourcesCIB.redshift_cen)
         write(file, "theta", sourcesCIB.theta_cen)
         write(file, "phi", sourcesCIB.phi_cen)
+        write(file, "dist", sourcesCIB.dist_cen)
+        write(file, "mass", mass)
         write(file, "LIR", sources_CO.LIR_cen)
         write(file, "LCO", sources_CO.LcoJ_cen)
         write(file, "LCI", sources_CO.LCI_cen)
@@ -47,6 +49,8 @@ function write_chunk(
         write(file, "redshift", sourcesCIB.redshift_sat)
         write(file, "theta", sourcesCIB.theta_sat)
         write(file, "phi", sourcesCIB.phi_sat)
+        write(file, "dist", sourcesCIB.dist_sat)
+        write(file, "mass", sourcesCIB.mass_sat)
         write(file, "LIR", sources_CO.LIR_sat)
         write(file, "LCO", sources_CO.LcoJ_sat)
         write(file, "LCI", sources_CO.LCI_sat)
@@ -218,7 +222,7 @@ freqs = [
 """
 freqs = ["353", "143", "217", "545", "857"]
 
-scratch_dir = "/home/dongwooc/projectscratchspace/cib_co_scarfy_20260708_chunk"*ARGS[1]
+scratch_dir = "/home/dongwooc/projectscratchspace/cib_co_scarfy_20260716_chunk"*ARGS[1]
 println("SCRATCH: ", scratch_dir)
 mkpath(scratch_dir)
 mkpath(joinpath(scratch_dir, "sources"))
